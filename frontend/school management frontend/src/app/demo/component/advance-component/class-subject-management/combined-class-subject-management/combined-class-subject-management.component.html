@@ -1,0 +1,36 @@
+<div class="card shadow-sm">
+    <div class="card-body">
+      <h5 class="card-title">Assign Subject to Class</h5>
+      <form [formGroup]="assignForm" (ngSubmit)="assignSubject()">
+        <!-- Select Class -->
+        <div class="mb-3">
+          <label class="form-label">Select Class</label>
+          <select class="form-select" formControlName="classId">
+            <option *ngFor="let cls of classList" [value]="cls._id">{{ cls.name }}</option>
+          </select>
+        </div>
+
+        <!-- Select Teacher -->
+        <div class="mb-3">
+          <label class="form-label">Select Teacher</label>
+          <select class="form-select" formControlName="teacherId">
+            <option *ngFor="let teacher of teachers" [value]="teacher._id">{{ teacher.name }}</option>
+          </select>
+        </div>
+
+  
+        <!-- Select Subject -->
+        <div class="mb-3">
+          <label class="form-label">Select Subject</label>
+          <select class="form-select" formControlName="subjectId">
+            <option *ngFor="let subject of subjects" [value]="subject._id">{{ subject.name }}</option>
+          </select>
+        </div>
+  
+        <button type="submit" class="btn btn-primary w-100" [disabled]="assignForm.invalid">
+          Assign Subject
+        </button>
+      </form>
+    </div>
+  </div>
+  

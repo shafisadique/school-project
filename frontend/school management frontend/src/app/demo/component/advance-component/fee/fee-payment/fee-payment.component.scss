@@ -1,0 +1,59 @@
+/* fee-payment.component.scss */
+:host {
+    display: block;
+    min-height: 100vh;
+    background-color: #f8f9fa;
+    padding: 2rem 0;
+  }
+  
+  .card {
+    border-radius: 0.5rem;
+    overflow: hidden;
+    
+    &-header {
+      background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    }
+  }
+  
+  .list-group-item {
+    transition: all 0.2s ease;
+    
+    &:hover {
+      transform: translateX(5px);
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+  }
+  
+  .table {
+    th {
+      font-weight: 500;
+      background-color: #f8f9fa;
+    }
+    
+    td {
+      vertical-align: middle;
+    }
+  }
+  
+  .badge {
+    font-size: 0.85em;
+    padding: 0.5em 0.75em;
+  }
+  
+  .form-control, .form-select {
+    &:focus {
+      box-shadow: none;
+      border-color: #86b7fe;
+    }
+  }
+  
+  @media print {
+    .card-header {
+      background: white !important;
+      color: black !important;
+    }
+    
+    .btn, .form-control, .form-select {
+      display: none !important;
+    }
+  }

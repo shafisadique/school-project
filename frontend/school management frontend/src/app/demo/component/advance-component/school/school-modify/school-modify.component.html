@@ -1,0 +1,55 @@
+<div class="container mt-4">
+    <div class="card shadow-lg p-4">
+      <h2 class="text-center mb-4">Update School Information</h2>
+  
+      <!-- ✅ School Form -->
+      <form (ngSubmit)="updateSchool()">
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label">School Name:</label>
+            <input type="text" class="form-control" [formControl]="schoolForm.controls['name']">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Street:</label>
+            <input type="text" class="form-control" [formControl]="schoolForm.controls['street']">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">City:</label>
+            <input type="text" class="form-control" [formControl]="schoolForm.controls['city']">
+          </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-4">
+              <label class="form-label">Contact:</label>
+              <input type="number" class="form-control" [formControl]="schoolForm.controls['contact']">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Academic Year:</label>
+                <select class="form-select" [formControl]="schoolForm.controls['academicYear']">
+                    <option *ngFor="let cls of academicYear" [value]="cls">{{ cls }}</option>
+                  </select>
+            </div>
+          </div>
+        <button type="submit" class="btn btn-primary w-100">Update School</button>
+      </form>
+  
+      <hr class="my-4">
+  
+      <!-- ✅ School Logo -->
+      <div>
+        <h4 class="mb-3">School Logo</h4>
+  
+        <!-- ✅ Display existing logo if available -->
+        <img *ngIf="schoolForm.controls['logo'].value" 
+             [src]="schoolForm.controls['logo'].value" 
+             alt="School Logo" 
+             class="img-thumbnail mb-2" width="150">
+  
+        <!-- ✅ File input for new logo -->
+        <input type="file" (change)="onFileSelected($event)" class="form-control mb-2">
+        <button class="btn btn-info" (click)="uploadLogo()">Upload Logo</button>
+      </div>
+    </div>
+  </div>
+  

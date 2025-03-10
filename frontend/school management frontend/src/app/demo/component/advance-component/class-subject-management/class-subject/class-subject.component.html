@@ -1,0 +1,59 @@
+<div class="container mt-4">
+  
+    <div class="row">
+      <!-- Class Management -->
+      <div class="col-md-6">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Add Class</h5>
+            <form [formGroup]="classForm" (ngSubmit)="addClass()">
+              <div class="mb-3">
+                <label class="form-label">Select Class</label>
+                <select class="form-select" formControlName="name">
+                  <option *ngFor="let cls of classList" [value]="cls">{{ cls }}</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Sections (comma-separated)</label>
+                <input type="text" class="form-control" formControlName="sections" placeholder="e.g., A, B, C">
+              </div>
+              <button type="submit" class="btn btn-primary w-100" [disabled]="classForm.invalid">Add Class</button>
+            </form>
+          </div>
+        </div>
+  
+        <h4 class="mt-4">Existing Classes</h4>
+        <ul class="list-group">
+          <li *ngFor="let cls of classes" class="list-group-item">
+            <strong>{{ cls.name }}</strong> - Sections: {{ cls.sections.join(', ') }}
+          </li>
+        </ul>
+      </div>
+  
+      <!-- Subject Management -->
+      <div class="col-md-6">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Add Subject</h5>
+            <form [formGroup]="subjectForm" (ngSubmit)="addSubject()">
+              <div class="mb-3">
+                <label class="form-label">Subject Name</label>
+                <select class="form-select" formControlName="name">
+                    <option *ngFor="let cls of classSubjects" [value]="cls">{{ cls }}</option>
+                  </select>
+              </div>
+              <button type="submit" class="btn btn-success w-100" [disabled]="subjectForm.invalid">Add Subject</button>
+            </form>
+          </div>
+        </div>
+  
+        <h4 class="mt-4">Existing Subjects</h4>
+        <ul class="list-group">
+          <li *ngFor="let subject of subjects" class="list-group-item">
+            {{ subject.name }}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  

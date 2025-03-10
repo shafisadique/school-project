@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+.table-container {
+  padding-top: 10px;
+  font-family: 'Poppins', sans-serif;
+
+  h2 {
+    font-weight: 600;
+  }
+
+  .professional-table {
+    width: 100%;
+    border-collapse: collapse;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+
+    thead {
+      tr {
+        background-color: #2C3E50;
+        color: white;
+        
+        th {
+          padding: 12px;
+          text-align: left;
+          font-weight: 600;
+          font-size: 14px;
+        }
+      }
+    }
+
+    tbody {
+      tr {
+        border-bottom: 1px solid #ECF0F1;
+        transition: background-color 0.2s;
+        &:nth-child(even) {
+          background-color: #F4FAFF;
+        }
+
+        &:hover {
+          background-color: #EAF6FF;
+        }
+
+        td {
+          padding: 12px;
+          color: #34495E;
+          font-size: 14px;
+          vertical-align: middle;
+        }
+      }
+    }
+  }
+
+  .profile-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .profile-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .profile-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #ddd;
+  }
+
+  .avatar-placeholder {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: #2C3E50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 500;
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+
+  .teacher-name {
+    font-weight: 500;
+    color: #2C3E50;
+    font-size: 14px;
+  }
+}

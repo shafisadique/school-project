@@ -1,0 +1,41 @@
+
+<div class="table-container">
+    <table class="professional-table table-striped table-sm">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Subject</th>
+          <th>Class</th>
+          <th>Email address</th>
+          <th>Gender</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let teacher of teachers; let i = index">
+          <td>{{ i + 1 }}</td>
+          
+          <!-- Profile Image & Name -->
+          <td class="profile-cell">
+            <div class="profile-wrapper">
+              <img *ngIf="teacher.profileImage" 
+                   [src]="getImageUrl(teacher.profileImage)" 
+                   alt="{{ teacher.name }} profile"
+                   class="profile-avatar"
+                   (error)="handleImageError($event)">
+              <div *ngIf="!teacher.profileImage" class="avatar-placeholder">
+                {{ getInitials(teacher.name) }}
+              </div>
+              <span class="teacher-name">{{ teacher.name }}</span>
+            </div>
+          </td>
+  
+          <td>{{ teacher.subjects.join(', ') }}</td>
+          <td>{{ teacher.class || 'N/A' }}</td>
+          <td><a href="mailto:{{ teacher.email }}">{{ teacher.email }}</a></td>
+          <td>{{ teacher.gender }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
