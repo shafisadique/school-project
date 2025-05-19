@@ -15,7 +15,7 @@ export class FeeInvoiceService {
   }
 
   getUnpaidInvoices(studentId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}api/fees/invoices/unpaid/${studentId}`);
+    return this.http.get(`${this.apiUrl}/api/fees/invoices/unpaid/${studentId}`);
   }
 
   recordPayment(invoiceId: string, paymentData: any): Observable<any> {
@@ -24,12 +24,21 @@ export class FeeInvoiceService {
   getStudentInvoices(studentId: string) {
     return this.http.get(`${this.apiUrl}/students/${studentId}/invoices`);
   }
-  generateBulkInvoices(data: {
-    schoolId: string;
-    className: string;
-    session: string;
-    month: string;
-  }): Observable<any> {
-    return this.http.post(`${this.apiUrl}/api/fees/invoices/bulk`, data);
-  }
+// fee-invoice.service.ts
+generateBulkInvoices(data: {
+  schoolId: string;
+  className: string;
+  month: string;
+  academicYearId: string;
+  sections?: string[]; // Add this
+}): Observable<any> {
+  return this.http.post(`${this.apiUrl}/api/fees/bulk`, data);
+}
+getClassStructure(schoolId: string): Observable<any> {
+  return this.http.get(`${this.apiUrl}/api/classes/${schoolId}`);
+}
+
+getClassStudents(schoolId: string, className: string): Observable<any> {
+  return this.http.get(`${this.apiUrl}/api/classes/${schoolId}/${className}/students`);
+}
 }

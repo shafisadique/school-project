@@ -1,0 +1,52 @@
+<!-- src/app/components/exam-list/exam-list.component.html -->
+<div class="container">
+    <div class="header">
+      <h2>Exam History</h2>
+      <div class="filters">
+        <div class="filter-item">
+          <label for="class">Class</label>
+          <select id="class" [(ngModel)]="selectedClassId" (change)="onClassChange()">
+            <option *ngFor="let class of classes" [value]="class._id">{{ class.name }}</option>
+          </select>
+        </div>
+        <div class="filter-item">
+          <label for="academicYear">Academic Year</label>
+          <select id="academicYear" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()">
+            <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Exam Name</th>
+            <th>Subjects</th>
+            <th>Class</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let exam of exams; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>{{ exam.examName }}</td>
+            <td>
+              <span *ngFor="let subject of exam.subjects; let last = last">
+                {{ subject.subjectId.name }} ({{ subject.maxMarks }} marks{{ subject.date ? ', ' + (subject.date | date: 'mediumDate') : '' }}){{ last ? '' : ', ' }}
+              </span>
+            </td>
+            <td>{{ exam.classId.name }}</td>
+            <td>{{ exam.startDate | date: 'mediumDate' }}</td>
+            <td>{{ exam.endDate | date: 'mediumDate' }}</td>
+          </tr>
+          <tr *ngIf="exams.length === 0">
+            <td colspan="6" class="no-data">No exams found</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>

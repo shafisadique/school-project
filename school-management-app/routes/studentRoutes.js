@@ -1,35 +1,27 @@
 const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/student/studentController');
-const authMiddleware = require('../middleware/authMiddleware'); 
-const multer = require('multer');
+const authMiddleware = require('../middleware/authMiddleware');
+const { getStudentsByClass } = require('../controllers/attendance/attendanceControllers');
 
-// ✅ Setup Multer for File Upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/students/');  
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
-
-const upload = multer({ storage });
-
-// ✅ Add Student (Admin Only)
-router.post('/add', 
-  authMiddleware, 
-  upload.single('profileImage'), // Add this line
-  studentController.addStudent
+// Use the controller's upload middleware
+router.post('/add',
+  authMiddleware,
+  studentController.upload.single('profileImage'),
+  studentController.createStudent
 );
 
-// ✅ Get All Students for a School (Admin Only)
-router.get('/list', authMiddleware, studentController.getStudentsBySchool);
-
-// ✅ Get Student by ID
-router.get('/search',  authMiddleware, studentController.searchStudents);
-router.get('/:studentId', authMiddleware, studentController.getStudentById);
-// ✅ Upload Student Profile Image
-router.post('/upload/:studentId', authMiddleware, upload.single('profileImage'), studentController.uploadStudentPhoto);
-
+router.post('/bulk-create', authMiddleware, studentController.bulkCreateStudents);
+router.get('/list', authMiddleware, studentController.getStudents);
+router.get('/:id', authMiddleware, studentController.getStudent);
+router.put('/:id', authMiddleware, studentController.updateStudent);
+router.put('/:id/photo',
+  authMiddleware,
+  studentController.upload.single('profileImage'),
+  studentController.uploadStudentPhoto
+);
+router.get('/search/:query', authMiddleware, studentController.searchStudents);
+router.post('/assign-roll-numbers', authMiddleware, studentController.assignRollNumbers);
+router.post('/assign-roll-numbers-alphabetically', authMiddleware, studentController.assignRollNumbersAlphabetically);
+router.get('/get-student-by-class/:classId', authMiddleware,getStudentsByClass);
 module.exports = router;

@@ -1,5 +1,5 @@
 const registerStudent = async (req, res) => {
-    const { name, username, email, password, schoolId, className, rollNumber } = req.body;
+    const { name, username, email, password, schoolId, className } = req.body;
   
     try {
       if (!['admin', 'teacher'].includes(req.user.role)) {
@@ -15,7 +15,7 @@ const registerStudent = async (req, res) => {
         password: hashedPassword,
         role: 'student',
         schoolId,
-        additionalInfo: { className, rollNumber }
+        additionalInfo: { className }
       });
   
       await student.save();

@@ -1,0 +1,145 @@
+<div class="container py-5">
+    <!-- Loading Spinner -->
+    <div *ngIf="loading" class="text-center my-4">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+  
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="text-primary fw-bold">📚 Mark Attendance</h2>
+      <button class="btn btn-outline-secondary" (click)="goToDashboard()">Back to Dashboard</button>
+    </div>
+  
+    <!-- Attendance Form Card -->
+    <div class="card shadow-sm mb-5">
+      <div class="card-body">
+        <form [formGroup]="attendanceForm" (ngSubmit)="onSubmit()">
+          <!-- Form Inputs -->
+          <div class="row mb-4">
+            <div class="col-md-4">
+              <label for="classId" class="form-label fw-semibold">Class</label>
+              <select id="classId" class="form-select" formControlName="classId">
+                <option value="" disabled>Select Class</option>
+                <option *ngFor="let cls of getClasses()" [value]="cls._id">{{ cls.name }}</option>
+              </select>
+              <div *ngIf="attendanceForm.get('classId')?.invalid && attendanceForm.get('classId')?.touched" class="text-danger">
+                Class is required.
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label for="subjectId" class="form-label fw-semibold">Subject</label>
+              <select id="subjectId" class="form-select" formControlName="subjectId">
+                <option value="" disabled>Select Subject</option>
+                <option *ngFor="let sub of getSubjects()" [value]="sub._id">{{ sub.name }}</option>
+              </select>
+              <div *ngIf="attendanceForm.get('subjectId')?.invalid && attendanceForm.get('subjectId')?.touched" class="text-danger">
+                Subject is required.
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label for="date" class="form-label fw-semibold">Date</label>
+              <input id="date" type="date" class="form-control" formControlName="date" required />
+              <div *ngIf="attendanceForm.get('date')?.hasError('required') && attendanceForm.get('date')?.touched" class="text-danger">
+                Date is required.
+              </div>
+              <div *ngIf="attendanceForm.get('date')?.hasError('futureDate') && attendanceForm.get('date')?.touched" class="text-danger">
+                Date cannot be in the future.
+              </div>
+            </div>
+          </div>
+  
+          <!-- Permission Warning -->
+          <div *ngIf="attendanceForm.get('classId')?.value && !canMarkAttendance" class="alert alert-warning mb-4">
+            You are not authorized to mark attendance for this class.
+          </div>
+  
+          <!-- Students Table for Marking Attendance -->
+          <div *ngIf="students.length > 0" class="mb-4">
+            <h4 class="text-secondary mb-3">Students</h4>
+            <div class="table-responsive">
+              <table class="table table-hover table-bordered align-middle">
+                <thead class="table-primary">
+                  <tr>
+                    <th scope="col">Student Name</th>
+                    <th scope="col">Roll No</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let student of students">
+                    <td>{{ student.name }}</td>
+                    <td>{{ student.rollNo || 'Not assigned' }}</td>
+                    <td>
+                      <select class="form-select"
+                              [value]="getAttendanceStatus(student._id)"
+                              (change)="updateAttendanceStatus(student._id, $event)"
+                              [disabled]="!canMarkAttendance">
+                        <option value="Present">Present</option>
+                        <option value="Absent">Absent</option>
+                        <option value="Late">Late</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+  
+          <!-- Submit Button -->
+          <div class="d-flex justify-content-end">
+            <button type="submit" class="btn btn-primary" [disabled]="attendanceForm.invalid || loading || !canMarkAttendance">
+              <span class="me-2">✅</span> {{ loading ? 'Marking...' : 'Mark Attendance' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  
+    <!-- Attendance History Section -->
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h3 class="text-primary fw-bold mb-4">📜 Attendance History</h3>
+        <div *ngIf="attendanceHistory.length === 0" class="alert alert-info">
+          No attendance records found.
+        </div>
+        <div *ngIf="attendanceHistory.length > 0" class="table-responsive">
+          <table class="table table-hover table-bordered align-middle">
+            <thead class="table-primary">
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Class</th>
+                <th scope="col">Subject</th>
+                <th scope="col">Student</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let record of attendanceHistory">
+                <td>{{ record.date | date:'mediumDate' }}</td>
+                <td>{{ record.classId?.name || 'N/A' }}</td>
+                <td>{{ record.subjectId?.name || 'N/A' }}</td>
+                <td>
+                  <div *ngFor="let att of record.students">
+                    {{ att.studentId?.name || 'N/A' }} (Roll: {{ att.studentId?.rollNo || 'N/A' }})
+                  </div>
+                </td>
+                <td>
+                  <div *ngFor="let att of record.students">
+                    <span [ngClass]="{
+                      'badge bg-success': att.status === 'Present',
+                      'badge bg-danger': att.status === 'Absent',
+                      'badge bg-warning': att.status === 'Late'
+                    }">
+                      {{ att.status }}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>

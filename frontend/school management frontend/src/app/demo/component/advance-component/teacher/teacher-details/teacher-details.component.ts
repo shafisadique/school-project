@@ -22,7 +22,7 @@ export class TeacherDetailsComponent implements OnInit{
     this.teacherService.getTeachersBySchool().subscribe({
       next: (teachers: any) => {
         console.log(teachers);
-        this.teachers = teachers;
+        this.teachers = teachers.data;
       },
       error: (err) => {
         console.error('Error loading teachers:', err);
@@ -33,8 +33,9 @@ export class TeacherDetailsComponent implements OnInit{
   // ✅ Ensure correct image URL
   getImageUrl(profileImage: string): string {
     if (!profileImage) return 'assets/default-avatar.png'; // ✅ Default avatar if missing
-    if (profileImage.startsWith('http')) return profileImage; // ✅ If already absolute URL
-    return `${this.backendUrl}${profileImage}`; // ✅ Append backend URL
+    const cleanPath = profileImage.replace(/^.*uploads\//, '');
+  console.log(`${this.backendUrl}/uploads/${cleanPath}`)
+  return `${this.backendUrl}/uploads/${cleanPath}`;
   }
 
   getInitials(name: string): string {

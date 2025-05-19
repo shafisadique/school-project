@@ -1,11 +1,17 @@
 const mongoose = require('mongoose');
 
 const subjectSchema = new mongoose.Schema({
-  name: { type: String, required: true }, // Subject Name (e.g., Math, Science)
-  classes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Class' }], // Assigned Classes
-  teachers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Assigned Teachers
-  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true }, // School Reference
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Admin/User who created this
-}, { timestamps: true });
+  name: { type: String, required: true },
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
+  classes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Class' }],
+  teachers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' }],
+  teacherAssignments: [
+    {
+      teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+      academicYearId: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear', required: true },
+    },
+  ],
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+});
 
 module.exports = mongoose.model('Subject', subjectSchema);

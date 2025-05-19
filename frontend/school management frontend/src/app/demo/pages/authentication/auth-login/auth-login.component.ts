@@ -43,10 +43,9 @@ export class AuthLoginComponent {
         this.router.navigate(['/']);
       },
       error: (errorResponse) => {
-        this.toastrService.error(errorResponse.message);
-        if (errorResponse.error?.msg === 'Invalid Username or Password') {
-          this.toastrService.error('Login Error', errorResponse.error.msg);
-        } else if (errorResponse.status === 0) {
+        console.log(errorResponse)
+        this.toastrService.error(errorResponse.error.message);
+        if (errorResponse.status === 0) {
           this.toastrService.error('Network Error', 'Connection failed. Please check your network or try again later.');
         } else if (errorResponse.status === 500) {
           this.toastrService.error('Server Error', 'There is an issue on the server. Please try again later.');

@@ -1,166 +1,225 @@
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const Teacher = require('../../models/teacher');
 const User = require('../../models/user');
 const School = require('../../models/school');
-const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
+const { createUploadMiddleware } = require('../../utils/fileUploader');
+const APIError = require('../../utils/apiError');
 
-// Configure upload directory
-const uploadDir = path.join(__dirname, '../../uploads');
+// Constants
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const ALLOWED_FILE_TYPES = ['image/png', 'image/jpg', 'image/jpeg'];
 
-// Ensure upload directory exists
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// File Upload Configuration
+exports.upload = createUploadMiddleware(
+  'teachers',
+  MAX_FILE_SIZE,
+  ALLOWED_FILE_TYPES
+);
+
+// Helper Functions
+async function validateTeacherInput(reqBody, isUpdate = false) {
+  const { subjects, ...rest } = reqBody;
+  
+  const data = {
+    ...rest,
+    subjects: Array.isArray(subjects) ? subjects : JSON.parse(subjects || '[]')
+  };
+
+  if (!isUpdate && (!data.email || !data.name || !data.username || !data.password)) {
+    throw new APIError('Name, username, email, and password are required', 400);
+  }
+
+  return data;
 }
 
-// Configure Multer storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
+async function getActiveAcademicYearId(schoolId) {
+  const school = await School.findById(schoolId)
+    .select('activeAcademicYear')
+    .lean()
+    .orFail(new APIError('School not found', 404));
+
+  if (!school.activeAcademicYear) {
+    throw new APIError('No active academic year set', 400);
   }
-});
 
-// Configure Multer with validation
-const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only PNG, JPG, and JPEG allowed'), false);
-    }
-  }
-});
+  return school.activeAcademicYear;
+}
 
-exports.upload = upload;
+/**
+ * @desc    Create a new teacher
+ * @route   POST /api/teachers/add
+ * @access  Private/Admin
+ */
+exports.addTeacher = async (req, res, next) => {
+  const session = await mongoose.startSession();
 
-// Controller Methods
-
-// 1. Add New Teacher
-exports.addTeacher = async (req, res) => {
   try {
-    // Extract fields from request body
-    const { name, email, phone, designation, subjects, gender } = req.body;
-    const adminId = req.user.id;
+    await session.withTransaction(async () => {
+      const { schoolId } = req.user;
+      const teacherData = await validateTeacherInput(req.body);
 
-    // Validate subjects format
-    let parsedSubjects;
-    try {
-      parsedSubjects = typeof subjects === 'string' ? JSON.parse(subjects) : subjects;
-    } catch (error) {
-      return res.status(400).json({ message: 'Invalid subjects format' });
-    }
+      // Check if a user with this email or username already exists
+      const existingUser = await User.findOne({
+        $or: [{ email: teacherData.email }, { username: teacherData.username }]
+      }).session(session);
+      if (existingUser) {
+        throw new APIError('User with this email or username already exists', 409);
+      }
 
-    if (!Array.isArray(parsedSubjects)) {
-      return res.status(400).json({ message: 'Subjects should be an array' });
-    }
+      // Create a new user with role 'teacher'
+      const hashedPassword = bcrypt.hashSync(teacherData.password, 10);
+      const newUser = new User({
+        name: teacherData.name,
+        username: teacherData.username,
+        email: teacherData.email,
+        password: hashedPassword,
+        role: 'teacher',
+        schoolId
+      });
+      await newUser.save({ session });
 
-    // Validate admin permissions
-    const admin = await User.findById(adminId);
-    if (!admin || admin.role !== 'admin') {
-      return res.status(403).json({ message: 'Unauthorized: Admin privileges required' });
-    }
+      // Create the teacher entry
+      const teacher = await Teacher.create([{
+        userId: newUser._id,
+        name: teacherData.name,
+        email: teacherData.email,
+        phone: teacherData.phone,
+        designation: teacherData.designation,
+        gender: teacherData.gender,
+        subjects: teacherData.subjects,
+        schoolId,
+        academicYearId: await getActiveAcademicYearId(schoolId),
+        createdBy: req.user.id,
+        profileImage: req.file?.path.replace(/\\/g, '/').split('uploads/')[1] || ''
+      }], { session });
 
-    // Find associated school
-    const school = await School.findOne({ createdBy: adminId });
-    if (!school) {
-      return res.status(404).json({ message: 'No school found for this admin' });
-    }
-
-    // Handle profile image
-    const profileImagePath = req.file ? `/uploads/${req.file.filename}` : '';
-
-    // Create and save teacher
-    const newTeacher = new Teacher({
-      name,
-      email,
-      phone,
-      designation,
-      subjects: parsedSubjects,
-      gender,
-      schoolId: school._id,
-      createdBy: adminId,
-      profileImage: profileImagePath
+      res.status(201).json({
+        success: true,
+        message: 'Teacher added successfully',
+        data: teacher[0],
+        userId: newUser._id
+      });
     });
-
-    await newTeacher.save();
-    res.status(201).json({ message: 'Teacher added successfully', teacher: newTeacher });
-
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
+  } finally {
+    await session.endSession();
   }
 };
 
-// 2. Get All Teachers for School
-exports.getTeachersBySchool = async (req, res) => {
+/**
+ * @desc    Get all teachers for current school
+ * @route   GET /api/teachers/list
+ * @access  Private/Admin
+ */
+exports.getTeachersBySchool = async (req, res, next) => {
   try {
-    const adminId = req.user.id;
-    
-    // Verify admin status
-    const admin = await User.findById(adminId);
-    if (!admin || admin.role !== 'admin') {
-      return res.status(403).json({ message: 'Unauthorized access' });
-    }
+    const teachers = await Teacher.find({ 
+      schoolId: req.user.schoolId,
+      status: true 
+    })
+    .populate('academicYear', 'year')
+    .lean();
 
-    // Find school and teachers
-    const school = await School.findOne({ createdBy: adminId });
-    if (!school) {
-      return res.status(404).json({ message: 'School not found' });
-    }
-
-    const teachers = await Teacher.find({ schoolId: school._id }).select('-__v');
-    res.status(200).json(teachers);
-
+    res.json({
+      success: true,
+      count: teachers.length,
+      data: teachers
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
-// 3. Get Single Teacher
-exports.getTeacherById = async (req, res) => {
+/**
+ * @desc    Get single teacher
+ * @route   GET /api/teachers/:id
+ * @access  Private/Admin
+ */
+exports.getTeacher = async (req, res, next) => {
   try {
-    const { teacherId } = req.params;
-    const teacher = await Teacher.findById(teacherId);
+    const teacher = await Teacher.findOne({
+      _id: req.params.id,
+      schoolId: req.user.schoolId
+    }).orFail(new APIError('Teacher not found', 404));
 
-    if (!teacher) {
-      return res.status(404).json({ message: 'Teacher not found' });
-    }
-
-    res.status(200).json(teacher);
-
+    res.json({
+      success: true,
+      data: teacher
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
   }
 };
 
-// 4. Upload Profile Image
-exports.uploadTeacherPhoto = async (req, res) => {
+/**
+ * @desc    Update teacher
+ * @route   PUT /api/teachers/:id
+ * @access  Private/Admin
+ */
+exports.updateTeacher = async (req, res, next) => {
   try {
-    const { teacherId } = req.params;
+    const updates = await validateTeacherInput(req.body, true);
+    const teacher = await Teacher.findOneAndUpdate(
+      { _id: req.params.id, schoolId: req.user.schoolId },
+      updates,
+      { new: true, runValidators: true }
+    ).orFail(new APIError('Teacher not found', 404));
 
+    res.json({
+      success: true,
+      data: teacher
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Upload teacher profile image
+ * @route   PUT /api/teachers/:id/photo
+ * @access  Private/Admin
+ */
+exports.uploadTeacherPhoto = async (req, res, next) => {
+  try {
     if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
+      throw new APIError('Please upload a file', 400);
     }
 
-    const teacher = await Teacher.findById(teacherId);
-    if (!teacher) {
-      return res.status(404).json({ message: 'Teacher not found' });
-    }
+    const teacher = await Teacher.findOneAndUpdate(
+      { _id: req.params.id, schoolId: req.user.schoolId },
+      { profileImage: req.file.path.replace(/\\/g, '/').split('uploads/')[1] },
+      { new: true }
+    ).orFail(new APIError('Teacher not found', 404));
 
-    teacher.profileImage = `/uploads/${req.file.filename}`;
-    await teacher.save();
-
-    res.status(200).json({ 
-      message: 'Profile photo updated', 
-      imagePath: teacher.profileImage 
+    res.json({
+      success: true,
+      data: teacher.profileImage
     });
-
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    next(error);
+  }
+};
+
+/**
+ * @desc    Soft delete teacher
+ * @route   DELETE /api/teachers/:id
+ * @access  Private/Admin
+ */
+exports.softDeleteTeacher = async (req, res, next) => {
+  try {
+    const teacher = await Teacher.findOneAndUpdate(
+      { _id: req.params.id, schoolId: req.user.schoolId },
+      { status: false },
+      { new: true }
+    ).orFail(new APIError('Teacher not found', 404));
+
+    res.json({
+      success: true,
+      data: teacher
+    });
+  } catch (error) {
+    next(error);
   }
 };

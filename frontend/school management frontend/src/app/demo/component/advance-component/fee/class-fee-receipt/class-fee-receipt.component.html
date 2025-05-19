@@ -1,20 +1,17 @@
-<!-- class-receipts.component.html -->
 <div class="row g-3">
-    <div class="col-md-4">
-      <select class="form-select" [(ngModel)]="selectedClass">
-        <option *ngFor="let cls of classList" [value]="cls">{{ cls }}</option>
-      </select>
-    </div>
-    
-    <div class="col-md-4">
-      <input type="month" class="form-control" [(ngModel)]="selectedMonth">
-    </div>
-    
-    <div class="col-md-4">
-      <button class="btn btn-primary w-100" 
-              (click)="generateReceipts()"
-              [disabled]="!selectedClass || !selectedMonth">
-        Generate Class Receipts
-      </button>
-    </div>
+  <div class="col-md-4">
+    <select class="form-select" [(ngModel)]="selectedClass">
+      <option *ngFor="let cls of classList" [value]="cls">{{ cls }}</option>
+    </select>
   </div>
+  <div class="col-md-4">
+    <input type="month" class="form-control" [(ngModel)]="selectedMonth">
+  </div>
+  <div class="col-md-4">
+    <button class="btn btn-primary w-100"
+            (click)="generateReceipts()"
+            [disabled]="!selectedClass || !selectedMonth">
+      Generate Class Receipts
+    </button>
+  </div>
+</div>

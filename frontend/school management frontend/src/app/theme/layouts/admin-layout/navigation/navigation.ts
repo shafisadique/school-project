@@ -71,6 +71,13 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'user'
       },
       {
+        id: 'assign-rollno-to-student',
+        title: 'Student Roll No',
+        type: 'item',
+        url: '/class-&-subject-management/assign-roll-numbers',
+        icon: 'user'
+      },
+      {
         id: 'teacher-create',
         title: 'Student Create',
         type: 'item',
@@ -100,6 +107,21 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'user'
       },
      
+    ]
+  },
+  {
+    id: 'time-table',
+    title: 'Time Table Management',
+    type: 'group', // Changed to collapse
+    icon: 'team',
+    children: [
+      {
+        id: 'time-table',
+        title: 'Time Table',
+        type: 'item',
+        url: '/time-table/time-table-details',
+        icon: 'user'
+      },
     ]
   },
 

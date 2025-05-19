@@ -118,7 +118,7 @@
             &:after {
               content: '\e844';
               font-family: 'feather';
-              font-size: 15px;
+              font-size: 14px;
               border: none;
               position: absolute;
               top: 11px;
@@ -142,7 +142,7 @@
             > app-nav-item li {
               > a {
                 text-align: left;
-                padding: 12px 30px 12px 55px;
+                padding: 12px 30px 12px 10px;
                 margin: 0;
                 display: block;
 
@@ -167,7 +167,7 @@
               .coded-submenu > {
                 app-nav-item li {
                   > a {
-                    padding: 12px 30px 12px 75px;
+                    padding: 12px 30px 10px 25px;
                   }
                 }
               }
@@ -228,7 +228,7 @@
             + .coded-mtext {
               position: relative;
               vertical-align: middle;
-              text-align: center;
+              text-align: left;
             }
           }
         }

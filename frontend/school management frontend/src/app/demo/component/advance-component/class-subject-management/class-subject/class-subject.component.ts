@@ -1,104 +1,166 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ClassSubjectService } from '../class-subject.service';
-import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-class-subject',
-  imports: [CommonModule,FormsModule,ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './class-subject.component.html',
-  styleUrl: './class-subject.component.scss'
+  styleUrls: ['./class-subject.component.scss']
 })
-export class ClassSubjectComponent implements OnInit{
+export class ClassSubjectComponent implements OnInit {
   classForm!: FormGroup;
   subjectForm!: FormGroup;
   classes: any[] = [];
   subjects: any[] = [];
-
+  teachers: any[] = [];
   schoolId!: string;
+  loading: boolean = false;
 
-  // Predefined class list
   classList: string[] = [
-    'Pre-Nursery', 'Nursery', 'KG', 'class 1', 'class 2', 'class 3',
-    'class 4', 'class 5', 'class 6', 'class 7', 'class 8',
-    'class 9', 'class 10'
+    'Pre-Nursery (or Playgroup)', 'Nursery', 'Lower Kindergarten (LKG)', 'Upper Kindergarten (UKG)', 'Class I', 'Class II',
+    'Class III', 'Class IV', 'Class V', 'Class VI', 'Class VII', 'Class VIII', 'Class IX', 'Class X'
   ];
-  classSubjects:any[]=['English','Hindi','Mathematics','Environmental Science','General Knowledge','Arts','Science','Social Science','Music']
+  classSubjects: string[] = ['English', 'Hindi', 'Mathematics', 'Environmental Science', 'General Knowledge', 'Arts', 'Science', 'Social Science', 'Music'];
 
   constructor(
     private fb: FormBuilder,
-    private classSubjectService: ClassSubjectService
+    private classSubjectService: ClassSubjectService,
+    private toastr: ToastrService
   ) {}
 
   ngOnInit(): void {
-    // ✅ Get School ID from Local Storage
     this.schoolId = localStorage.getItem('schoolId') || '';
 
     if (!this.schoolId) {
-      console.error('No school ID found in localStorage!');
+      this.toastr.error('No school ID found in localStorage!', 'Error');
       return;
     }
 
     this.loadClasses();
     this.loadSubjects();
+    this.loadTeachers();
 
-    // Initialize Forms
     this.classForm = this.fb.group({
       name: ['', Validators.required],
       sections: ['', Validators.required],
-      schoolId: [this.schoolId] // Include school ID
+      schoolId: [this.schoolId],
     });
 
     this.subjectForm = this.fb.group({
       name: ['', Validators.required],
-      schoolId: [this.schoolId] // Include school ID
+      schoolId: [this.schoolId]
     });
   }
 
-  // ✅ Load Classes for the Current School
   loadClasses() {
-    this.classSubjectService.getClasses(this.schoolId).subscribe(response => {
-      this.classes = response;
+    this.loading = true;
+    this.classSubjectService.getClassesBySchool(this.schoolId).subscribe({
+      next: (response) => {
+        this.classes = response;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Error fetching classes', 'Error');
+        this.loading = false;
+      }
     });
   }
 
-  // ✅ Load Subjects for the Current School
   loadSubjects() {
-    this.classSubjectService.getSubjects(this.schoolId).subscribe(response => {
-      this.subjects = response;
+    this.loading = true;
+    this.classSubjectService.getSubjects(this.schoolId).subscribe({
+      next: (response) => {
+        this.subjects = response;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Error fetching subjects', 'Error');
+        this.loading = false;
+      }
     });
   }
 
-  // ✅ Add Class
+  loadTeachers() {
+    this.loading = true;
+    this.classSubjectService.getTeachers(this.schoolId).subscribe({
+      next: (response) => {
+        this.teachers = response;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Error fetching teachers', 'Error');
+        this.loading = false;
+      }
+    });
+  }
+
   addClass() {
-    if (this.classForm.valid) {
-      const classData = {
-        name: this.classForm.value.name,
-        sections: this.classForm.value.sections.split(',').map((s: string) => s.trim()),
-        schoolId: this.schoolId
-      };
-
-      this.classSubjectService.createClass(classData).subscribe(() => {
-        this.loadClasses(); // Refresh list
-        this.classForm.reset({ schoolId: this.schoolId }); // Preserve schoolId
-      });
+    if (this.classForm.invalid) {
+      this.toastr.error('Please fill all required fields', 'Error');
+      return;
     }
+
+    this.loading = true;
+    const classData = {
+      name: this.classForm.value.name,
+      sections: this.classForm.value.sections.split(',').map((s: string) => s.trim()),
+      schoolId: this.schoolId,
+    };
+
+    this.classSubjectService.createClass(classData).subscribe({
+      next: () => {
+        this.toastr.success('Class added successfully', 'Success');
+        this.loadClasses();
+        this.classForm.reset({ schoolId: this.schoolId });
+        this.loading = false;
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Error adding class', 'Error');
+        this.loading = false;
+      }
+    });
   }
 
-  // ✅ Add Subject
   addSubject() {
-    if (this.subjectForm.valid) {
-      const subjectData = {
-        name: this.subjectForm.value.name,
-        schoolId: this.schoolId
-      };
-
-      this.classSubjectService.createSubject(subjectData).subscribe(() => {
-        this.loadSubjects(); // Refresh list
-        this.subjectForm.reset({ schoolId: this.schoolId }); // Preserve schoolId
-      });
+    if (this.subjectForm.invalid) {
+      this.toastr.error('Please fill all required fields', 'Error');
+      return;
     }
+
+    this.loading = true;
+    const subjectData = {
+      name: this.subjectForm.value.name,
+      schoolId: this.schoolId
+    };
+
+    this.classSubjectService.createSubject(subjectData).subscribe({
+      next: () => {
+        this.toastr.success('Subject added successfully', 'Success');
+        this.loadSubjects();
+        this.subjectForm.reset({ schoolId: this.schoolId });
+        this.loading = false;
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Error adding subject', 'Error');
+        this.loading = false;
+      }
+    });
   }
 
+  getAttendanceTeacher(teacher: any): string {
+    if (!teacher) {
+      return 'Not assigned';
+    }
+    return `${teacher.name} (ID: ${teacher._id})`;
+  }
+
+  getSubstituteTeachers(substituteTeachers: any[]): string {
+    if (!substituteTeachers || substituteTeachers.length === 0) {
+      return 'None';
+    }
+    return substituteTeachers.map(teacher => `${teacher.name} (ID: ${teacher._id})`).join(', ');
+  }
 }

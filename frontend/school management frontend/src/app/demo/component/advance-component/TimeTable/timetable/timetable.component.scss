@@ -1,0 +1,39 @@
+.timetable-form {
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.same-size {
+  height: 38px;
+  font-size: 14px;
+}
+
+.table {
+  margin-top: 20px;
+}
+
+.table th, .table td {
+  vertical-align: middle;
+  text-align: center;
+  padding: 10px;
+}
+
+.table th {
+  background-color: #007bff;
+  color: white;
+}
+
+.table td {
+  min-width: 150px;
+}
+
+.table-bordered {
+  border: 1px solid #dee2e6;
+}
+
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 8px;
+}

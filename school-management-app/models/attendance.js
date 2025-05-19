@@ -1,10 +1,18 @@
 const mongoose = require('mongoose');
 
 const attendanceSchema = new mongoose.Schema({
-  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Link to student
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
+  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true },
+  teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+  academicYearId: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear', required: true },
   date: { type: Date, required: true },
-  status: { type: String, enum: ['present', 'absent'], required: true },
-  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true } // Link attendance to a school
+  students: [
+    {
+      studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      status: { type: String, enum: ['Present', 'Absent', 'Late'], required: true }
+    }
+  ]
 });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

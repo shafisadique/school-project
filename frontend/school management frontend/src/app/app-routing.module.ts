@@ -16,6 +16,8 @@ export const routes: Routes = [
     path: 'auth/register',
     loadComponent: () => import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
   },
+
+  
   {
     path: '',
     component: AdminComponent,
@@ -52,10 +54,30 @@ export const routes: Routes = [
         loadChildren: () => import('./demo/component/advance-component/school/school-routing').then((c) => c.schoolRoute)
       },
       {
+        path: 'time-table',
+        canActivate:[AuthGuard],
+        loadChildren: () => import('./demo/component/advance-component/TimeTable/timetable.router').then((c) => c.timeTableRoutes)
+      },
+      {
+        path: 'attendance',
+        canActivate: [AuthGuard],
+        loadChildren: () => import('./demo/component/attendance/attendance.routing').then((c) => c.AttendanceRoute )
+    },
+      {
+        path: 'academic-year',
+        canActivate:[AuthGuard],
+        loadChildren: () => import('./demo/component/advance-component/academic-year/academic-year.routing').then((c) => c.academicYearRouter)
+      },
+      {
         path: 'class-&-subject-management',
         canActivate:[AuthGuard],
         loadChildren: () => import('./demo/component/advance-component/class-subject-management/class-subject.routing').then((c) => c.classSubjectManagementRoute)
       },
+      // {
+      //   path: 'exams-&-progress',
+      //   canActivate:[AuthGuard],
+      //   loadChildren: () => import('./demo/component/advance-component/ex').then((c) => c.classSubjectManagementRoute)
+      // },
     ]
   },
   {

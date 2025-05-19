@@ -12,11 +12,12 @@ export class FeeStructureService {
 
   constructor(private http: HttpClient) { }
 
-  getFeeStructures(schoolId: string, session: string): Observable<any> {
+  getFeeStructures(schoolId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/fees/get-fee-structure`, {
-      params: { schoolId, session }
+      params: { schoolId }
     });
   }
+  
 
   createFeeStructure(data: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/fees/create-structure`, data);

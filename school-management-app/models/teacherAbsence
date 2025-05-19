@@ -1,0 +1,43 @@
+const mongoose = require('mongoose');
+
+const teacherAbsenceSchema = new mongoose.Schema(
+  {
+    teacherId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Teacher',
+      required: [true, 'Teacher ID is required'],
+    },
+    schoolId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'School',
+      required: [true, 'School ID is required'],
+    },
+    date: {
+      type: Date,
+      required: [true, 'Absence date is required'],
+    },
+    reason: {
+      type: String,
+      required: [true, 'Reason for absence is required'],
+      trim: true,
+    },
+    substituteTeacherId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Teacher',
+      default: null,
+    },
+    status: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected'],
+      default: 'Pending',
+    },
+  },
+  {
+    timestamps: true, // Adds createdAt and updatedAt fields
+  }
+);
+
+// Ensure uniqueness of absence record for a teacher on a specific date
+teacherAbsenceSchema.index({ teacherId: 1, date: 1 }, { unique: true });
+
+module.exports = mongoose.model('TeacherAbsence', teacherAbsenceSchema);

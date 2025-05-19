@@ -41,8 +41,8 @@ export class TeacherService {
    * @param teacherId Teacher's unique ID
    * @returns Observable with teacher data
    */
-  getTeacherById(teacherId: string): Observable<any> {
-    return this.httpClient.get(`${this.apiUrl}/api/teachers/${teacherId}`).pipe(
+  getTeacherById(schoolId: string): Observable<any> {
+    return this.httpClient.get(`${this.apiUrl}/api/teachers/${schoolId}`).pipe(
       catchError(this.handleError)
     );
   }

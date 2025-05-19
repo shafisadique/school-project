@@ -1,60 +1,50 @@
 <div class="container">
-    <div class="card shadow">
-      <div class="card-header text-white"  style="background: linear-gradient(to right, #2E3192, #1BFFFF);">
-        <h5 style="font-family: 'Poppins',sans-serif; color: white; font-size: 24px;">Bulk Invoice Generation</h5>
-      </div>
-      
-      <div class="card-body">
-        <form (ngSubmit)="generateBulkInvoices()">
-            <div class="row align-items-end">
-              <!-- Class Selection -->
-              <div class="col-md-4">
-                <label class="form-label">Select Class</label>
-                <select class="form-select" [(ngModel)]="selectedClass" name="className" required>
-                  <option *ngFor="let cls of classList" [value]="cls">{{ cls }}</option>
-                </select>
-              </div>
-          
-              <!-- Session Selection -->
-              <div class="col-md-4">
-                <label class="form-label">Select Session</label>
-                <select class="form-select" [(ngModel)]="selectedSession" name="session" required>
-                  <option *ngFor="let session of sessions" [value]="session">{{ session }}</option>
-                </select>
-              </div>
-          
-              <!-- Month Selection -->
-              <div class="col-md-4">
-                <label class="form-label">Select Month</label>
-                <input type="month" class="form-control" [(ngModel)]="selectedMonth" name="month" [max]="maxMonth" required>
-              </div>
-            </div>
-          
-            <!-- Validation Message -->
-            <div *ngIf="selectedSession && selectedMonth && !validateMonthInSession()" class="alert alert-danger mt-2">
-              Invalid: {{ selectedMonth }} is not in {{ selectedSession }} session (Valid: April 2023 - March 2024)
-            </div>
-          
-            <!-- Action Buttons -->
-            <div class="d-flex justify-content-center mt-3">
-              <button type="submit" class="btn btn-success" [disabled]="isGenerating">
-                <span *ngIf="!isGenerating">Generate Invoices</span>
-                <span *ngIf="isGenerating">
-                  <i class="fas fa-spinner fa-spin"></i> Generating...
-                </span>
-              </button>
-            </div>
-          </form>
-          
-  
-        <!-- Results Display -->
-        <div *ngIf="result" class="mt-4 alert" [ngClass]="result.success ? 'alert-success' : 'alert-danger'">
-          <h5>Generation Results:</h5>
-          <p>Total Students Processed: {{ result.totalStudents }}</p>
-          <p>New Invoices Created: {{ result.insertedCount }}</p>
-          <p>Existing Invoices Skipped: {{ result.matchedCount }}</p>
-          <p *ngIf="result.error" class="text-danger">{{ result.error }}</p>
+  <div class="card shadow mt-4">
+    <div class="card-header text-white bg-primary">
+      <h5 class="mb-0">Bulk Invoice Generation</h5>
+      <small *ngIf="academicYear" class="d-block mt-2">
+        Academic Year: {{ academicYear.name }} ({{ academicYear.startDate | date }} - {{ academicYear.endDate | date }})
+      </small>
+    </div>
+    <div class="card-body">
+      <form (ngSubmit)="generateBulkInvoices()">
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <label class="form-label">Select Class</label>
+            <select class="form-select" [(ngModel)]="selectedClass" name="className" required (change)="onClassSelect()">
+              <option value="" disabled>Choose Class...</option>
+              <option *ngFor="let cls of classStructure" [value]="cls.name">{{ cls.name }}</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Select Month</label>
+            <input type="month" class="form-control" [(ngModel)]="selectedMonth" name="month" required>
+          </div>
         </div>
+        <div *ngIf="sections.length > 0" class="mb-4">
+          <label class="form-label">Select Sections</label>
+          <div class="d-flex flex-wrap gap-2">
+            <div *ngFor="let section of sections" class="form-check">
+              <input class="form-check-input" type="checkbox" [id]="section" [checked]="selectedSections.includes(section)" (change)="toggleSection(section)">
+              <label class="form-check-label" [for]="section">{{ section }}</label>
+            </div>
+          </div>
+        </div>
+        <div class="d-grid">
+          <button type="submit" class="btn btn-success btn-lg" [disabled]="isGenerating || !selectedClass || !selectedMonth">
+            <span *ngIf="!isGenerating">Generate Invoices</span>
+            <span *ngIf="isGenerating"><i class="fas fa-spinner fa-spin"></i> Processing...</span>
+          </button>
+        </div>
+      </form>
+      <div *ngIf="result" class="mt-4 alert" [ngClass]="result.success ? 'alert-success' : 'alert-danger'">
+        <h5 class="alert-heading">{{ result.success ? 'Success!' : 'Error!' }}</h5>
+        <p *ngIf="result.success">Academic Year: {{ result.academicYear }}</p>
+        <p *ngIf="result.success">Total Students: {{ result.totalStudents }}</p>
+        <p *ngIf="result.success">New Invoices: {{ result.insertedCount }}</p>
+        <p *ngIf="result.success">Existing Invoices: {{ result.matchedCount }}</p>
+        <p *ngIf="!result.success">{{ result.error }}</p>
       </div>
     </div>
   </div>
+</div>

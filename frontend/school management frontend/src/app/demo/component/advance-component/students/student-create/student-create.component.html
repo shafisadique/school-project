@@ -41,17 +41,29 @@
                 </div>
               </div>
   
-              <div class="col-md-6 col-12">
+              <div class="col-md-3 col-12">
                 <div class="form-group">
                   <label>Class:</label>
-                  <select formControlName="className" class="form-control form-control-sm shadow-sm">
+                  <select formControlName="classId" class="form-control form-control-sm shadow-sm">
                     <option value="">Select Class</option>
-                    <option *ngFor="let class of classList" [value]="class">{{ class }}</option>
+                    <option *ngFor="let class of classList" [value]="class._id">{{ class.name }}</option>
                   </select>
-                  <small *ngIf="submitted && f['className'].errors?.['required']" class="error">Class is required.</small>
+                  <small *ngIf="submitted && f['classId'].errors?.['required']" class="error">Class is required.</small>
+                </div>
+              </div>
+              <div class="col-md-3 col-12">
+                <div class="form-group">
+                  <label>Section:</label>
+                  <select formControlName="section" class="form-control form-control-sm shadow-sm">
+                    <option value="">section</option>
+                    <option *ngFor="let section of sectionList" [value]="section">{{ section }}</option>
+                  </select>
+                  <small *ngIf="submitted && f['section'].errors?.['required']" class="error">section is required.</small>
                 </div>
               </div>
             </div>
+
+            
             <div class="row">
               <div class="col-md-6 col-sm-12">
                 <div class="form-group">
@@ -78,14 +90,14 @@
             </div>
             <!-- Profile Picture Upload -->
             <div class="row">
-              <div class="col-md-6 col-12">
+              <div class="col-md-12 col-12">
                 <div class="form-group">
                   <label>Profile Picture:</label>
                   <input type="file" class="form-control form-control-sm" (change)="onFileSelect($event)" accept="image/*" />
                   <small *ngIf="submitted && !selectedFile" class="error">Profile picture is required.</small>
                 </div>
               </div>
-              <div class="col-md-6 col-12">
+              <!-- <div class="col-md-6 col-12">
                 <div class="form-group">
                   <label>Current Session:</label>
                   <select formControlName="currentSession" 
@@ -100,7 +112,7 @@
                     Session is required.
                   </small>
                 </div>
-              </div>
+              </div> -->
             
             </div>
             <div class="row">

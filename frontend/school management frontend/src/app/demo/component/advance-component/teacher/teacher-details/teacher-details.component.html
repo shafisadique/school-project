@@ -35,6 +35,13 @@
           <td><a href="mailto:{{ teacher.email }}">{{ teacher.email }}</a></td>
           <td>{{ teacher.gender }}</td>
         </tr>
+        @if(teachers.length == 0){
+          <tr>
+            <td colspan="6" style="text-align: center;font-family: 'Poppins',sans-serif;font-weight: 600;">
+              No Teacher Available
+          </td> 
+        </tr>
+        }
       </tbody>
     </table>
   </div>

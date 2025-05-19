@@ -1,124 +1,121 @@
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 const User = require('../../../models/user');
 const School = require('../../../models/school');
+const AcademicYear = require('../../../models/academicyear');
 
 const registerSchool = async (req, res) => {
-  const { 
-    schoolName,
-    address,
-    adminName,
-    username,
-    email,
-    password
-  } = req.body;
-
+  const session = await mongoose.startSession();
+  
   try {
-    // Validate request
-    const requiredFields = [
-      'schoolName', 'adminName', 'username', 
-      'email', 'password', 'address'
-    ];
-    
-    const missingFields = requiredFields.filter(field => !req.body[field]);
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        message: 'Missing required fields',
-        missing: missingFields
-      });
-    }
+    await session.withTransaction(async () => {
+      const { schoolName, address, adminName, username, email, password } = req.body;
 
-    // Check existing users/schools
-    const [existingUser, existingSchool] = await Promise.all([
-      User.findOne({ $or: [{ email }, { username }] }),
-      School.findOne({ name: schoolName })
-    ]);
-
-    if (existingUser) {
-      return res.status(409).json({ message: 'Email or username already exists' });
-    }
-
-    if (existingSchool) {
-      return res.status(409).json({ message: 'School name already registered' });
-    }
-
-    // Create school first
-    const newSchool = new School({
-      name: schoolName,
-      address
-    });
-
-    // Create admin user
-    const hashedPassword = bcrypt.hashSync(password, 10);
-    const adminUser = new User({
-      name: adminName,
-      username,
-      email,
-      password: hashedPassword,
-      role: 'admin',
-      schoolId: newSchool._id
-    });
-
-    // Link school to admin
-    newSchool.createdBy = adminUser._id;
-
-    // Save both in transaction
-    await Promise.all([newSchool.save(), adminUser.save()]);
-
-    // Return response
-    const response = {
-      school: {
-        id: newSchool.schoolId,
-        name: newSchool.name,
-        address: newSchool.address
-      },
-      admin: {
-        id: adminUser._id,
-        name: adminUser.name,
-        email: adminUser.email,
-        username: adminUser.username
+      // Validate required fields
+      const requiredFields = ['schoolName', 'adminName', 'username', 'email', 'password', 'address'];
+      const missingFields = requiredFields.filter(field => !req.body[field]);
+      
+      if (missingFields.length > 0) {
+        throw { status: 400, message: 'Missing required fields', missing: missingFields };
       }
-    };
 
-    res.status(201).json({
-      message: 'School registration successful',
-      data: response
+      // Check for existing entities
+      const [existingUser, existingSchool] = await Promise.all([
+        User.findOne({ $or: [{ email }, { username }] }).session(session),
+        School.findOne({ name: schoolName }).session(session)
+      ]);
+
+      if (existingUser || existingSchool) {
+        throw { 
+          status: 409, 
+          message: existingUser ? 'Email/username exists' : 'School name exists' 
+        };
+      }
+
+      // Create school first
+      const newSchool = new School({
+        name: schoolName,
+        address
+      });
+
+      // Create academic year
+      const defaultYear = new AcademicYear({
+        schoolId: newSchool._id,
+        name: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+        startDate: new Date(new Date().getFullYear(), 2, 1),
+        endDate: new Date(new Date().getFullYear() + 1, 1, 28)
+      });
+
+      // Create admin user
+      const adminUser = new User({
+        name: adminName,
+        username,
+        email,
+        password: bcrypt.hashSync(password, 10),
+        role: 'admin',
+        schoolId: newSchool._id
+      });
+
+      // Link relationships
+      newSchool.activeAcademicYear = defaultYear._id;
+      newSchool.createdBy = adminUser._id;
+
+      // Save all documents
+      await newSchool.save({ session });
+      await adminUser.save({ session });
+      await defaultYear.save({ session });
+
+      res.status(201).json({
+        message: 'Registration successful',
+        data: {
+          schoolId: newSchool._id,
+          academicYear: defaultYear.name
+        }
+      });
     });
-
   } catch (err) {
-    res.status(500).json({ 
-      message: 'Registration failed',
-      error: process.env.NODE_ENV === 'development' ? err.message : 'Internal error'
+    console.error('Registration Error:', err);
+    const status = err.status || 500;
+    const message = err.message || 'Registration failed';
+    res.status(status).json({ 
+      message,
+      error: process.env.NODE_ENV === 'development' ? err : undefined
     });
+  } finally {
+    await session.endSession();
   }
 };
+
 
 const getSchoolById = async (req, res) => {
   try {
     const schoolId = req.params.id;
     
-    // Check if schoolId is valid
-    if (!schoolId) {
-      return res.status(400).json({ message: 'School ID is required' });
+    if (!mongoose.Types.ObjectId.isValid(schoolId)) {
+      return res.status(400).json({ message: 'Invalid school ID format' });
     }
 
-    // Find school by ID
-    const school = await School.findById(schoolId);
-    
+    const school = await School.findById(schoolId)
+      .populate('activeAcademicYear')
+      .populate('createdBy', 'name email');
+
     if (!school) {
       return res.status(404).json({ message: 'School not found' });
     }
 
-    res.status(200).json({ 
+    res.status(200).json({
       message: 'School details retrieved successfully',
-      school 
+      data: {
+        ...school.toObject(),
+        address: JSON.parse(school.address)
+      }
     });
   } catch (err) {
-    res.status(500).json({ 
-      message: 'Failed to fetch school details', 
+    res.status(500).json({
+      message: 'Failed to fetch school details',
       error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
     });
   }
 };
-
-module.exports = getSchoolById;
-module.exports = registerSchool;
+// Keep getSchoolById as previous
+module.exports = { registerSchool, getSchoolById };

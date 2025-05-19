@@ -1,36 +1,128 @@
-<div class="card shadow-sm">
-    <div class="card-body">
-      <h5 class="card-title">Assign Subject to Class</h5>
-      <form [formGroup]="assignForm" (ngSubmit)="assignSubject()">
-        <!-- Select Class -->
-        <div class="mb-3">
-          <label class="form-label">Select Class</label>
-          <select class="form-select" formControlName="classId">
-            <option *ngFor="let cls of classList" [value]="cls._id">{{ cls.name }}</option>
-          </select>
-        </div>
+<div class="container mt-4">
+  <div class="row">
+    <!-- Loading Spinner -->
+    <div *ngIf="loading" class="text-center my-4">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
 
-        <!-- Select Teacher -->
-        <div class="mb-3">
-          <label class="form-label">Select Teacher</label>
-          <select class="form-select" formControlName="teacherId">
-            <option *ngFor="let teacher of teachers" [value]="teacher._id">{{ teacher.name }}</option>
-          </select>
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Assign Subject to Class</h5>
+          <form [formGroup]="assignForm" (ngSubmit)="assignSubject()">
+            <div class="mb-3">
+              <label class="form-label">Select Academic Year</label>
+              <select class="form-select" formControlName="academicYearId">
+                <option value="" disabled>Select Academic Year</option>
+                <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
+              </select>
+              <div *ngIf="assignForm.get('academicYearId')?.invalid && assignForm.get('academicYearId')?.touched" class="text-danger">
+                Academic year is required.
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Select Class</label>
+              <select class="form-select" formControlName="classId">
+                <option value="" disabled>Select Class</option>
+                <option *ngFor="let cls of classList" [value]="cls._id">{{ cls.name }}</option>
+              </select>
+              <div *ngIf="assignForm.get('classId')?.invalid && assignForm.get('classId')?.touched" class="text-danger">
+                Class is required.
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Select Teacher</label>
+              <select class="form-select" formControlName="teacherId">
+                <option value="" disabled>Select Teacher</option>
+                <option *ngFor="let teacher of teachers" [value]="teacher._id">{{ teacher.name }}</option>
+              </select>
+              <div *ngIf="assignForm.get('teacherId')?.invalid && assignForm.get('teacherId')?.touched" class="text-danger">
+                Teacher is required.
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Select Subject</label>
+              <select class="form-select" formControlName="subjectId">
+                <option value="" disabled>Select Subject</option>
+                <option *ngFor="let subject of subjects" [value]="subject._id">{{ subject.name }}</option>
+              </select>
+              <div *ngIf="assignForm.get('subjectId')?.invalid && assignForm.get('subjectId')?.touched" class="text-danger">
+                Subject is required.
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary w-100" [disabled]="assignForm.invalid || loading">
+              {{ loading ? 'Assigning...' : 'Assign Subject' }}
+            </button>
+          </form>
         </div>
+      </div>
+    </div>
 
-  
-        <!-- Select Subject -->
-        <div class="mb-3">
-          <label class="form-label">Select Subject</label>
-          <select class="form-select" formControlName="subjectId">
-            <option *ngFor="let subject of subjects" [value]="subject._id">{{ subject.name }}</option>
-          </select>
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title">Assign Attendance Teachers</h5>
+          <form [formGroup]="attendanceTeacherForm" (ngSubmit)="updateAttendanceTeachers()">
+            <div class="mb-3">
+              <label class="form-label">Select Class</label>
+              <select class="form-select" formControlName="classId" (change)="loadClassDetails()">
+                <option value="" disabled>Select Class</option>
+                <option *ngFor="let cls of classList" [value]="cls._id">{{ cls.name }}</option>
+              </select>
+              <div *ngIf="attendanceTeacherForm.get('classId')?.invalid && assignForm.get('classId')?.touched" class="text-danger">
+                Class is required.
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Attendance Teacher</label>
+              <select class="form-select" formControlName="attendanceTeacher">
+                <option value="">Select Attendance Teacher (Optional)</option>
+                <option *ngFor="let teacher of teachers" [value]="teacher._id">{{ teacher.name }}</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Substitute Attendance Teachers</label>
+              <select multiple class="form-select" formControlName="substituteAttendanceTeachers">
+                <option *ngFor="let teacher of teachers" [value]="teacher._id">{{ teacher.name }}</option>
+              </select>
+              <small class="form-text text-muted">Hold Ctrl (or Cmd) to select multiple teachers.</small>
+            </div>
+            <button type="submit" class="btn btn-primary w-100" [disabled]="attendanceTeacherForm.invalid || loading">
+              {{ loading ? 'Updating...' : 'Update Attendance Teachers' }}
+            </button>
+          </form>
         </div>
-  
-        <button type="submit" class="btn btn-primary w-100" [disabled]="assignForm.invalid">
-          Assign Subject
-        </button>
-      </form>
+      </div>
     </div>
   </div>
-  
+
+  <div class="card shadow-sm mt-4">
+    <div class="card-body">
+      <h5 class="card-title">Assigned Subjects</h5>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Class</th>
+            <th>Subject</th>
+            <th>Teacher</th>
+            <th>Teacher Email</th>
+            <th>Attendance Teacher</th>
+            <th>Substitute Teachers</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let assignment of assignments">
+            <td>{{ assignment.className }}</td>
+            <td>{{ assignment.subjectName }}</td>
+            <td>{{ assignment.teacherName }}</td>
+            <td>{{ assignment.teacherEmail }}</td>
+            <td>{{ getAttendanceTeacher(assignment.attendanceTeacher) }}</td>
+            <td>{{ getSubstituteTeachers(assignment.substituteAttendanceTeachers) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

@@ -4,9 +4,13 @@ const {
   createClass,
   getClassesBySchool,
   createSubject,
+  getAssignmentsByTeacher,
   getSubjectsBySchool,
   assignSubjectToClass,
+  getCombinedAssignments,
   getTeachersBySchoolId,
+  getStudentsByClass,
+  updateAttendanceTeachers,
 } = require('../controllers/classSubjectManagement/classSubjectController');
 
 const authMiddleware = require('../middleware/authMiddleware');
@@ -19,12 +23,15 @@ router.post('/classes', createClass);
 router.get('/classes/:schoolId', getClassesBySchool);
 
 // 📚 **Subject Management**
-router.post('/subjects', createSubject);
+router.post('/subject', createSubject);
 router.get('/subjects/:schoolId', getSubjectsBySchool);
 
 // 🔗 **Assign Subject to Class**
-router.put('/assign-subject', assignSubjectToClass);
+router.post('/assign-subject', assignSubjectToClass);
+router.get('/assignments/:schoolId', getCombinedAssignments);
 router.get('/teachers/by-school/:schoolId', getTeachersBySchoolId);
-
+router.get('/list', getStudentsByClass);
+router.get('/assignments/teacher/:teacherId', getAssignmentsByTeacher);
+router.put('/update-attendance-teachers', updateAttendanceTeachers);
 
 module.exports = router;

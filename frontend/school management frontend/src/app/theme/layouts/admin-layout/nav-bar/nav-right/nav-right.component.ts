@@ -77,8 +77,10 @@ export class NavRightComponent {
       title: 'View Profile'
     },
     {
-      icon: 'profile',
-      title: 'Social Profile'
+      icon: 'academic-year',
+      title: 'Academic Year',
+      link: '/academic-year/details' 
+
     },
     {
       icon: 'profile',

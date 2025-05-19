@@ -18,10 +18,10 @@
           <td class="profile-cell">
             <div class="profile-wrapper">
               <img *ngIf="student.profileImage" 
-                   [src]="getImageUrl(student.profileImage)" 
-                   alt="{{ student.name }} profile"
-                   class="profile-avatar"
-                   (error)="handleImageError($event)">
+                [src]="getImageUrl(student.profileImage)" 
+                alt="{{ student.name }} profile"
+                class="profile-avatar"
+                (error)="handleImageError($event)">
               <div *ngIf="!student.profileImage" class="avatar-placeholder">
                 {{ getInitials(student.name) }}
               </div>
@@ -37,6 +37,14 @@
           </td>
           <td>{{ student.gender }}</td>
         </tr>
+        @if(students.length == 0){
+          <tr>
+            <td colspan="6" style="text-align: center;font-family: 'Poppins',sans-serif;font-weight: 600;">
+              No Student Available
+          </td> 
+        </tr>
+
+        }
       </tbody>
     </table>
   </div>

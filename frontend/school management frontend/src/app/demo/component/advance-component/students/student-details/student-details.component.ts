@@ -21,16 +21,18 @@ export class StudentDetailsComponent implements OnInit{
 loadStudents(){
   this.studentService.getStudent().subscribe({
     next:(students:any)=>{
-      this.students = students;
+      this.students = students.data;
     }
   })
 }
 
 getImageUrl(profileImage: string): string {
-  if (!profileImage) return 'assets/default-avatar.png';
-  if (profileImage.startsWith('http')) return profileImage;
-  return `${this.backendUrl}${profileImage}`;
+  if (!profileImage) return 'assets/default-avatar.png'; // ✅ Default avatar if missing
+  const cleanPath = profileImage.replace(/^.*uploads\//, '');
+console.log(`${this.backendUrl}/uploads/${cleanPath}`)
+return `${this.backendUrl}/uploads/${cleanPath}`;
 }
+
 
 getInitials(name: string): string {
   return name.split(' ')

@@ -1,87 +1,71 @@
-import { CommonModule, DatePipe } from '@angular/common';
 import { Component } from '@angular/core';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { FeeInvoiceService } from '../fee-invoice.service';
+import { FormsModule } from '@angular/forms';
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
+import { FeeInvoiceService } from '../fee-invoice.service';
+import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
+import { AcademicYearService } from '../../academic-year/academic-year.service';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-bulk-invoice',
-  imports: [CommonModule,FormsModule],
-  providers: [DatePipe],
+  standalone: true,
+  imports: [CommonModule, FormsModule],
   templateUrl: './bulk-invoice.component.html',
-  styleUrl: './bulk-invoice.component.scss'
+  styleUrls: ['./bulk-invoice.component.scss']
 })
 export class BulkInvoiceComponent {
-  classList: string[] = ['Pre Nursery', 'Nursery', 'LKG', 'UKG', 'Class 1','Class 2','class 3','class 4'];
-  sessions = ['2023-2024', '2024-2025', '2025-2026'];
+  classStructure: any[] = [];
+  sections: string[] = [];
+  selectedSections: string[] = [];
   selectedClass = '';
-  selectedSession = '';
   selectedMonth = '';
+  academicYear: any;
   isGenerating = false;
   result: any = null;
 
   constructor(
-    private feeInvoiceService: FeeInvoiceService,
     private authService: AuthService,
-    private datePipe: DatePipe
+    private feeInvoiceService: FeeInvoiceService,
+    private classService: ClassSubjectService,
+    private academicYearService: AcademicYearService
   ) {}
 
-  get minMonth(): string {
-    return this.datePipe.transform(new Date(), 'yyyy-MM') || '';
+  async ngOnInit() {
+    const schoolId = this.authService.getSchoolId();
+    if (schoolId) {
+      this.academicYear = await this.academicYearService.getActiveAcademicYear(schoolId).toPromise();
+      this.classStructure = await this.classService.getClassesBySchool(schoolId).toPromise();
+    }
   }
 
-  get maxMonth(): string {
-    // const date = new Date();
-    // date.setFullYear(date.getFullYear() + 1);
-    // return this.datePipe.transform(date, 'yyyy-MM') || '';
-    return '';
+  onClassSelect() {
+    const selectedClass = this.classStructure.find(c => c.name === this.selectedClass);
+    this.sections = selectedClass?.sections || [];
+    this.selectedSections = [];
   }
 
-  get sessionDates(): { [key: string]: { start: Date, end: Date } } {
-    return {
-      '2023-2024': { start: new Date('2023-04-01'), end: new Date('2024-03-31') },
-      '2024-2025': { start: new Date('2024-04-01'), end: new Date('2025-03-31') }
-    };
-  }
-  
-  validateMonthInSession(): boolean {
-    if (!this.selectedSession || !this.selectedMonth) return true;
-    
-    const [year, month] = this.selectedMonth.split('-').map(Number);
-    const monthDate = new Date(year, month-1);
-    const sessionRange = this.sessionDates[this.selectedSession];
-  
-    return monthDate >= sessionRange.start && 
-           monthDate <= sessionRange.end;
+  toggleSection(section: string) {
+    const index = this.selectedSections.indexOf(section);
+    if (index > -1) this.selectedSections.splice(index, 1);
+    else this.selectedSections.push(section);
   }
 
   async generateBulkInvoices() {
+    if (!this.selectedClass || !this.selectedMonth || !this.academicYear) return;
     this.isGenerating = true;
     this.result = null;
-
+    const schoolId = this.authService.getSchoolId();
     try {
-      const schoolId = this.authService.getSchoolId();
-      if (!schoolId) throw new Error('School not found');
-
       const response = await this.feeInvoiceService.generateBulkInvoices({
         schoolId,
         className: this.selectedClass,
-        session: this.selectedSession,
-        month: this.selectedMonth
+        month: this.selectedMonth,
+        academicYearId: this.academicYear._id,
+        sections: this.selectedSections
       }).toPromise();
-      console.log(response)
-      this.result = {
-        success: true,
-        totalStudents: response.insertedCount + response.existingInvoices,
-        insertedCount: response.insertedCount,
-        matchedCount: response.matchedCount
-      };
-
+      this.result = { success: true, ...response, academicYear: this.academicYear.name };
     } catch (error) {
-      this.result = {
-        success: false,
-        error: error.error?.message || 'Failed to generate invoices'
-      };
+      this.result = { success: false, error: error.error?.error || 'Failed to generate invoices' };
     } finally {
       this.isGenerating = false;
     }

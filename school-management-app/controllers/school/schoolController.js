@@ -34,7 +34,7 @@ const getSchools = async (req, res) => {
 // ✅ Get a single school by ID
 const getSchoolById = async (req, res) => {
   try {
-    const school = await School.findById(req.params.id);
+    const school = await School.findById(req.user.schoolId);
     if (!school) {
       return res.status(404).json({ message: 'School not found' });
     }
@@ -70,23 +70,26 @@ const updateSchool = async (req, res) => {
     const { schoolName, address, contact, academicYear } = req.body;
     const { id } = req.params;
 
-    if (!id) {
-      return res.status(400).json({ message: 'School ID is required' });
+    // 1️⃣ Validate academicYear as ObjectId
+    if (academicYear && !mongoose.Types.ObjectId.isValid(academicYear)) {
+      return res.status(400).json({ message: 'Invalid AcademicYear ID' });
     }
 
+    // 2️⃣ Update the school
     const updatedSchool = await School.findByIdAndUpdate(
       id,
-      { name: schoolName, address, contact, academicYear },
+      { 
+        name: schoolName, 
+        address, 
+        contact, 
+        academicYear // Now expects an ObjectId
+      },
       { new: true, runValidators: true }
     );
 
-    if (!updatedSchool) {
-      return res.status(404).json({ message: 'School not found' });
-    }
-
-    res.status(200).json({ message: 'School updated successfully', updatedSchool });
+    // ... rest of the code
   } catch (err) {
-    res.status(500).json({ message: 'Failed to update school', error: err.message });
+    // ... error handling
   }
 };
 

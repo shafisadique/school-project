@@ -1,20 +1,65 @@
 const express = require('express');
 const router = express.Router();
-const feeController = require('../controllers/fee/feeController');
 const authMiddleware = require('../middleware/authMiddleware');
-const { generateMonthlyInvoice, makePayment ,generateClassInvoices, getInvoiceDetails, getStudentInvoices} = require('../controllers/fee/paymentController');
-const generateClassReceipts = require('../controllers/fee/feeReciptController');
+const validateSchoolAccess = require('../middleware/validateSchoolAccess');
+const {
+  generateBulkMonthlyInvoices,
+  processPayment,
+  getInvoiceDetails,
+  getStudentFeeSummary
+} = require('../controllers/fee/paymentController');
+const {
+  createFeeStructure,
+  getFeeStructures
+} = require('../controllers/fee/feeController');
+const { searchStudents } = require('../controllers/student/studentController');
+const FeeStructure = require('../models/feeStructure');
+const feeInvoice = require('../models/feeInvoice');
 
-// ✅ Create Fee Structure (Admin)
-router.post('/create-structure', authMiddleware, feeController.createFeeStructure);
-router.get('/get-fee-structure',authMiddleware,feeController.getFeeStructures)
+// Fee Structure Routes
+router.post('/structures', 
+  authMiddleware, 
+  createFeeStructure
+);
 
+router.get('/structures', 
+  authMiddleware,
+  getFeeStructures
+);
 
-router.get('/students/:studentId/invoices', authMiddleware,getStudentInvoices);
-router.get('/invoices/:id', authMiddleware, getInvoiceDetails);
-router.post('/invoices/:id/pay', authMiddleware, makePayment);
-router.post('/invoices', authMiddleware, generateMonthlyInvoice);
-router.post('/invoices/bulk', authMiddleware, generateClassInvoices);
-router.post('/receipts',authMiddleware, generateClassReceipts.generateClassReceipts);
+router.get('/structures/:id',
+  authMiddleware,
+  validateSchoolAccess(FeeStructure),
+  (req, res) => res.json(req.record)
+);
+
+// Bulk Operations
+router.post('/invoices/bulk',
+  authMiddleware,
+  generateBulkMonthlyInvoices
+);
+
+// Student Payments
+router.get('/students/search/:query',
+  authMiddleware,
+  searchStudents
+);
+
+router.get('/students/:studentId/summary',
+  authMiddleware,
+  getStudentFeeSummary
+);
+
+// Invoice Operations
+router.get('/invoices/:id',
+  authMiddleware,
+  validateSchoolAccess(feeInvoice),
+  getInvoiceDetails
+);
+
+router.post('/invoices/:id/payments',
+  authMiddleware,
+  processPayment
+);
 
 module.exports = router;

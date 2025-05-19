@@ -4,7 +4,8 @@ const login = require('../controllers/auth/login');
 const registerTeacher = require('../controllers/auth/register/teacherRegister');
 const registerStudent = require('../controllers/auth/register/studentRegister');
 // const registerAdmin = require('../controllers/auth/register/adminRegister');
-const registerSchool = require('../controllers/auth/register/schoolRegistration');
+const { registerSchool } = require('../controllers/auth/register/schoolRegistration');
+
 const validateRequest = require('../middleware/validateRequest');
 const authMiddleware = require('../middleware/authMiddleware');
 

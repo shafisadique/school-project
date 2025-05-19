@@ -1,146 +1,54 @@
-<!-- generate-invoice.component.html -->
 <div class="container-fluid py-4">
-    <div class="card invoice-card">
-      <div class="card-header bg-primary text-white d-flex align-items-center">
-        <i class="bi bi-receipt-cutoff fs-4 me-2"></i>
-        <h5 class="mb-0">Generate Student Fee Invoice</h5>
+  <div class="card invoice-card">
+    <div class="card-header bg-primary text-white d-flex align-items-center">
+      <i class="bi bi-receipt-cutoff fs-4 me-2"></i>
+      <h5 class="mb-0">Generate Student Fee Invoice</h5>
+    </div>
+    <div class="card-body">
+      <div class="search-section mb-4">
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input type="text" class="form-control form-control-lg"
+                 placeholder="Search student by name or admission number"
+                 [(ngModel)]="searchQuery"
+                 (input)="searchStudents(searchQuery)">
+        </div>
+        <div class="student-results mt-3" *ngIf="students.length > 0">
+          <div class="list-group">
+            <a href="javascript:void(0)"
+               class="list-group-item list-group-item-action"
+               *ngFor="let student of students"
+               (click)="selectStudent(student)">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">{{ student.name }}</h6>
+                  <small class="text-muted">Admission: {{ student.admissionNo }} | Class: {{ student.className }}</small>
+                </div>
+                <i class="bi bi-chevron-right"></i>
+              </div>
+            </a>
+          </div>
+        </div>
       </div>
-  
-      <div class="card-body">
-        <!-- Student Search Section -->
-        <div class="search-section mb-4">
-          <div class="input-group">
-            <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input type="text" class="form-control form-control-lg" 
-                   placeholder="Search student by name or admission number"
-                   [(ngModel)]="searchQuery"
-                   (input)="searchStudents(searchQuery)">
-          </div>
-  
-          <div class="student-results mt-3" *ngIf="students.length > 0">
-            <div class="list-group">
-              <a href="javascript:void(0)" 
-                 class="list-group-item list-group-item-action"
-                 *ngFor="let student of students"
-                 (click)="selectStudent(student)">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 class="mb-1">{{ student.name }}</h6>
-                    <small class="text-muted">Admission: {{ student.admissionNo }} | Class: {{ student.className }}</small>
-                  </div>
-                  <i class="bi bi-chevron-right"></i>
-                </div>
-              </a>
-            </div>
+      <div class="invoice-form" *ngIf="selectedStudent">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <label class="form-label">Select Month</label>
+            <input type="month" class="form-control"
+                   [(ngModel)]="month"
+                   [min]="minMonth"
+                   [max]="maxMonth">
           </div>
         </div>
-  
-        <!-- Selected Student Details -->
-        <div class="student-details card border-primary mb-4" *ngIf="selectedStudent">
-          <div class="card-header bg-light-primary">
-            <h5 class="mb-0">Selected Student Details</h5>
-          </div>
-          <div class="card-body">
-            <div class="row">
-              <div class="col-md-4">
-                <p><strong>Name:</strong> {{ selectedStudent.name }}</p>
-                <p><strong>Class:</strong> {{ selectedStudent.className }}</p>
-              </div>
-              <div class="col-md-4">
-                <p><strong>Admission No:</strong> {{ selectedStudent.admissionNo }}</p>
-                <p><strong>Session:</strong> {{ selectedStudent.currentSession }}</p>
-              </div>
-              <div class="col-md-4">
-                <p><strong>Transport:</strong> {{ selectedStudent.usesTransport ? 'Yes' : 'No' }}</p>
-                <p><strong>Hostel:</strong> {{ selectedStudent.usesHostel ? 'Yes' : 'No' }}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-  
-        <!-- Invoice Generation Form -->
-        <div class="invoice-form" *ngIf="selectedStudent">
-          <div class="row g-4">
-            <div class="col-md-4">
-              <label class="form-label">Select Month</label>
-              <input type="month" class="form-control" 
-                     [(ngModel)]="month"
-                     [min]="minMonth"
-                     [max]="maxMonth">
-            </div>
-  
-            <div class="col-md-8">
-              <div class="fee-customization card border-secondary">
-                <div class="card-header bg-light-secondary">
-                  <h6 class="mb-0">Custom Fee Adjustments</h6>
-                </div>
-                <div class="card-body">
-                  <div class="row g-3">
-                    <div class="col-md-4" *ngIf="selectedStudent.usesTransport">
-                      <label class="form-label">Transport Fee</label>
-                      <input type="number" class="form-control" 
-                             [(ngModel)]="customFees.transportFee"
-                             [value]="feeStructure?.feeBreakdown?.transportFee">
-                    </div>
-  
-                    <div class="col-md-4" *ngIf="selectedStudent.usesHostel">
-                      <label class="form-label">Hostel Fee</label>
-                      <input type="number" class="form-control" 
-                             [(ngModel)]="customFees.hostelFee"
-                             [value]="feeStructure?.feeBreakdown?.hostelFee">
-                    </div>
-  
-                    <div class="col-md-4">
-                      <label class="form-label">Miscellaneous Fee</label>
-                      <input type="number" class="form-control" 
-                             [(ngModel)]="customFees.miscFee"
-                             [value]="feeStructure?.feeBreakdown?.miscFee">
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-  
-          <!-- Fee Summary -->
-          <div class="fee-summary card border-success mt-4">
-            <div class="card-header bg-light-success">
-              <h6 class="mb-0">Fee Summary</h6>
-            </div>
-            <div class="card-body">
-              <div class="row">
-                <div class="col-md-4">
-                  <p class="mb-1">Base Fee: {{ feeStructure?.baseFee | currency }}</p>
-                  <p class="mb-1">Tuition Fee: {{ feeStructure?.feeBreakdown?.tuitionFee | currency }}</p>
-                  <p class="mb-1">Exam Fee: {{ feeStructure?.feeBreakdown?.examFee | currency }}</p>
-                </div>
-                <div class="col-md-4">
-                  <p class="mb-1">Previous Dues: {{ previousDue | currency }}</p>
-                  <p class="mb-1">Transport Fee: {{ customFees.transportFee | currency }}</p>
-                  <p class="mb-1">Hostel Fee: {{ customFees.hostelFee | currency }}</p>
-                </div>
-                <div class="col-md-4">
-                  <p class="mb-1">Miscellaneous: {{ customFees.miscFee | currency }}</p>
-                  <h5 class="mt-2">Total Amount: 
-                    <span class="text-success">
-                      {{ calculateTotal() | currency }}
-                    </span>
-                  </h5>
-                </div>
-              </div>
-            </div>
-          </div>
-  
-          <!-- Action Buttons -->
-          <div class="d-flex justify-content-end gap-3 mt-4">
-            <button class="btn btn-secondary" (click)="resetForm()">
-              <i class="bi bi-x-circle me-2"></i>Cancel
-            </button>
-            <button class="btn btn-primary" (click)="generateInvoice()">
-              <i class="bi bi-file-earmark-check me-2"></i>Generate Invoice
-            </button>
-          </div>
+        <div class="d-flex justify-content-end gap-3 mt-4">
+          <button class="btn btn-secondary" (click)="resetForm()">
+            <i class="bi bi-x-circle me-2"></i>Cancel
+          </button>
+          <button class="btn btn-primary" (click)="generateInvoice()">
+            <i class="bi bi-file-earmark-check me-2"></i>Generate Invoice
+          </button>
         </div>
       </div>
     </div>
   </div>
+</div>
