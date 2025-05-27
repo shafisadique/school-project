@@ -73,11 +73,16 @@ export const routes: Routes = [
         canActivate:[AuthGuard],
         loadChildren: () => import('./demo/component/advance-component/class-subject-management/class-subject.routing').then((c) => c.classSubjectManagementRoute)
       },
-      // {
-      //   path: 'exams-&-progress',
-      //   canActivate:[AuthGuard],
-      //   loadChildren: () => import('./demo/component/advance-component/ex').then((c) => c.classSubjectManagementRoute)
-      // },
+      {
+        path: 'exams-&-progress',
+        canActivate:[AuthGuard],
+        loadChildren: () => import('./demo/component/advance-component/exam/exam-routing').then((c) => c.ExamRoutes)
+      },
+      {
+        path: 'result',
+        canActivate:[AuthGuard],
+        loadChildren: () => import('./demo/component/advance-component/result/result.router').then((c) => c.resultRouter)
+      },
     ]
   },
   {

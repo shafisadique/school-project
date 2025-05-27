@@ -1,4 +1,48 @@
-<div class="table-container">
+<div class="container">
+  <!-- Filters and Search -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    
+    <!-- Left Side: Filters and Search Button -->
+    <div class="filters d-flex align-items-center">
+      <!-- Class Filter -->
+      <select 
+        class="form-control form-control-sm me-2" 
+        [(ngModel)]="selectedClass" 
+        (change)="onFilterChange()"
+        style="width: 150px;">
+        <option value="">All Classes</option>
+        <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
+      </select>
+
+      <!-- Session Filter -->
+      <select 
+        class="form-control form-control-sm me-2" 
+        [(ngModel)]="selectedSession" 
+        (change)="onFilterChange()"
+        style="width: 150px;">
+        <option value="">All Sessions</option>
+        <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
+      </select>
+
+      <!-- Search Button -->
+      <button class="btn btn-primary btn-sm" (click)="onSearch()">Search</button>
+    </div>
+
+    <!-- Right Side: Search Field -->
+    <div class="search-field">
+      <input 
+        type="text" 
+        class="form-control form-control-sm" 
+        placeholder="Search by name or admission no" 
+        [(ngModel)]="searchQuery" 
+        (keyup.enter)="onSearch()"
+        style="width: 250px;">
+    </div>
+  </div>
+
+  
+  <!-- Student Table -->
+  <div class="table-container">
     <table class="professional-table table-striped table-sm">
       <thead>
         <tr>
@@ -12,39 +56,43 @@
       </thead>
       <tbody>
         <tr *ngFor="let student of students; let i = index">
-          <td>{{ i + 1 }}</td>
-          
-          <!-- Profile Image & Name -->
+          <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
           <td class="profile-cell">
             <div class="profile-wrapper">
-              <img *ngIf="student.profileImage" 
-                [src]="getImageUrl(student.profileImage)" 
+              <img *ngIf="student.profileImage" crossorigin="anonymous"
+                [src]="getImageUrl(student.profileImage)"
                 alt="{{ student.name }} profile"
-                class="profile-avatar"
-                (error)="handleImageError($event)">
+                class="profile-avatar">
               <div *ngIf="!student.profileImage" class="avatar-placeholder">
                 {{ getInitials(student.name) }}
               </div>
               <span class="student-name">{{ student.name }}</span>
             </div>
           </td>
-  
           <td>{{ student.admissionNo }}</td>
-          <td>{{ student.className }}</td>
+          <td>{{ student.classId?.name || 'N/A' }}</td>
           <td>
             <div>{{ student.phone }}</div>
-            <!-- <div><a href="mailto:{{ student.email }}">{{ student.email }}</a></div> -->
           </td>
           <td>{{ student.gender }}</td>
         </tr>
-        @if(students.length == 0){
-          <tr>
-            <td colspan="6" style="text-align: center;font-family: 'Poppins',sans-serif;font-weight: 600;">
-              No Student Available
-          </td> 
+        <tr *ngIf="students.length === 0">
+          <td colspan="6" style="text-align: center; font-family: 'Poppins', sans-serif; font-weight: 600;">
+            No Students Available
+          </td>
         </tr>
-
-        }
       </tbody>
     </table>
   </div>
+  <app-pagination
+    [currentPage]="currentPage"
+    [pageSize]="pageSize"
+    [totalItems]="totalItems"
+    [totalPages]="totalPages"
+    [pageSizeOptions]="pageSizeOptions"
+    (pageChange)="onPageChange($event)"
+    (pageSizeChange)="onPageSizeChange($event)">
+  </app-pagination>
+
+  <!-- Pagination Component -->
+</div>

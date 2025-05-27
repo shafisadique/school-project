@@ -1,52 +1,86 @@
-<!-- src/app/components/exam-list/exam-list.component.html -->
-<div class="container">
-    <div class="header">
-      <h2>Exam History</h2>
-      <div class="filters">
-        <div class="filter-item">
-          <label for="class">Class</label>
-          <select id="class" [(ngModel)]="selectedClassId" (change)="onClassChange()">
-            <option *ngFor="let class of classes" [value]="class._id">{{ class.name }}</option>
-          </select>
-        </div>
-        <div class="filter-item">
-          <label for="academicYear">Academic Year</label>
-          <select id="academicYear" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()">
-            <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Exam Name</th>
-            <th>Subjects</th>
-            <th>Class</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let exam of exams; let i = index">
-            <td>{{ i + 1 }}</td>
-            <td>{{ exam.examName }}</td>
+<div class="container-fluid">
+  <header class="header">
+    <h2>Exam List</h2>
+    <button class="create-button" >Create New Exam</button>
+  </header>
+
+  <div class="exam-table">
+    <table>
+      <thead>
+        <tr>
+          <th>Exam Title</th>
+          <th>Exam Center</th>
+          <th>Start Date</th>
+          <th>End Date</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let exam of exams">
+          <tr class="exam-row">
+            <td>{{ exam.examTitle }}</td>
+            <td>{{ exam.examCenter }}</td>
+            <td>{{ formatDate(exam.startDate) }}</td>
+            <td>{{ formatDate(exam.endDate) }}</td>
             <td>
-              <span *ngFor="let subject of exam.subjects; let last = last">
-                {{ subject.subjectId.name }} ({{ subject.maxMarks }} marks{{ subject.date ? ', ' + (subject.date | date: 'mediumDate') : '' }}){{ last ? '' : ', ' }}
+              <span class="status-badge" [ngClass]="{
+                'status-scheduled': exam.examStatus === 'Scheduled',
+                'status-ongoing': exam.examStatus === 'Ongoing',
+                'status-completed': exam.examStatus === 'Completed'
+              }">
+                {{ exam.examStatus }}
               </span>
             </td>
-            <td>{{ exam.classId.name }}</td>
-            <td>{{ exam.startDate | date: 'mediumDate' }}</td>
-            <td>{{ exam.endDate | date: 'mediumDate' }}</td>
+            <td>
+              <button class="action-button view" (click)="toggleRow(exam._id)">
+                {{ expandedRows[exam._id] ? 'Hide' : 'View' }} Papers
+              </button>
+              <button class="action-button edit" (click)="editExam(exam._id)">Edit</button>
+              <button class="action-button delete" (click)="deleteExam(exam._id)">Delete</button>
+            </td>
           </tr>
-          <tr *ngIf="exams.length === 0">
-            <td colspan="6" class="no-data">No exams found</td>
+          <tr *ngIf="expandedRows[exam._id]" class="details-row">
+            <td colspan="6">
+              <div class="exam-papers">
+                <h3>Exam Papers</h3>
+                <table class="papers-table">
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Type</th>
+                      <th>Max Marks</th>
+                      <th>Min Marks</th>
+                      <th>Paper Code</th>
+                      <th>Start Date & Time</th>
+                      <th>End Date & Time</th>
+                      <th>Room No</th>
+                      <th>Grade Criteria</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let paper of exam.examPapers">
+                      <td>{{ paper.subjectId }}</td>
+                      <td>{{ paper.subjectType }}</td>
+                      <td>{{ paper.maxMarks }}</td>
+                      <td>{{ paper.minMarks }}</td>
+                      <td>{{ paper.paperCode }}</td>
+                      <td>{{ formatDate(paper.paperStartDateTime) }}</td>
+                      <td>{{ formatDate(paper.paperEndDateTime) }}</td>
+                      <td>{{ paper.roomNo }}</td>
+                      <td>{{ paper.gradeCriteria }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </td>
           </tr>
-        </tbody>
-      </table>
+        </ng-container>
+      </tbody>
+    </table>
+
+    <div class="no-data" *ngIf="!exams.length">
+      No exams found. Click "Create New Exam" to add one.
     </div>
   </div>
+</div>

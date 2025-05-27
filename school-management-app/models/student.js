@@ -37,13 +37,35 @@ const studentSchema = new mongoose.Schema({
       message: "Phone number must be 10 digits"
     }
   },
+  dateOfBirth: { 
+    type: Date, 
+    required: true 
+  },
+  city: { 
+    type: String, 
+    trim: true, 
+    required: true, 
+    maxlength: 100 
+  },
+  state: { 
+    type: String, 
+    trim: true, 
+    required: true, 
+    maxlength: 100 
+  },
+  country: { 
+    type: String, 
+    trim: true, 
+    required: true, 
+    maxlength: 100 
+  },
   address: { 
     type: String, 
     required: true, 
     trim: true,
     maxlength: 200
   },
-  classId: { // Changed from className to classId
+  classId: {
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Class', 
     required: true,
@@ -85,15 +107,77 @@ const studentSchema = new mongoose.Schema({
     name: { type: String, trim: true, required: true },
     amount: { type: Number, min: 0, required: true }
   }],
+  parents: {
+    fatherName: { 
+      type: String, 
+      trim: true, 
+      validate: {
+        validator: function (v) {
+          if (v === undefined || v === null || v === '') return true;
+          return v.length >= 2 && v.length <= 100;
+        },
+        message: "Father's name must be between 2 and 100 characters if provided"
+      }
+    },
+    motherName: { 
+      type: String, 
+      trim: true, 
+      validate: {
+        validator: function (v) {
+          if (v === undefined || v === null || v === '') return true;
+          return v.length >= 2 && v.length <= 100;
+        },
+        message: "Mother's name must be between 2 and 100 characters if provided"
+      }
+    },
+    fatherPhone: { 
+      type: String, 
+      trim: true,
+      validate: {
+        validator: (v) => !v || /^\d{10}$/.test(v),
+        message: "Father's phone number must be 10 digits if provided"
+      }
+    },
+    motherPhone: { 
+      type: String, 
+      trim: true,
+      validate: {
+        validator: (v) => !v || /^\d{10}$/.test(v),
+        message: "Mother's phone number must be 10 digits if provided"
+      }
+    }
+  },
   createdBy: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
     required: true 
+  },
+  status: { 
+    type: Boolean, 
+    default: true // Default status is true (active)
   }
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
+});
+
+// Add custom validation to ensure at least one parent's details are provided
+studentSchema.pre('validate', function (next) {
+  const parents = this.parents || {};
+  const fatherNameProvided = parents.fatherName && parents.fatherName.trim() !== '';
+  const motherNameProvided = parents.motherName && parents.motherName.trim() !== '';
+
+  if (!fatherNameProvided && !motherNameProvided) {
+    this.invalidate('parents', 'At least one parent\'s name (father or mother) must be provided');
+  }
+  if (fatherNameProvided && (!parents.fatherPhone || parents.fatherPhone.trim() === '')) {
+    this.invalidate('fatherPhone', 'Father\'s phone number is required if father\'s name is provided');
+  }
+  if (motherNameProvided && (!parents.motherPhone || parents.motherPhone.trim() === '')) {
+    this.invalidate('motherPhone', 'Mother\'s phone number is required if mother\'s name is provided');
+  }
+  next();
 });
 
 // Indexes
@@ -108,7 +192,7 @@ studentSchema.index({ schoolId: 1, admissionNo: 1 }, {
   name: 'unique_admission_per_school'
 });
 
-studentSchema.index({ schoolId: 1, classId: 1, section: 1, rollNo: 1 }, { // Updated index to use classId
+studentSchema.index({ schoolId: 1, classId: 1, section: 1, rollNo: 1 }, {
   unique: true,
   name: 'unique_rollNo_per_class_section',
   partialFilterExpression: { rollNo: { $exists: true, $ne: '' } }

@@ -1,30 +1,27 @@
-// controllers/exam/examControllers.js
 const Exam = require('../../models/exam');
 const Class = require('../../models/class');
 const School = require('../../models/school');
+const Subject = require('../../models/subject');
 const APIError = require('../../utils/apiError');
 const mongoose = require('mongoose');
-const academicyear = require('../../models/academicyear');
+const AcademicYear = require('../../models/academicyear');
 
 // Create an exam
 const createExam = async (req, res, next) => {
   try {
     console.log('createExam called with:', { body: req.body, user: req.user });
-    const { classId, academicYearId: academicYearIdFromBody, examName, startDate, endDate, subjects } = req.body;
+    const { classId, academicYearId: academicYearIdFromBody, examTitle, examCenter, startDate, endDate, examStatus, examPapers } = req.body;
     const schoolId = req.user.schoolId;
 
     // Validate inputs
-    if (!classId || !examName || !startDate || !endDate || !subjects?.length) {
-      console.log('Missing fields:', { classId, examName, startDate, endDate, subjects });
+    if (!classId || !examTitle || !examCenter || !startDate || !endDate || !examStatus || !examPapers?.length) {
+      console.log('Missing fields:', { classId, examTitle, examCenter, startDate, endDate, examStatus, examPapers });
       throw new APIError('Missing required fields', 400);
     }
 
-    // Validate date range
+    // Convert exam dates to Date objects
     const examStartDate = new Date(startDate);
     const examEndDate = new Date(endDate);
-    if (examStartDate > examEndDate) {
-      throw new APIError('Start date cannot be after end date', 400);
-    }
 
     // Fetch the active academic year if not provided
     const school = await School.findById(schoolId).select('activeAcademicYear');
@@ -35,7 +32,7 @@ const createExam = async (req, res, next) => {
     console.log('Fetched activeAcademicYearId:', academicYearId);
 
     // Verify academic year
-    const academicYear = await academicyear.findById(academicYearId);
+    const academicYear = await AcademicYear.findById(academicYearId);
     if (!academicYear || academicYear.schoolId.toString() !== schoolId) {
       throw new APIError('Academic year not found or not authorized', 404);
     }
@@ -56,28 +53,47 @@ const createExam = async (req, res, next) => {
       throw new APIError('Class not found in this school', 404);
     }
 
-    // Validate subject dates (if provided) are within exam startDate and endDate
-    const examSubjects = subjects.map(subject => {
-      const subjectDate = subject.date ? new Date(subject.date) : null;
-      if (subjectDate && (subjectDate < examStartDate || subjectDate > examEndDate)) {
-        throw new APIError(`Subject date ${subject.date} must be within exam date range`, 400);
+    // Validate exam papers
+    const validatedExamPapers = await Promise.all(examPapers.map(async (paper) => {
+      // Verify subject exists
+      const subject = await Subject.findById(paper.subjectId);
+      if (!subject || subject.schoolId.toString() !== schoolId) {
+        throw new APIError(`Subject with ID ${paper.subjectId} not found or not authorized`, 404);
       }
-      return {
-        subjectId: subject.subjectId,
-        maxMarks: subject.maxMarks,
-        date: subjectDate
-      };
-    });
 
-    // Create the exam (uniqueness is enforced by the index)
+      // Convert paper date-times to Date objects
+      const paperStartDateTime = new Date(paper.paperStartDateTime);
+      const paperEndDateTime = new Date(paper.paperEndDateTime);
+
+      // Validate maxMarks and minMarks
+      if (paper.maxMarks <= 0 || paper.minMarks < 0 || paper.minMarks > paper.maxMarks) {
+        throw new APIError(`Invalid marks for subject ${subject.name}: maxMarks must be positive, and minMarks must be between 0 and maxMarks`, 400);
+      }
+
+      return {
+        subjectId: paper.subjectId,
+        subjectType: paper.subjectType,
+        maxMarks: paper.maxMarks,
+        minMarks: paper.minMarks,
+        paperCode: paper.paperCode,
+        paperStartDateTime,
+        paperEndDateTime,
+        roomNo: paper.roomNo,
+        gradeCriteria: paper.gradeCriteria
+      };
+    }));
+
+    // Create the exam
     const exam = new Exam({
       schoolId,
       classId,
       academicYearId,
-      examName,
+      examTitle,
+      examCenter,
       startDate: examStartDate,
       endDate: examEndDate,
-      subjects: examSubjects
+      examStatus,
+      examPapers: validatedExamPapers
     });
 
     await exam.save();
@@ -88,46 +104,89 @@ const createExam = async (req, res, next) => {
   }
 };
 
-// Fetch exam history for a class (unchanged, but updated response will include startDate and endDate)
-const getExamHistory = async (req, res, next) => {
+// Fetch exam history for a class (unchanged)
+const getExamHistory = async (req, res) => {
   try {
     const { classId } = req.params;
     const { academicYearId } = req.query;
-    const schoolId = req.user.schoolId;
 
     if (!classId || !academicYearId) {
-      throw new APIError('Class ID and Academic Year ID are required', 400);
+      return res.status(400).json({ message: 'Class ID and Academic Year ID are required' });
     }
 
-    // Verify the academic year
     const academicYear = await AcademicYear.findById(academicYearId);
-    if (!academicYear || academicYear.schoolId.toString() !== schoolId) {
-      throw new APIError('Academic year not found or not authorized', 404);
+    if (!academicYear) {
+      return res.status(404).json({ message: 'Academic Year not found' });
     }
 
-    // Verify the class exists in this school
-    const classExists = await Class.findOne({ _id: classId, schoolId });
-    if (!classExists) {
-      throw new APIError('Class not found in this school', 404);
-    }
-
-    // Fetch exams
     const exams = await Exam.find({
-      schoolId,
       classId,
-      academicYearId
+      academicYearId,
     })
-      .populate('classId', 'name')
-      .populate('subjects.subjectId', 'name');
+      .populate('classId')
+      .populate('subjects.subjectId');
+
+    if (!exams || exams.length === 0) {
+      return res.status(404).json({ message: 'No exams found' });
+    }
 
     res.status(200).json(exams);
   } catch (error) {
-    console.log('Error in getExamHistory:', error.message);
+    console.error('Error fetching exam history:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Fetch all exams for a school
+const getExamsBySchool = async (req, res, next) => {
+  try {
+    const { schoolId } = req.params;
+    const { academicYearId } = req.query;
+
+    // Validate schoolId
+    if (!mongoose.Types.ObjectId.isValid(schoolId)) {
+      throw new APIError('Invalid school ID', 400);
+    }
+
+    // Ensure the user has access to this school
+    if (schoolId !== req.user.schoolId) {
+      throw new APIError('Not authorized to access this school’s exams', 403);
+    }
+
+    // Build query
+    const query = { schoolId };
+    if (academicYearId) {
+      if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
+        throw new APIError('Invalid academic year ID', 400);
+      }
+      query.academicYearId = academicYearId;
+
+      // Verify academic year belongs to the school
+      const academicYear = await AcademicYear.findById(academicYearId);
+      if (!academicYear || academicYear.schoolId.toString() !== schoolId) {
+        throw new APIError('Academic year not found or not authorized', 404);
+      }
+    }
+
+    // Fetch exams
+    const exams = await Exam.find(query)
+      .populate('classId', 'name')
+      .populate('examPapers.subjectId', 'name');
+
+    if (!exams || exams.length === 0) {
+      return res.status(200).json([]); // Return empty array instead of 404 for better UX
+    }
+
+    res.status(200).json(exams);
+  } catch (error) {
+    console.log('Error in getExamsBySchool:', error.message);
     next(error);
   }
 };
 
-// Aggregate exam summary (updated to include date range filtering)
+// Export the new method
+
+// Aggregate exam summary (unchanged)
 const getExamSummary = async (req, res, next) => {
   try {
     const { academicYearId, startDate, endDate } = req.query;
@@ -137,33 +196,29 @@ const getExamSummary = async (req, res, next) => {
       throw new APIError('Academic Year ID is required', 400);
     }
 
-    // Verify the academic year
     const academicYear = await AcademicYear.findById(academicYearId);
     if (!academicYear || academicYear.schoolId.toString() !== schoolId) {
       throw new APIError('Academic year not found or not authorized', 404);
     }
 
-    // Build match criteria
     const matchCriteria = {
       schoolId: new mongoose.Types.ObjectId(schoolId),
       academicYearId: new mongoose.Types.ObjectId(academicYearId)
     };
 
-    // Add date range filtering if provided
     if (startDate || endDate) {
       matchCriteria.startDate = {};
       if (startDate) matchCriteria.startDate.$gte = new Date(startDate);
       if (endDate) matchCriteria.startDate.$lte = new Date(endDate);
     }
 
-    // Aggregate to count exams per class
     const summary = await Exam.aggregate([
       { $match: matchCriteria },
       {
         $group: {
           _id: '$classId',
           totalExams: { $sum: 1 },
-          examNames: { $push: '$examName' }
+          examNames: { $push: '$examTitle' }
         }
       },
       {
@@ -193,4 +248,4 @@ const getExamSummary = async (req, res, next) => {
   }
 };
 
-module.exports = { createExam, getExamHistory, getExamSummary };
+module.exports = { createExam, getExamHistory, getExamSummary, getExamsBySchool };

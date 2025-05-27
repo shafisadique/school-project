@@ -30,7 +30,8 @@ router.get('/subjects/:schoolId', getSubjectsBySchool);
 router.post('/assign-subject', assignSubjectToClass);
 router.get('/assignments/:schoolId', getCombinedAssignments);
 router.get('/teachers/by-school/:schoolId', getTeachersBySchoolId);
-router.get('/list', getStudentsByClass);
+// router.get('/list', getStudentsByClass);
+
 router.get('/assignments/teacher/:teacherId', getAssignmentsByTeacher);
 router.put('/update-attendance-teachers', updateAttendanceTeachers);
 

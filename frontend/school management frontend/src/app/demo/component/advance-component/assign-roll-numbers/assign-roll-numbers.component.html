@@ -1,69 +1,69 @@
 <div class="container">
-    <h2>Assign Roll Numbers</h2>
-  
-    <!-- Display error message if any -->
-    <div *ngIf="error" class="error-message">
-      {{ error }}
-    </div>
-  
-    <!-- Display success message if any -->
-    <div *ngIf="message" class="success-message">
-      {{ message }}
-    </div>
-  
-    <!-- Class selection dropdown -->
-    <div class="form-group">
-      <label for="classSelect">Select Class:</label>
-      <select id="classSelect" (change)="onClassChange($event)">
-        <option value="" disabled selected>Select a class</option>
-        <option *ngFor="let classItem of classes" [value]="classItem.name">
-          {{ classItem.name }}
-        </option>
-      </select>
-    </div>
-  
-    <!-- Buttons container -->
-    <div class="buttons-container">
-      <!-- Button to assign roll numbers by creation order -->
-      <button (click)="assignRollNumbers()" [disabled]="loading || !selectedClass" class="assign-btn">
-        {{ loading ? 'Assigning...' : 'Assign Roll Numbers to All (By Creation Order)' }}
-      </button>
-  
-      <!-- Button to assign roll numbers alphabetically -->
-      <button (click)="assignRollNumbersAlphabetically()" [disabled]="loading || !selectedClass" class="assign-btn alpha-btn">
-        {{ loading ? 'Assigning...' : 'Assign Roll Numbers Alphabetically' }}
-      </button>
-    </div>
-  
-    <!-- Display students after fetching -->
-    <div *ngIf="students.length > 0" class="student-list">
-      <h3>Students in {{ selectedClass }}</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Admission No</th>
-            <th>Name</th>
-            <th>Class</th>
-            <th>Section</th>
-            <th>Roll Number</th>
-            <th>Assign Roll Number</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let student of students">
-            <td>{{ student.admissionNo }}</td>
-            <td>{{ student.name }}</td>
-            <td>{{ student.className }}</td>
-            <td>{{ student.section.join(', ') }}</td>
-            <td>{{ student.rollNo || 'Not assigned' }}</td>
-            <td>
-              <input type="text" [(ngModel)]="student.newRollNo" placeholder="Enter roll number" />
-              <button (click)="assignRollNumberToStudent(student)" [disabled]="loading">
-                Assign
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <h2>Assign Roll Numbers</h2>
+
+  <!-- Display error message if any -->
+  <div *ngIf="error" class="error-message">
+    {{ error }}
   </div>
+
+  <!-- Display success message if any -->
+  <div *ngIf="message" class="success-message">
+    {{ message }}
+  </div>
+
+  <!-- Class selection dropdown -->
+  <div class="form-group">
+    <label for="classSelect">Select Class:</label>
+    <select id="classSelect" (change)="onClassChange($event)">
+      <option value="" disabled selected>Select a class</option>
+      <option *ngFor="let classItem of classes" [value]="classItem._id">
+        {{ classItem.name }}
+      </option>
+    </select>
+  </div>
+
+  <!-- Buttons container -->
+  <div class="buttons-container">
+    <!-- Button to assign roll numbers by creation order -->
+    <button (click)="assignRollNumbers()" [disabled]="loading || !selectedClassId" class="assign-btn">
+      {{ loading ? 'Assigning...' : 'Assign Roll Numbers to All (By Creation Order)' }}
+    </button>
+
+    <!-- Button to assign roll numbers alphabetically -->
+    <button (click)="assignRollNumbersAlphabetically()" [disabled]="loading || !selectedClassId" class="assign-btn alpha-btn">
+      {{ loading ? 'Assigning...' : 'Assign Roll Numbers Alphabetically' }}
+    </button>
+  </div>
+
+  <!-- Display students after fetching -->
+  <div *ngIf="students.length > 0" class="student-list">
+    <h3>Students in {{ selectedClassName }}</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Admission No</th>
+          <th>Name</th>
+          <th>Class</th>
+          <th>Section</th>
+          <th>Roll Number</th>
+          <th>Assign Roll Number</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let student of students">
+          <td>{{ student.admissionNo }}</td>
+          <td>{{ student.name }}</td>
+          <td>{{ student.classId?.name || 'N/A' }}</td>
+          <td>{{ student.section.join(', ') }}</td>
+          <td>{{ student.rollNo || 'Not assigned' }}</td>
+          <td>
+            <input type="text" [(ngModel)]="student.newRollNo" placeholder="Enter roll number" />
+            <button (click)="assignRollNumberToStudent(student)" [disabled]="loading">
+              Assign
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

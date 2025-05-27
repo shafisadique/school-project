@@ -1,0 +1,48 @@
+
+.form-section {
+  margin-bottom: 20px;
+  border: 1px solid #e0e0e0;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.form-section legend {
+  background: linear-gradient(90deg, #4a90e2, #50c9c3);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 12px 20px;
+  border-radius: 5px 5px 0 0;
+  margin-bottom: 15px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.error {
+  color: red;
+  font-size: 12px;
+}
+
+.parent-error {
+  display: block;
+  margin-bottom: 15px;
+  color: red;
+  font-size: 14px;
+}
+
+.server-error {
+  color: red;
+  margin-bottom: 15px;
+}
+
+.image-preview-container img {
+  max-width: 100%;
+  height: auto;
+}

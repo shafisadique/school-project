@@ -124,7 +124,28 @@ export const NavigationItems: NavigationItem[] = [
       },
     ]
   },
-
+  {
+    id: 'Exam',
+    title: 'Exam & Progress',
+    type: 'group', // Changed to collapse
+    icon: 'team',
+    children: [
+      {
+        id: 'exam',
+        title: 'Exam History',
+        type: 'item',
+        url: '/exams-&-progress/exam-list',
+        icon: 'user'
+      },
+      {
+        id: 'exam',
+        title: 'Exam-Create',
+        type: 'item',
+        url: '/exams-&-progress/create-exam',
+        icon: 'user'
+      },
+  ]
+},
 
   {
     id: 'fee',

@@ -1,65 +1,78 @@
-import { Component } from '@angular/core';
-import { AcademicYear, Class, Exam } from '../exam.model';
-import { ExamService } from '../exam.service';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { ToastrService } from 'ngx-toastr';
+import { AuthService } from 'src/app/theme/shared/service/auth.service';
+import { Exam } from '../exam.model';
+import { ExamService } from '../exam.service';
 
 @Component({
   selector: 'app-exam-list',
-  imports: [CommonModule,FormsModule],
+  standalone: true,
+  imports: [CommonModule],
   templateUrl: './exam-list.component.html',
-  styleUrl: './exam-list.component.scss'
+  styleUrls: ['./exam-list.component.scss']
 })
-export class ExamListComponent {
+export class ExamListComponent implements OnInit {
   exams: Exam[] = [];
-  classes: Class[] = [];
-  academicYears: AcademicYear[] = [];
-  selectedClassId: string = '';
-  selectedAcademicYearId: string = '';
-  constructor(private examService: ExamService) {}
-  ngOnInit(): void {
-    this.examService.getClasses().subscribe({
-      next: (classes) => {
-        this.classes = classes;
-        if (classes.length > 0) this.selectedClassId = classes[0]._id;
-        this.loadExams();
-      },
-      error: (err) => {
-        console.error('Error fetching classes:', err);
-      }
-    });
+  schoolId: string | null = null;
+  expandedRows: { [key: string]: boolean } = {};
 
-    this.examService.getAcademicYears().subscribe({
-      next: (years) => {
-        this.academicYears = years;
-        if (years.length > 0) this.selectedAcademicYearId = years[0]._id;
-        this.loadExams();
+  constructor(
+    private examService: ExamService,
+    private authService: AuthService,
+    private toastr: ToastrService,
+    private router: Router
+  ) {}
+
+  ngOnInit(): void {
+    this.schoolId = this.authService.getSchoolId();
+    if (!this.schoolId) {
+      this.toastr.error('School ID is missing. Please log in again.', 'Error');
+      this.router.navigate(['/auth/login']);
+      return;
+    }
+
+    this.loadExams();
+  }
+
+  loadExams(): void {
+    this.examService.getExamsBySchool(this.schoolId!).subscribe({
+      next: (exams) => {
+        this.exams = exams;
       },
       error: (err) => {
-        console.error('Error fetching academic years:', err);
+        this.toastr.error('Failed to load exams. Please try again.', 'Error');
       }
     });
   }
 
-  loadExams(): void {
-    if (this.selectedClassId && this.selectedAcademicYearId) {
-      this.examService.getExamHistory(this.selectedClassId, this.selectedAcademicYearId).subscribe({
-        next: (exams) => {
-          this.exams = exams;
+  toggleRow(examId: string): void {
+    this.expandedRows[examId] = !this.expandedRows[examId];
+  }
+
+  deleteExam(examId: string): void {
+    if (confirm('Are you sure you want to delete this exam?')) {
+      this.examService.deleteExam(examId).subscribe({
+        next: () => {
+          this.toastr.success('Exam deleted successfully!', 'Success');
+          this.exams = this.exams.filter(exam => exam._id !== examId);
         },
         error: (err) => {
-          console.error('Error fetching exams:', err);
-          this.exams = [];
+          this.toastr.error('Failed to delete exam. Please try again.', 'Error');
         }
       });
     }
   }
 
-  onClassChange(): void {
-    this.loadExams();
+  editExam(examId: string): void {
+    this.router.navigate(['/edit-exam', examId]);
   }
 
-  onAcademicYearChange(): void {
-    this.loadExams();
+  formatDate(date: string): string {
+    return new Date(date).toLocaleString('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
   }
 }

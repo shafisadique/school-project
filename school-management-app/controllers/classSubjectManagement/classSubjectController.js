@@ -116,12 +116,13 @@ const getClassesBySchool = async (req, res, next) => {
         .populate('attendanceTeacher', 'name') // Populate attendanceTeacher with name
         .populate('substituteAttendanceTeachers', 'name'); // Populate substituteAttendanceTeachers with name
     } else if (req.user.role === 'teacher') {
+      console.log(req.user.id)
       // Teachers can only see classes they are assigned to via subjects
       const subjects = await Subject.find({
         schoolId: req.user.schoolId,
         'teacherAssignments.teacherId': req.user.id
       }).populate('classes');
-
+      console.log(subjects)
       // Extract unique class IDs from the subjects
       const classIds = [...new Set(subjects.flatMap(subject => subject.classes.map(classObj => classObj._id)))];
       classes = await Class.find({
@@ -146,25 +147,26 @@ const getClassesBySchool = async (req, res, next) => {
  * @route   GET /api/students/list?className=<className>
  * @access  Private/Admin or Teacher
  */
-const getStudentsByClass = async (req, res, next) => {
-  try {
-    const className = req.query.className;
-    if (!className) {
-      throw new APIError('Class name is required', 400);
-    }
+// const   = async (req, res, next) => {
+//   try {
+//     const className = req.query.className;
+//     if (!className) {
+//       throw new APIError('Class name is required', 400);
+//     }
 
-    const students = await student.find({
-      schoolId: req.user.schoolId,
-      className
-    }).select('name className section rollNo');
+//     const students = await student.find({
+//       schoolId: req.user.schoolId,
+//       className
+//     }).select('name className section rollNo');
 
-    res.status(200).json(students);
-  } catch (error) {
-    next(error);
-  }
-};
+//     res.status(200).json(students);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
 // ✅ Create Subject
+
 const createSubject = async (req, res,next) => {
   try {
     const { name, classes, teachers } = req.body;
@@ -399,7 +401,6 @@ module.exports = {
   assignSubjectToClass,
   getCombinedAssignments,
   getTeachersBySchoolId,
-  getStudentsByClass,
   getAssignmentsByTeacher,
   updateAttendanceTeachers
 };

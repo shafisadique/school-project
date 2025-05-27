@@ -1,0 +1,234 @@
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 25px; /* Reduced padding */
+    background-color: #f5f7fa;
+    border-radius: 10px; /* Slightly smaller radius */
+    box-shadow: 0 3px 15px rgba(0, 0, 0, 0.05); /* Slightly smaller shadow */
+  }
+  
+  .header {
+    background: linear-gradient(90deg, #4a90e2, #50c9c3);
+    padding: 12px 20px; /* Reduced padding */
+    border-radius: 8px 8px 0 0; /* Adjusted radius */
+    margin-bottom: 15px; /* Reduced margin */
+  
+    h2 {
+      font-size: 24px; /* Reduced from 28px */
+      color: white;
+      margin: 0;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px; /* Adjusted for smaller font */
+    }
+  }
+  
+  .exam-form {
+    background: white;
+    border-radius: 8px; /* Adjusted radius */
+    padding: 15px; /* Reduced padding */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  .form-section {
+    margin-bottom: 25px; /* Reduced margin */
+    padding: 15px; /* Reduced padding */
+    border-radius: 6px; /* Adjusted radius */
+    background-color: #fafafa;
+    border: 1px solid #e8ecef;
+  
+    h3 {
+      font-size: 18px; /* Reduced from 20px */
+      color: #333;
+      margin-bottom: 15px; /* Reduced margin */
+      font-weight: 500;
+      border-bottom: 2px solid #4a90e2;
+      padding-bottom: 4px; /* Adjusted padding */
+      display: inline-block;
+    }
+  }
+  
+  .grid-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 3:3 ratio in a 6-unit grid */
+    gap: 15px; /* Reduced gap */
+  
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr; /* Stack on smaller screens */
+    }
+  }
+  
+  .grid-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px; /* Reduced gap */
+  }
+  
+  .form-group {
+    label {
+      display: block;
+      font-size: 12px; /* Reduced from 14px */
+      color: #444;
+      margin-bottom: 5px; /* Adjusted margin */
+      font-weight: 500;
+    }
+  
+    input[type="text"],
+    input[type="number"],
+    input[type="datetime-local"],
+    select {
+      width: 100%;
+      padding: 8px 10px; /* Reduced padding */
+      border: 1px solid #d1d5db;
+      border-radius: 5px; /* Adjusted radius */
+      font-size: 12px; /* Reduced from 14px */
+      background-color: #fff;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  
+      &:focus {
+        border-color: #4a90e2;
+        box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1); /* Adjusted shadow */
+        outline: none;
+      }
+    }
+  
+    input[readonly] {
+      background-color: #f1f3f5;
+      cursor: not-allowed;
+    }
+  }
+  
+  .exam-papers {
+    max-height: 450px; /* Slightly reduced height */
+    overflow-y: auto;
+    padding: 8px; /* Reduced padding */
+    border: 1px solid #e8ecef;
+    border-radius: 6px; /* Adjusted radius */
+    background-color: #f9fafb;
+  
+    .exam-paper {
+      margin-bottom: 12px; /* Reduced margin */
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+      &:hover {
+        transform: translateY(-1px); /* Adjusted transform */
+        box-shadow: 0 5px 12px rgba(0, 0, 0, 0.08); /* Adjusted shadow */
+      }
+    }
+  
+    .card {
+      background-color: white;
+      border-radius: 6px; /* Adjusted radius */
+      border: 1px solid #e8ecef;
+      overflow: hidden;
+  
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px; /* Reduced padding */
+        background-color: #f1f3f5;
+        border-bottom: 1px solid #e8ecef;
+  
+        h4 {
+          font-size: 14px; /* Reduced from 16px */
+          color: #333;
+          margin: 0;
+          font-weight: 500;
+        }
+  
+        .remove-button {
+          padding: 5px 10px; /* Reduced padding */
+          background-color: #ff4d4f;
+          color: white;
+          border: none;
+          border-radius: 3px; /* Adjusted radius */
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 4px; /* Adjusted gap */
+          transition: background-color 0.3s ease;
+  
+          &:hover {
+            background-color: #d9363e;
+          }
+  
+          span {
+            font-size: 12px; /* Reduced size */
+          }
+        }
+      }
+  
+      .card-body {
+        padding: 15px; /* Reduced padding */
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); /* Adjusted min width */
+        gap: 12px; /* Reduced gap */
+      }
+    }
+  }
+  
+  .add-button {
+    display: block;
+    margin: 12px 0; /* Reduced margin */
+    padding: 8px 15px; /* Reduced padding */
+    background: linear-gradient(90deg, #4a90e2, #63b3ed);
+    color: white;
+    border: none;
+    border-radius: 5px; /* Adjusted radius */
+    cursor: pointer;
+    font-size: 12px; /* Reduced from 14px */
+    font-weight: 500;
+    transition: background 0.3s ease, transform 0.2s ease;
+  
+    &:hover {
+      background: linear-gradient(90deg, #3b82f6, #4a90e2);
+      transform: translateY(-1px);
+    }
+  }
+  
+  .form-actions {
+    text-align: right;
+  
+    .submit-button {
+      padding: 10px 20px; /* Reduced padding */
+      background: linear-gradient(90deg, #2ecc71, #27ae60);
+      color: white;
+      border: none;
+      border-radius: 5px; /* Adjusted radius */
+      cursor: pointer;
+      font-size: 12px; /* Reduced from 14px */
+      font-weight: 500;
+      transition: background 0.3s ease, transform 0.2s ease;
+  
+      &:hover {
+        background: linear-gradient(90deg, #27ae60, #2ecc71);
+        transform: translateY(-1px);
+      }
+  
+      &:disabled {
+        background: #cccccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+    }
+  }
+  
+  /* Scrollbar Styling */
+  .exam-papers::-webkit-scrollbar {
+    width: 6px; /* Reduced width */
+  }
+  
+  .exam-papers::-webkit-scrollbar-track {
+    background: #f1f3f5;
+    border-radius: 3px; /* Adjusted radius */
+  }
+  
+  .exam-papers::-webkit-scrollbar-thumb {
+    background: #4a90e2;
+    border-radius: 3px; /* Adjusted radius */
+  }
+  
+  .exam-papers::-webkit-scrollbar-thumb:hover {
+    background: #3b82f6;
+  }

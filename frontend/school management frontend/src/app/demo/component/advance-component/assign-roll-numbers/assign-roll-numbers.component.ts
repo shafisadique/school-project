@@ -12,24 +12,24 @@ interface Class {
 
 interface Student {
   _id: string;
-  admissionNo: string; // Added to distinguish students with the same name
+  admissionNo: string;
   name: string;
-  className: string;
+  classId?: { _id: string; name: string }; // Updated to match populated classId
   section: string[];
   rollNo: string;
-  newRollNo?: string; // For manual roll number input
+  newRollNo?: string;
 }
 
 @Component({
   selector: 'app-assign-roll-numbers',
-  imports: [CommonModule,FormsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './assign-roll-numbers.component.html',
-  styleUrl: './assign-roll-numbers.component.scss'
+  styleUrls: ['./assign-roll-numbers.component.scss']
 })
-
 export class AssignRollNumbersComponent implements OnInit {
   classes: Class[] = [];
-  selectedClass: string | null = null;
+  selectedClassId: string | null = null;
+  selectedClassName: string | null = null; // Added to display class name
   students: Student[] = [];
   message: string | null = null;
   error: string | null = null;
@@ -41,9 +41,8 @@ export class AssignRollNumbersComponent implements OnInit {
     this.fetchClasses();
   }
 
-  // Fetch the list of classes for the user's school
   fetchClasses(): void {
-    const schoolId = localStorage.getItem('schoolId'); // Adjust based on how you store schoolId
+    const schoolId = localStorage.getItem('schoolId');
     if (!schoolId) {
       this.error = 'School ID not found. Please log in again.';
       return;
@@ -59,13 +58,12 @@ export class AssignRollNumbersComponent implements OnInit {
     });
   }
 
-  // Fetch students for the selected class
-  fetchStudents(className: string): void {
-    this.classSubjectService.getStudentsByClass(className).subscribe({
+  fetchStudents(classId: string): void {
+    this.classSubjectService.getStudentsByClass(classId).subscribe({
       next: (students: Student[]) => {
         this.students = students.map(student => ({
           ...student,
-          newRollNo: student.rollNo || '' // Initialize newRollNo for manual input
+          newRollNo: student.rollNo || ''
         }));
       },
       error: (err) => {
@@ -74,9 +72,8 @@ export class AssignRollNumbersComponent implements OnInit {
     });
   }
 
-  // Assign roll numbers by creation order
   assignRollNumbers(): void {
-    if (!this.selectedClass) {
+    if (!this.selectedClassId) {
       this.error = 'Please select a class';
       return;
     }
@@ -85,11 +82,13 @@ export class AssignRollNumbersComponent implements OnInit {
     this.message = null;
     this.error = null;
 
-    this.classSubjectService.assignRollNumbers(this.selectedClass).subscribe({
+    this.classSubjectService.assignRollNumbers(this.selectedClassId).subscribe({
       next: (response: any) => {
         this.loading = false;
         this.message = response.message;
-        this.fetchStudents(this.selectedClass!); // Refresh the student list
+        if (this.selectedClassId) {
+          this.fetchStudents(this.selectedClassId);
+        }
       },
       error: (err) => {
         this.loading = false;
@@ -98,9 +97,8 @@ export class AssignRollNumbersComponent implements OnInit {
     });
   }
 
-  // Assign roll numbers alphabetically
   assignRollNumbersAlphabetically(): void {
-    if (!this.selectedClass) {
+    if (!this.selectedClassId) {
       this.error = 'Please select a class';
       return;
     }
@@ -109,11 +107,13 @@ export class AssignRollNumbersComponent implements OnInit {
     this.message = null;
     this.error = null;
 
-    this.classSubjectService.assignRollNumbersAlphabetically(this.selectedClass).subscribe({
+    this.classSubjectService.assignRollNumbersAlphabetically(this.selectedClassId).subscribe({
       next: (response: any) => {
         this.loading = false;
         this.message = response.message;
-        this.fetchStudents(this.selectedClass!); // Refresh the student list
+        if (this.selectedClassId) {
+          this.fetchStudents(this.selectedClassId);
+        }
       },
       error: (err) => {
         this.loading = false;
@@ -122,7 +122,6 @@ export class AssignRollNumbersComponent implements OnInit {
     });
   }
 
-  // Assign a roll number to a specific student
   assignRollNumberToStudent(student: Student): void {
     if (!student.newRollNo) {
       this.error = `Please enter a roll number for ${student.name} (Admission No: ${student.admissionNo})`;
@@ -136,9 +135,9 @@ export class AssignRollNumbersComponent implements OnInit {
     this.classSubjectService.assignRollNumberToStudent(student._id, student.newRollNo).subscribe({
       next: (response: any) => {
         this.loading = false;
-        this.message = response.message;
-        if (this.selectedClass) {
-          this.fetchStudents(this.selectedClass); // Refresh the student list
+        this.message = response.message || 'Roll number assigned successfully';
+        if (this.selectedClassId) {
+          this.fetchStudents(this.selectedClassId);
         }
       },
       error: (err) => {
@@ -148,15 +147,15 @@ export class AssignRollNumbersComponent implements OnInit {
     });
   }
 
-  // Handle class selection
   onClassChange(event: Event): void {
     const target = event.target as HTMLSelectElement;
-    this.selectedClass = target.value;
+    this.selectedClassId = target.value;
+    this.selectedClassName = this.classes.find(cls => cls._id === this.selectedClassId)?.name || null;
     this.students = [];
     this.message = null;
     this.error = null;
-    if (this.selectedClass) {
-      this.fetchStudents(this.selectedClass);
+    if (this.selectedClassId) {
+      this.fetchStudents(this.selectedClassId);
     }
   }
 }

@@ -1,0 +1,104 @@
+<div class="container">
+  <header class="header">
+    <h2>Result List</h2>
+    <button class="create-button" (click)="navigateToCreateResult()" [disabled]="isLoadingExams || isLoadingAcademicYears">
+      Create New Result
+    </button>
+  </header>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label for="academicYear">Academic Year</label>
+      <select id="academicYear" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()" [disabled]="isLoadingAcademicYears">
+        <option value="">All Academic Years</option>
+        <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
+      </select>
+      <span class="loading" *ngIf="isLoadingAcademicYears">Loading...</span>
+    </div>
+    <div class="filter-group">
+      <label for="exam">Exam</label>
+      <select id="exam" [(ngModel)]="selectedExamId" (change)="onExamChange()" [disabled]="isLoadingExams || !selectedAcademicYearId">
+        <option value="">Select Exam</option>
+        <option *ngFor="let exam of exams" [value]="exam._id">{{ exam.examTitle }}</option>
+      </select>
+      <span class="loading" *ngIf="isLoadingExams">Loading...</span>
+    </div>
+  </div>
+
+  <div class="result-table">
+    <div class="loading-overlay" *ngIf="isLoadingResults">
+      <span>Loading results...</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Total Marks Obtained</th>
+          <th>Total Max Marks</th>
+          <th>Percentage</th>
+          <th>Grade</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let result of results">
+          <tr class="result-row">
+            <td>{{ result.studentId.name }} (Roll No: {{ result.studentId.rollNo }})</td>
+            <td>{{ result.totalMarksObtained }}</td>
+            <td>{{ result.totalMaxMarks }}</td>
+            <td>{{ result.percentage.toFixed(2) }}%</td>
+            <td>{{ result.grade }}</td>
+            <td>
+              <span class="status-badge" [ngClass]="{
+                'status-pass': result.status === 'Pass',
+                'status-fail': result.status === 'Fail',
+                'status-onhold': result.status === 'On Hold'
+              }">
+                {{ result.status }}
+              </span>
+            </td>
+            <td>
+              <button class="action-button view" (click)="toggleRow(result._id)">
+                {{ expandedRows[result._id] ? 'Hide' : 'View' }} Details
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="expandedRows[result._id]" class="details-row">
+            <td colspan="7">
+              <div class="subject-marks">
+                <h3>Subject Marks</h3>
+                <table class="marks-table">
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Marks Obtained</th>
+                      <th>Max Marks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let subject of result.subjects">
+                      <td>{{ subject.subjectId.name }}</td>
+                      <td>{{ subject.marksObtained }}</td>
+                      <td>{{ subject.maxMarks }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+
+    <div class="no-data" *ngIf="!results.length && selectedExamId && !isLoadingResults">
+      No results found for this exam.
+    </div>
+    <div class="no-data" *ngIf="!selectedExamId && !isLoadingExams">
+      Please select an exam to view results.
+    </div>
+    <div class="no-data" *ngIf="!selectedAcademicYearId && !isLoadingAcademicYears">
+      Please select an academic year to view exams and results.
+    </div>
+  </div>
+</div>
