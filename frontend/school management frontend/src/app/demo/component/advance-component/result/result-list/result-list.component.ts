@@ -137,6 +137,12 @@ export class ResultListComponent implements OnInit {
     });
   }
 
+  // New method to format the exam display name with class name
+  getExamDisplayName(exam: any): string {
+    const className = exam.classId?.name || 'Unknown Class';
+    return `${exam.examTitle} - ${className}`;
+  }
+
   onAcademicYearChange(): void {
     localStorage.setItem('activeAcademicYearId', this.selectedAcademicYearId);
     this.selectedExamId = '';

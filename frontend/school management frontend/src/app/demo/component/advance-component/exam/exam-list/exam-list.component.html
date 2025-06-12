@@ -9,6 +9,7 @@
       <thead>
         <tr>
           <th>Exam Title</th>
+          <th>Exam Class</th>
           <th>Exam Center</th>
           <th>Start Date</th>
           <th>End Date</th>
@@ -20,6 +21,7 @@
         <ng-container *ngFor="let exam of exams">
           <tr class="exam-row">
             <td>{{ exam.examTitle }}</td>
+            <td>{{ exam.classId?.name }}</td>
             <td>{{ exam.examCenter }}</td>
             <td>{{ formatDate(exam.startDate) }}</td>
             <td>{{ formatDate(exam.endDate) }}</td>
@@ -41,7 +43,7 @@
             </td>
           </tr>
           <tr *ngIf="expandedRows[exam._id]" class="details-row">
-            <td colspan="6">
+            <td colspan="7">
               <div class="exam-papers">
                 <h3>Exam Papers</h3>
                 <table class="papers-table">

@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+.container {
+  margin: 0 auto;
+  font-family: 'Poppins', sans-serif;
+}
+
+.invoice-container {
+  padding: 20px;
+}
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+.form-section {
+  margin-bottom: 20px;
+  border: 1px solid #e0e0e0;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.form-section legend {
+  background: linear-gradient(90deg, #4a90e2, #50c9c3);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 12px 20px;
+  border-radius: 5px 5px 0 0;
+  margin-bottom: 15px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: #2C3E50;
+  font-size: 14px;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.form-control,
+.form-select {
+  border-radius: 6px;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  height: 36px;
+  background: #fff;
+
+  &:focus {
+    border-color: #2C3E50;
+    box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1);
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+
+  thead {
+    tr {
+      background-color: #2C3E50;
+      color: white;
+
+      th {
+        padding: 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 14px;
+      }
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #ECF0F1;
+      transition: background-color 0.2s;
+
+      &:nth-child(even) {
+        background-color: #F4FAFF;
+      }
+
+      &:hover {
+        background-color: #EAF6FF;
+      }
+
+      td {
+        padding: 12px;
+        color: #34495E;
+        font-size: 14px;
+        vertical-align: middle;
+      }
+    }
+  }
+}
+
+.generate-btn {
+  background: linear-gradient(90deg, #4a90e2, #50c9c3);
+  border: none;
+  color: white;
+  padding: 0.75rem 2rem;
+  font-size: 1.2rem;
+  border-radius: 30px;
+  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: linear-gradient(90deg, #3a80d2, #40b9b3);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(74, 144, 226, 0.4);
+  }
+
+  &:disabled {
+    background: #adb5bd;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+}
+
+.text-center {
+  text-align: center;
+}

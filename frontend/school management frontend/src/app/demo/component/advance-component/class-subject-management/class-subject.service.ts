@@ -48,9 +48,15 @@ export class ClassSubjectService {
     return this.http.get<Class[]>(`${this.apiUrl}/api/class-subject-management/classes/${schoolId}`);
   }
 
-  getStudentsByClass(classId: string): Observable<any> {
+  // getStudentsByClass(classId: string): Observable<any> {
+  //   const url = `${this.apiUrl}/api/students/get-student-by-class/${classId}`;
+  //   return this.http.get(url);
+  // }
+
+  getStudentsByClass(classId: string, academicYearId: string): Observable<any> {
     const url = `${this.apiUrl}/api/students/get-student-by-class/${classId}`;
-    return this.http.get(url);
+    const params = new HttpParams().set('academicYearId', academicYearId); // Add academicYearId as query param
+    return this.http.get(url, { params });
   }
 
   assignRollNumbers(classId: string): Observable<any> {

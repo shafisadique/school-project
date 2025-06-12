@@ -35,7 +35,7 @@ export interface ExamPaper {
 export interface Exam {
   _id:any;
   schoolId: string;
-  classId: string;
+  classId: any;
   academicYearId: string;
   examTitle: string;
   examCenter: string;

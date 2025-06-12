@@ -34,6 +34,44 @@ export const NavigationItems: NavigationItem[] = [
       }
     ]
   },
+  
+  {
+    id: 'student',
+    title: 'Student',
+    type: 'group', // Changed to collapse
+    icon: 'team',
+    children: [
+      {
+        id: 'student-details',
+        title: 'Student Details',
+        type: 'item',
+        url: '/student/student-details',
+        icon: 'user'
+      },
+      
+      {
+        id: 'student-create',
+        title: 'Student Create',
+        type: 'item',
+        url: '/student/student-create',
+        icon: 'user'
+      },
+           {
+        id: 'student-promotion',
+        title: 'Student Promotion',
+        type: 'item',
+        url: '/student/student-promotion',
+        icon: 'user'
+      },
+      {
+        id: 'assign-rollno-to-student',
+        title: 'Student Roll No',
+        type: 'item',
+        url: '/class-&-subject-management/assign-roll-numbers',
+        icon: 'user'
+      },
+    ]
+  },
   {
     id: 'teacher',
     title: 'Teacher',
@@ -57,35 +95,6 @@ export const NavigationItems: NavigationItem[] = [
     ]
   },
 
-  {
-    id: 'student',
-    title: 'Student',
-    type: 'group', // Changed to collapse
-    icon: 'team',
-    children: [
-      {
-        id: 'student-details',
-        title: 'Student Details',
-        type: 'item',
-        url: '/student/student-details',
-        icon: 'user'
-      },
-      {
-        id: 'assign-rollno-to-student',
-        title: 'Student Roll No',
-        type: 'item',
-        url: '/class-&-subject-management/assign-roll-numbers',
-        icon: 'user'
-      },
-      {
-        id: 'teacher-create',
-        title: 'Student Create',
-        type: 'item',
-        url: '/student/student-create',
-        icon: 'user'
-      }
-    ]
-  },
   {
     id: 'class-&-subject-management',
     title: 'Class & Subject Management',
@@ -126,7 +135,7 @@ export const NavigationItems: NavigationItem[] = [
   },
   {
     id: 'Exam',
-    title: 'Exam & Progress',
+    title: 'Exam',
     type: 'group', // Changed to collapse
     icon: 'team',
     children: [
@@ -144,9 +153,30 @@ export const NavigationItems: NavigationItem[] = [
         url: '/exams-&-progress/create-exam',
         icon: 'user'
       },
+      
   ]
 },
-
+    {
+    id: 'result',
+    title: 'Result ',
+    type: 'group', // Changed to collapse
+    icon: 'team',
+    children: [
+      {
+        id: 'result-list',
+        title: 'Result List',
+        type: 'item',
+        url: '/result/result-list',
+        icon: 'user'
+      },
+       {
+        id: 'result-create',
+        title: 'Result Create',
+        type: 'item',
+        url: '/result/create-result',
+        icon: 'user'
+      },
+    ]},
   {
     id: 'fee',
     title: 'Fee',
@@ -162,26 +192,35 @@ export const NavigationItems: NavigationItem[] = [
       },
       {
         id: 'generate-invoice',
-        title: 'Bulk Monthly Fee Invoice',
+        title: 'Monthly Invoice create',
         type: 'item',
         url: '/fee/bulk-generate-invoice',
         icon: 'user'
       },
       {
-        id: 'generate-invoice',
-        title: 'Generate Monthly Invoice',
+        id: 'invoice-list',
+        title: 'Invoice List',
         type: 'item',
-        url: '/fee/generate-invoice',
+        url: '/fee/bulk-invoice-list',
         icon: 'user'
       },
+      
+      // {
+      //   id: 'generate-invoice',
+      //   title: 'Generate Monthly Invoice',
+      //   type: 'item',
+      //   url: '/fee/generate-invoice',
+      //   icon: 'user'
+      // },
 
-      {
-        id: 'generate-invoice',
-        title: 'Pay Fee',
-        type: 'item',
-        url: '/fee/pay-student-fee',
-        icon: 'user'
-      },
+      // {
+      //   id: 'generate-invoice',
+      //   title: 'Pay Fee',
+      //   type: 'item',
+      //   url: '/fee/pay-student-fee',
+      //   icon: 'user'
+      // },
+
       {
         id: 'generate-invoice',
         title: 'Recipt Fee',

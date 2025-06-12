@@ -1,10 +1,9 @@
 <div class="container">
-  <header class="header">
-    <h2>Result List</h2>
+  <!-- <header class="header">
     <button class="create-button" (click)="navigateToCreateResult()" [disabled]="isLoadingExams || isLoadingAcademicYears">
       Create New Result
     </button>
-  </header>
+  </header> -->
 
   <div class="filters">
     <div class="filter-group">
@@ -19,7 +18,7 @@
       <label for="exam">Exam</label>
       <select id="exam" [(ngModel)]="selectedExamId" (change)="onExamChange()" [disabled]="isLoadingExams || !selectedAcademicYearId">
         <option value="">Select Exam</option>
-        <option *ngFor="let exam of exams" [value]="exam._id">{{ exam.examTitle }}</option>
+        <option *ngFor="let exam of exams" [value]="exam._id">{{ getExamDisplayName(exam) }}</option>
       </select>
       <span class="loading" *ngIf="isLoadingExams">Loading...</span>
     </div>
@@ -81,6 +80,7 @@
                       <td>{{ subject.subjectId.name }}</td>
                       <td>{{ subject.marksObtained }}</td>
                       <td>{{ subject.maxMarks }}</td>
+                      
                     </tr>
                   </tbody>
                 </table>
@@ -102,3 +102,9 @@
     </div>
   </div>
 </div>
+
+
+
+
+
+

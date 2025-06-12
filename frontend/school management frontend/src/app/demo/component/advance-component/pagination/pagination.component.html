@@ -1,29 +1,29 @@
-<div class="pagination d-flex justify-content-between align-items-center" *ngIf="totalPages > 1">
-    <!-- Showing X to Y of Z -->
-    <div>
-      Showing {{ (currentPage - 1) * pageSize + 1 }} to {{ getEndIndex() }} of {{ totalItems }} items
-    </div>
-  
-    <!-- Pagination Controls -->
-    <div class="d-flex align-items-center">
-      <!-- Page Size Dropdown -->
-      <select 
-        class="form-control form-control-sm me-3" 
-        [(ngModel)]="pageSize" 
-        (change)="onPageSizeChange()"
-        style="width: 150px;">
-        <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }} per page</option>
-      </select>
-  
-      <!-- NgbPagination -->
-      <ngb-pagination
-        [collectionSize]="totalItems"
-        [(page)]="currentPage"
-        [pageSize]="pageSize"
-        [maxSize]="5"
-        [rotate]="true"
-        (pageChange)="onPageChange($event)"
-        class="d-flex justify-content-end">
-      </ngb-pagination>
-    </div>
+<div class="pagination d-flex justify-content-between align-items-center" *ngIf="totalItems > pageSize">
+  <!-- Showing X to Y of Z -->
+  <div>
+    Showing {{ getStartIndex() }} to {{ getEndIndex() }} of {{ totalItems }} items
   </div>
+
+  <!-- Pagination Controls -->
+  <div class="d-flex align-items-center">
+    <!-- Page Size Dropdown -->
+    <!-- <select 
+      class="form-control form-control-sm me-3" 
+      [(ngModel)]="pageSize" 
+      (change)="onPageSizeChange()"
+      style="width: 150px;">
+      <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }} per page</option>
+    </select> -->
+
+    <!-- NgbPagination -->
+    <ngb-pagination
+      [collectionSize]="totalItems"
+      [(page)]="currentPage"
+      [pageSize]="pageSize"
+      [maxSize]="5"
+      [rotate]="true"
+      (pageChange)="onPageChange($event)"
+      class="d-flex justify-content-end">
+    </ngb-pagination>
+  </div>
+</div>

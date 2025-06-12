@@ -23,5 +23,6 @@ router.get('/search/:query', authMiddleware, studentController.searchStudents);
 router.post('/assign-roll-numbers', authMiddleware, studentController.assignRollNumbers);
 router.post('/assign-roll-numbers-alphabetically', authMiddleware, studentController.assignRollNumbersAlphabetically);
 router.get('/get-student-by-class/:classId', authMiddleware, studentController.getStudentsByClass);
+router.post('/promote', authMiddleware, studentController.promoteStudents); // Added promote route
 
 module.exports = router;

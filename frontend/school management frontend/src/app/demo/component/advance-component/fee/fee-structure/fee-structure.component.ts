@@ -1,9 +1,11 @@
 import { Component, ViewChild } from '@angular/core';
-import { FeeStructureService } from '../fee-structure.service';
-import { AuthService } from 'src/app/theme/shared/service/auth.service';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { CommonModule } from '@angular/common';
+import { FeeService } from '../fee.service';
+import { AuthService } from 'src/app/theme/shared/service/auth.service';
+import { ToastrService } from 'ngx-toastr';
+import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
 
 @Component({
   selector: 'app-fee-structure',
@@ -15,107 +17,130 @@ import { CommonModule } from '@angular/common';
 export class FeeStructureComponent {
   schoolId: string | null = null;
   feeStructures: any[] = [];
-  classList: string[] = ['Pre Nursery', 'Nursery', 'LKG', 'UKG', 'Class 1', 'Class 2', 'Class 3', 'Class 4'];
+  classList: string[] = [];
   feeForm: FormGroup;
-  isEditMode = false;
-  selectedStructure: any = null;
+  currentStep: number = 1;
+  frequencies = ['Monthly', 'Quarterly', 'Yearly'];
 
   @ViewChild('feeStructureModal') feeStructureModal: any;
 
-
   constructor(
     private fb: FormBuilder,
-    private feeService: FeeStructureService,
+    private feeService: FeeService,
     private authService: AuthService,
+    private classSubjectService: ClassSubjectService,
+    private toastr: ToastrService,
     private modalService: NgbModal
   ) {
     this.feeForm = this.fb.group({
       className: ['', Validators.required],
+      frequency: ['Monthly', Validators.required],
       baseFee: [0, [Validators.required, Validators.min(0)]],
       feeBreakdown: this.fb.group({
         tuitionFee: [0, [Validators.required, Validators.min(0)]],
         examFee: [0, [Validators.required, Validators.min(0)]],
-        labFee: [0, Validators.min(0)],
         transportFee: [0, Validators.min(0)],
-        hostelFee: [0, Validators.min(0)],
-        miscFee: [0, Validators.min(0)]
+        hostelFee: [0, Validators.min(0)]
       })
     });
   }
 
   ngOnInit(): void {
     this.schoolId = this.authService.getSchoolId();
-    if (this.schoolId) this.loadFeeStructures();
+    if (this.schoolId) {
+      this.loadClasses();
+      this.loadFeeStructures();
+    } else {
+      this.toastr.error('School ID not found. Please log in again.');
+    }
+  }
+
+  loadClasses(): void {
+    this.classSubjectService.getClassesBySchool(this.schoolId!).subscribe({
+      next: (classes: any[]) => {
+        this.classList = classes.map(c => c.name);
+        if (this.classList.length === 0) {
+          this.toastr.warning('No classes found for this school.');
+        }
+      },
+      error: () => this.toastr.error('Failed to load classes.')
+    });
   }
 
   loadFeeStructures(): void {
-    if (!this.schoolId) return;
-    this.feeService.getFeeStructures(this.schoolId).subscribe({
-      next: (res) => this.feeStructures = res,
-      error: (err) => console.error('Error loading structures:', err)
+    this.feeService.getFeeStructures(this.schoolId!).subscribe({
+      next: (res) => {
+        this.feeStructures = res.data || [];
+        if (this.feeStructures.length === 0) {
+          this.toastr.info('No fee structures found. Create one to start.');
+        }
+      },
+      error: () => this.toastr.error('Failed to load fee structures.')
     });
   }
 
   openCreateModal() {
-    this.isEditMode = false;
+    this.currentStep = 1;
     this.feeForm.reset({
       className: '',
+      frequency: 'Monthly',
       baseFee: 0,
       feeBreakdown: {
         tuitionFee: 0,
         examFee: 0,
-        labFee: 0,
         transportFee: 0,
-        hostelFee: 0,
-        miscFee: 0
+        hostelFee: 0
       }
     });
-    this.modalService.open(this.feeStructureModal, { size: 'lg' });
+    this.modalService.open(this.feeStructureModal, { size: 'lg', backdrop: 'static' });
   }
 
-  openEditModal(structure: any): void {
-    this.isEditMode = true;
-    this.selectedStructure = structure;
-    this.feeForm.patchValue({
-      className: structure.className,
-      baseFee: structure.baseFee,
-      feeBreakdown: {
-        tuitionFee: structure.feeBreakdown.tuitionFee || 0,
-        examFee: structure.feeBreakdown.examFee || 0,
-        labFee: structure.feeBreakdown.labFee || 0,
-        transportFee: structure.feeBreakdown.transportFee || 0,
-        hostelFee: structure.feeBreakdown.hostelFee || 0,
-        miscFee: structure.feeBreakdown.miscFee || 0
+  nextStep(): void {
+    if (this.currentStep === 1 && !this.feeForm.get('className')?.value) {
+      this.toastr.error('Please select a class.');
+      return;
+    }
+    if (this.currentStep === 2 && !this.feeForm.get('frequency')?.value) {
+      this.toastr.error('Please select a frequency.');
+      return;
+    }
+    if (this.currentStep === 3) {
+      const baseFee = this.feeForm.get('baseFee')?.value;
+      const breakdown = this.feeForm.get('feeBreakdown')?.value;
+      const breakdownTotal = breakdown.tuitionFee + breakdown.examFee + breakdown.transportFee + breakdown.hostelFee;
+      if (baseFee !== breakdownTotal) {
+        this.toastr.error('Base fee must equal the sum of the fee breakdown.');
+        return;
       }
-    });
-    this.modalService.open(this.feeStructureModal, { size: 'lg' });
+    }
+    this.currentStep++;
+  }
+
+  prevStep(): void {
+    if (this.currentStep > 1) {
+      this.currentStep--;
+    }
   }
 
   submitFeeStructure(): void {
-    if (this.feeForm.invalid) return;
+    if (this.feeForm.invalid) {
+      this.toastr.error('Please fill all required fields.');
+      return;
+    }
     const feeData = {
       ...this.feeForm.value,
-      schoolId: this.schoolId
+      schoolId: this.schoolId,
+      lateFeeRules: { dailyRate: 0, maxLateFee: 0 }, // Default values
+      discounts: [] // Default empty array
     };
-    const operation = this.isEditMode
-      ? this.feeService.updateFeeStructure(this.selectedStructure._id, feeData)
-      : this.feeService.createFeeStructure(feeData);
-    operation.subscribe({
+    this.feeService.createFeeStructure(feeData).subscribe({
       next: () => {
+        this.toastr.success('Fee structure created successfully!');
         this.loadFeeStructures();
         this.closeModal();
       },
-      error: (err) => console.error('Operation failed:', err)
+      error: () => this.toastr.error('Failed to create fee structure.')
     });
-  }
-
-  deleteStructure(structureId: string): void {
-    if (confirm('Are you sure?')) {
-      this.feeService.deleteFeeStructure(structureId).subscribe({
-        next: () => this.loadFeeStructures(),
-        error: (err) => console.error('Delete failed:', err)
-      });
-    }
   }
 
   closeModal() {

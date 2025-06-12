@@ -1,83 +1,107 @@
-/* fee-structure.component.scss */
-.toast-container {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 1000;
-  
-    .toast {
-      padding: 15px 25px;
-      border-radius: 4px;
-      color: white;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      animation: slideIn 0.3s ease-out;
-  
-      &.success {
-        background-color: #28a745;
-      }
-  
-      &.error {
-        background-color: #dc3545;
-      }
-    }
-  }
-  
-  @keyframes slideIn {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-  
-  .fee-form {
-    padding: 20px;
-    background: #ffffff;
-    border-radius: 8px;
-  
-    .form-section {
-      border: 1px solid #dee2e6;
-      border-radius: 0.5rem;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      
-      legend {
-        width: auto;
-        padding: 0 0.5rem;
-        font-size: 1.1rem;
-        color: #0d6efd;
-        font-weight: 500;
-      }
-    }
-  
-    .input-group-text {
-      background-color: #f8f9fa;
-      min-width: 45px;
-      justify-content: center;
-    }
-  
-    .form-control:focus {
-      box-shadow: none;
-      border-color: #86b7fe;
-    }
-  
-    .text-danger {
-      font-size: 0.875em;
-    }
-  }
-  
-  .table-hover tbody tr:hover {
-    background-color: #f8f9fa;
-  }
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
 
-  .table >tbody>tr>td {
-    padding: 0px !important;
-    font-family: 'Poppins',sans-serif;
-    color: blue;
-  }
-  .card-header{
-    background: linear-gradient(to right, #2E3192, #1BFFFF);
-  }
+h3.text-primary {
+  color: #007bff;
+  font-weight: 600;
+}
+
+.card {
+  border-radius: 10px;
+  border: none;
+}
+
+.table {
+  font-size: 0.95rem;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: #f8f9fa;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border: none;
+  border-radius: 5px;
+  padding: 0.5rem 1rem;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+/* Step Indicator */
+.step-indicator {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem;
+  background-color: #e9ecef;
+  color: #6c757d;
+  font-weight: 500;
+  border-right: 1px solid #dee2e6;
+}
+
+.step:last-child {
+  border-right: none;
+}
+
+.step.active {
+  background-color: #007bff;
+  color: white;
+}
+
+/* Form Styles */
+.form-label {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.form-select,
+.form-control {
+  border-radius: 5px;
+  border: 1px solid #ced4da;
+  padding: 0.5rem;
+}
+
+.form-select:focus,
+.form-control:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
+}
+
+.input-group-text {
+  background-color: #f8f9fa;
+  border-radius: 5px 0 0 5px;
+}
+
+fieldset {
+  border-color: #e9ecef;
+}
+
+legend {
+  font-size: 1rem;
+  color: #007bff;
+}
+
+/* Buttons */
+.btn-outline-secondary {
+  border-radius: 5px;
+}
+
+.btn-success {
+  background-color: #28a745;
+  border: none;
+  border-radius: 5px;
+}
+
+.btn-success:hover {
+  background-color: #218838;
+}

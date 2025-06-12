@@ -1,10 +1,8 @@
 <div class="container">
   <!-- Filters and Search -->
   <div class="d-flex justify-content-between align-items-center mb-3">
-    
     <!-- Left Side: Filters and Search Button -->
     <div class="filters d-flex align-items-center">
-      <!-- Class Filter -->
       <select 
         class="form-control form-control-sm me-2" 
         [(ngModel)]="selectedClass" 
@@ -14,7 +12,6 @@
         <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
       </select>
 
-      <!-- Session Filter -->
       <select 
         class="form-control form-control-sm me-2" 
         [(ngModel)]="selectedSession" 
@@ -24,7 +21,6 @@
         <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
       </select>
 
-      <!-- Search Button -->
       <button class="btn btn-primary btn-sm" (click)="onSearch()">Search</button>
     </div>
 
@@ -40,7 +36,6 @@
     </div>
   </div>
 
-  
   <!-- Student Table -->
   <div class="table-container">
     <table class="professional-table table-striped table-sm">
@@ -52,11 +47,23 @@
           <th>Class</th>
           <th>Contact</th>
           <th>Gender</th>
+          <th>Status</th>
+
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let student of students; let i = index">
-          <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
+           <td>
+            <div ngbDropdown>
+              <button class="btn btn-link btn-sm" id="dropdownButton{{i}}" ngbDropdownToggle>
+                {{ (currentPage - 1) * pageSize + i + 1 }}
+              </button>
+              <div ngbDropdownMenu >
+                <button ngbDropdownItem (click)="onUpdateStudent(student._id)">Update</button>
+               
+              </div>
+            </div>
+          </td>
           <td class="profile-cell">
             <div class="profile-wrapper">
               <img *ngIf="student.profileImage" crossorigin="anonymous"
@@ -75,6 +82,8 @@
             <div>{{ student.phone }}</div>
           </td>
           <td>{{ student.gender }}</td>
+          <td>{{ student.status }}</td>
+
         </tr>
         <tr *ngIf="students.length === 0">
           <td colspan="6" style="text-align: center; font-family: 'Poppins', sans-serif; font-weight: 600;">
@@ -84,15 +93,13 @@
       </tbody>
     </table>
   </div>
-  <app-pagination
-    [currentPage]="currentPage"
-    [pageSize]="pageSize"
-    [totalItems]="totalItems"
-    [totalPages]="totalPages"
-    [pageSizeOptions]="pageSizeOptions"
-    (pageChange)="onPageChange($event)"
-    (pageSizeChange)="onPageSizeChange($event)">
-  </app-pagination>
-
   <!-- Pagination Component -->
+<app-pagination
+  [currentPage]="currentPage"
+  [pageSize]="pageSize"
+  [totalItems]="totalItems"
+  [pageSizeOptions]="pageSizeOptions"
+  (pageChange)="onPageChange($event)">
+</app-pagination>
+  
 </div>

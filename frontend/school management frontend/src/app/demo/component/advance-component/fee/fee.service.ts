@@ -11,24 +11,51 @@ export class FeeService {
 
   constructor(private http: HttpClient) { }
 
-  // Get student's unpaid invoices
-  getStudentInvoices(studentId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/api/fees/students/${studentId}/invoices`);
+  getFeeStructures(schoolId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/fees/structures`, { params: { schoolId } });
   }
 
-  getSchoolDetails(schoolId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/schools/${schoolId}`)
+  createFeeStructure(data: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/api/fees/structures`, data);
   }
- 
-  getSchoolById(schoolId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/api/schools/${schoolId}`);
+
+  updateFeeStructure(id: string, data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}/api/fees/structures/${id}`, data);
   }
-  
-  // Process payment
+
+  deleteFeeStructure(id: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/api/fees/structures/${id}`);
+  }
+
+  generateInvoices(data: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/api/fees/generate`, data);
+  }
+
+  getInvoicesByClassAndMonth(classId: string, month: string, academicYearId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/fees/invoices/class/${classId}/month/${month}`, { params: { academicYearId } });
+  }
+
+  getStudentFeeSummary(studentId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/fees/students/${studentId}/summary`);
+  }
+
+  getInvoiceById(invoiceId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/fee/invoices/${invoiceId}`);
+  }
+
   processPayment(invoiceId: string, paymentData: any): Observable<any> {
-  return this.http.post(
-    `${this.apiUrl}/api/fees/invoices/${invoiceId}/pay`,
-    paymentData
-    );
+    return this.http.post(`${this.apiUrl}/api/fee/invoices/${invoiceId}/payments`, paymentData);
+  }
+
+  downloadInvoicePDF(invoiceId: string): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/api/fees/invoices/${invoiceId}/pdf`, { responseType: 'blob' });
+  }
+
+  generateClassReceipts(data: any): Observable<Blob> {
+    return this.http.post(`${this.apiUrl}/api/fees/receipts`, data, { responseType: 'blob' });
+  }
+
+  notifyParents(classId: string, month: string, academicYearId: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/api/fees/notify-parents`, { classId, month, academicYearId });
   }
 }

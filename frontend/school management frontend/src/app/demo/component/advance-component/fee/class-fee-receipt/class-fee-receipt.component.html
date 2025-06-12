@@ -1,6 +1,7 @@
 <div class="row g-3">
   <div class="col-md-4">
     <select class="form-select" [(ngModel)]="selectedClass">
+      <option value="" disabled>Select Class</option>
       <option *ngFor="let cls of classList" [value]="cls">{{ cls }}</option>
     </select>
   </div>

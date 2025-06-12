@@ -3,23 +3,26 @@ const student = require('../../models/student');
 const Subject = require('../../models/subject');
 const Teacher =require('../../models/teacher');
 const APIError = require('../../utils/apiError');
+const { updateClassProgression } = require('../../utils/classProgression');
 // ✅ Create Class
-
 
 const createClass = async (req, res, next) => {
   try {
     const { name, sections, attendanceTeacher, substituteAttendanceTeachers } = req.body;
     const schoolId = req.user.schoolId;
 
+    // Validate class name
     if (!name) {
       throw new APIError('Class name is required', 400);
     }
 
+    // Check if class already exists in the school
     const existingClass = await Class.findOne({ name, schoolId });
     if (existingClass) {
       throw new APIError('Class already exists in this school', 409);
     }
 
+    // Validate attendance teacher
     if (attendanceTeacher) {
       const teacher = await Teacher.findById(attendanceTeacher);
       if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
@@ -27,6 +30,7 @@ const createClass = async (req, res, next) => {
       }
     }
 
+    // Validate substitute teachers
     if (substituteAttendanceTeachers && Array.isArray(substituteAttendanceTeachers)) {
       for (const teacherId of substituteAttendanceTeachers) {
         const teacher = await Teacher.findById(teacherId);
@@ -36,6 +40,7 @@ const createClass = async (req, res, next) => {
       }
     }
 
+    // Create the new class
     const newClass = await Class.create({
       name,
       sections,
@@ -45,6 +50,9 @@ const createClass = async (req, res, next) => {
       createdBy: req.user.id,
     });
 
+    // Update the class progression for the school (sets nextClass for all classes)
+    await updateClassProgression(schoolId);
+
     res.status(201).json({
       success: true,
       data: newClass,
@@ -53,6 +61,53 @@ const createClass = async (req, res, next) => {
     next(error);
   }
 };
+// const createClass = async (req, res, next) => {
+//   try {
+//     const { name, sections, attendanceTeacher, substituteAttendanceTeachers } = req.body;
+//     const schoolId = req.user.schoolId;
+
+//     if (!name) {
+//       throw new APIError('Class name is required', 400);
+//     }
+
+//     const existingClass = await Class.findOne({ name, schoolId });
+//     if (existingClass) {
+//       throw new APIError('Class already exists in this school', 409);
+//     }
+
+//     if (attendanceTeacher) {
+//       const teacher = await Teacher.findById(attendanceTeacher);
+//       if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
+//         throw new APIError('Invalid attendance teacher or teacher not in this school', 400);
+//       }
+//     }
+
+//     if (substituteAttendanceTeachers && Array.isArray(substituteAttendanceTeachers)) {
+//       for (const teacherId of substituteAttendanceTeachers) {
+//         const teacher = await Teacher.findById(teacherId);
+//         if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
+//           throw new APIError('Invalid substitute teacher or teacher not in this school', 400);
+//         }
+//       }
+//     }
+
+//     const newClass = await Class.create({
+//       name,
+//       sections,
+//       schoolId,
+//       attendanceTeacher,
+//       substituteAttendanceTeachers: substituteAttendanceTeachers || [],
+//       createdBy: req.user.id,
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       data: newClass,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 
 // controllers/classSubjectController.js (or wherever getCombinedAssignments is defined)
 // controllers/classSubjectController.js

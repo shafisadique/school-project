@@ -1,13 +1,13 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { StudentService } from '../student.service';
 import { CommonModule } from '@angular/common';
-import { NgbPaginationModule } from '@ng-bootstrap/ng-bootstrap';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
 import { AcademicYearService } from '../../academic-year/academic-year.service';
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { Subscription } from 'rxjs';
+import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
 
 interface Student {
   _id: string;
@@ -17,6 +17,7 @@ interface Student {
   phone: string;
   gender: string;
   profileImage: string;
+  status:boolean
 }
 
 interface Class {
@@ -40,7 +41,7 @@ interface PaginatedResponse {
 @Component({
   selector: 'app-student-details',
   standalone: true,
-  imports: [CommonModule, NgbPaginationModule, FormsModule, PaginationComponent],
+  imports: [CommonModule, FormsModule, PaginationComponent,NgbDropdownModule],
   templateUrl: './student-details.component.html',
   styleUrls: ['./student-details.component.scss']
 })
@@ -68,13 +69,11 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     private classService: ClassSubjectService,
     private academicYearService: AcademicYearService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
     this.schoolId = localStorage.getItem('schoolId') || '';
-    console.log('schoolId from localStorage:', this.schoolId);
-
     this.loadClasses();
     this.loadAcademicYears();
 
@@ -92,6 +91,9 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     if (this.queryParamsSubscription) {
       this.queryParamsSubscription.unsubscribe();
     }
+  }
+ onUpdateStudent(studentId: string): void {
+    this.router.navigate(['/student/student-update', studentId]);
   }
 
   loadClasses(): void {
@@ -128,18 +130,12 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
 
     this.studentService.getStudents(params).subscribe({
       next: (response: PaginatedResponse) => {
-        console.log('Backend response:', response);
         this.students = response.students;
         this.totalItems = response.total;
         this.totalPages = response.totalPages;
         this.currentPage = response.page;
         this.pageSize = response.limit;
 
-        // this.students.forEach(student => {
-        //   if (student.profileImage) {
-        //     console.log(`Student: ${student.name}, Image URL: ${this.getImageUrl(student.profileImage)}`);
-        //   }
-        // });
       },
       error: (err) => {
         console.error('Error fetching students:', err);
@@ -191,7 +187,6 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   getImageUrl(profileImage: string): string {
     if (!profileImage) return 'assets/default-avatar.png';
     const cleanPath = profileImage.replace(/^.*[\\\/]uploads[\\\/]/, '');
-    console.log(`${this.backendUrl}/uploads/${cleanPath}`)
     return `${this.backendUrl}/uploads/${cleanPath}`;
   }
 

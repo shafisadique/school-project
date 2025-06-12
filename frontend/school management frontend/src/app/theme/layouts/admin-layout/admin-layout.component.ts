@@ -2,9 +2,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-
-// Project import
-
 import { NavBarComponent } from './nav-bar/nav-bar.component';
 import { NavigationComponent } from './navigation/navigation.component';
 import { ConfigurationComponent } from './configuration/configuration.component';

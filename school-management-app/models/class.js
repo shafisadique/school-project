@@ -15,6 +15,11 @@ const classSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Teacher',
   }],
+  nextClass: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    default: null,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Class', classSchema);

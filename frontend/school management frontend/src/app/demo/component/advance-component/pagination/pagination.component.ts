@@ -5,29 +5,31 @@ import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-pagination',
-  imports: [CommonModule, NgbPaginationModule,FormsModule],
+  imports: [CommonModule, NgbPaginationModule, FormsModule],
   templateUrl: './pagination.component.html',
   styleUrls: ['./pagination.component.scss'],
   standalone: true
 })
 export class PaginationComponent {
-  // Inputs for pagination data
   @Input() currentPage: number = 1;
   @Input() pageSize: number = 25;
   @Input() totalItems: number = 0;
-  @Input() totalPages: number = 0;
   @Input() pageSizeOptions: number[] = [10, 25, 50, 100];
 
-  // Output event for page change
   @Output() pageChange = new EventEmitter<number>();
   @Output() pageSizeChange = new EventEmitter<number>();
 
   onPageChange(page: number) {
-    this.pageChange.emit(page);
+    this.currentPage = page; // Update local currentPage
+    this.pageChange.emit(page); // Emit the new page to the parent
   }
 
   onPageSizeChange() {
     this.pageSizeChange.emit(this.pageSize);
+  }
+
+  getStartIndex(): number {
+    return (this.currentPage - 1) * this.pageSize + 1;
   }
 
   getEndIndex(): number {

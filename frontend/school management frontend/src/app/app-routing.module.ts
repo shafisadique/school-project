@@ -16,7 +16,6 @@ export const routes: Routes = [
     path: 'auth/register',
     loadComponent: () => import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
   },
-
   
   {
     path: '',

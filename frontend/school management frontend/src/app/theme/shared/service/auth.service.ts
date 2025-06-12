@@ -46,7 +46,10 @@ export class AuthService {
   getUserSchoolId() {
     return localStorage.getItem('schoolId');
   }
-
+  getActiveAcademicYearId(): string | null {
+  return localStorage.getItem('activeAcademicYearId');
+  }
+  
   get isLoggedIn$(): Observable<boolean> {
     return this._isLoggedIn$.asObservable();
   }

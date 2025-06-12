@@ -1,0 +1,77 @@
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-md-12">
+      <div class="card shadow-lg border-0">
+        
+        <div class="card-body p-4">
+          <!-- Class and Academic Year Selection -->
+          <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+              <label for="classSelect" class="form-label fw-bold">Select Class</label>
+              <select id="classSelect" class="form-select" [(ngModel)]="selectedClassId" (change)="onClassChange()">
+                <option value="" disabled selected>Select a class</option>
+                <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
+              </select>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label fw-bold">Active Academic Year</label>
+              <input type="text" class="form-control" [value]="academicYear?.name || 'Loading...'" disabled>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label for="nextAcademicYearSelect" class="form-label fw-bold">Next Academic Year</label>
+              <select id="nextAcademicYearSelect" class="form-select" [(ngModel)]="selectedNextAcademicYearId">
+                <option value="" disabled selected>Select the next academic year</option>
+                <option *ngFor="let year of availableAcademicYears" [value]="year._id">{{ year.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Students Table -->
+          <div *ngIf="students.length > 0; else noStudents">
+            <div class="table-responsive">
+              <table class="table table-hover table-bordered">
+                <thead class="table-light">
+                  <tr>
+                    <th>Roll No</th>
+                    <th>Name</th>
+                    <th>Result Status</th>
+                    <th>Manual Promotion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let student of students">
+                    <td>{{ student.rollNo || '-' }}</td>
+                    <td>{{ student.name}}</td>
+                    <td>
+                      <span class="badge" [ngClass]="getStudentStatus(student._id) === 'Pass' ? 'bg-success' : 'bg-danger'">{{ getStudentStatus(student._id) }}</span>
+                    </td>
+                    <td>
+                      <div class="form-check d-flex justify-content-center">
+                        <input type="checkbox" class="form-check-input"
+                               [disabled]="getStudentStatus(student._id) === 'Pass'"
+                               [checked]="isSelectedForManualPromotion(student._id)"
+                               (change)="toggleManualPromotion(student._id)">
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Promote Button -->
+            <div class="text-center mt-4">
+              <button class="btn btn-primary btn-lg" (click)="promoteStudents()">Promote Students</button>
+            </div>
+          </div>
+
+          <ng-template #noStudents>
+            <div class="alert alert-info text-center">
+              <p *ngIf="selectedClassId">No students found for the selected class.</p>
+              <p *ngIf="!selectedClassId">Please select a class to view students.</p>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,50 +1,103 @@
 <div class="container">
-  <div class="card shadow mt-4">
-    <div class="card-header text-white bg-primary">
-      <h5 class="mb-0">Bulk Invoice Generation</h5>
-      <small *ngIf="academicYear" class="d-block mt-2">
-        Academic Year: {{ academicYear.name }} ({{ academicYear.startDate | date }} - {{ academicYear.endDate | date }})
-      </small>
-    </div>
-    <div class="card-body">
-      <form (ngSubmit)="generateBulkInvoices()">
-        <div class="row g-3 mb-4">
-          <div class="col-md-6">
-            <label class="form-label">Select Class</label>
-            <select class="form-select" [(ngModel)]="selectedClass" name="className" required (change)="onClassSelect()">
-              <option value="" disabled>Choose Class...</option>
-              <option *ngFor="let cls of classStructure" [value]="cls.name">{{ cls.name }}</option>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Select Month</label>
-            <input type="month" class="form-control" [(ngModel)]="selectedMonth" name="month" required>
-          </div>
+  <div class="row">
+    <div class="col-sm-12">
+      <app-card>
+        <div class="invoice-container">
+          <form (ngSubmit)="generateInvoices()">
+            <!-- Step 1: Select Class -->
+            <fieldset class="form-section">
+              <legend>Step 1: Select a Class</legend>
+              <div class="row g-4">
+                <div class="col-md-6 col-12">
+                  <div class="form-group">
+                    <label>Class:</label>
+                    <select class="form-control form-control-sm shadow-sm" [(ngModel)]="selectedClassId" (change)="updateClassSelection($event)" [ngModelOptions]="{standalone: true}">
+                      <option value="" disabled>Select a class</option>
+                      <option *ngFor="let cls of classList" [value]="cls.id">{{ cls.name }}</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Step 2: Select Month -->
+            <fieldset class="form-section">
+              <legend>Step 2: Select Month</legend>
+              <div class="row g-4">
+                <div class="col-md-6 col-12">
+                  <div class="form-group">
+                    <label>Month:</label>
+                    <input type="month" class="form-control form-control-sm shadow-sm"
+                           [(ngModel)]="month"
+                           [ngModelOptions]="{standalone: true}"
+                           [min]="minMonth"
+                           [max]="maxMonth">
+                  </div>
+                </div>
+                <div class="col-md-6 col-12">
+                  <div class="form-group">
+                    <label class="checkbox-label">
+                      <input type="checkbox" [(ngModel)]="isExamMonth" [ngModelOptions]="{standalone: true}">
+                      Is this an exam month?
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Step 3: Set Payment Schedules -->
+            <fieldset class="form-section" *ngIf="students.length > 0">
+              <legend>Step 3: Set Payment Schedules</legend>
+              <div class="table-responsive">
+                <table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Student Name</th>
+                      <th>Admission No</th>
+                      <th>Payment Schedule</th>
+                      <th>Custom Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let student of students; let i = index">
+                      <td>{{ student.name }}</td>
+                      <td>{{ student.admissionNo }}</td>
+                      <td>
+                        <select class="form-control form-control-sm shadow-sm"
+                                [ngModel]="customSchedules[i]?.paymentSchedule"
+                                (ngModelChange)="customSchedules[i].paymentSchedule = $event; updatePaymentSchedule(student._id, $event)"
+                                [ngModelOptions]="{standalone: true}">
+                          <option *ngFor="let option of paymentOptions" [value]="option">{{ option }}</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="text" class="form-control form-control-sm shadow-sm"
+                               [ngModel]="customSchedules[i]?.customPaymentDetails"
+                               (ngModelChange)="customSchedules[i].customPaymentDetails = $event; updateCustomDetails(student._id, $event)"
+                               [ngModelOptions]="{standalone: true}"
+                               [disabled]="customSchedules[i]?.paymentSchedule !== 'Custom'"
+                               placeholder="e.g., Paid for 2 months together">
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </fieldset>
+
+            <!-- Step 4: Generate Invoices -->
+            <fieldset class="form-section text-center">
+              <legend>Step {{ students.length > 0 ? 4 : 3 }}: Generate Invoices</legend>
+              <button type="submit" class="btn btn-primary generate-btn" [disabled]="isGenerating">
+                <span *ngIf="!isGenerating">
+                  <i class="bi bi-file-earmark-check me-2"></i>Generate Invoices
+                </span>
+                <span *ngIf="isGenerating" class="spinner-border spinner-border-sm me-2" role="status"></span>
+                <span *ngIf="isGenerating">Generating...</span>
+              </button>
+            </fieldset>
+          </form>
         </div>
-        <div *ngIf="sections.length > 0" class="mb-4">
-          <label class="form-label">Select Sections</label>
-          <div class="d-flex flex-wrap gap-2">
-            <div *ngFor="let section of sections" class="form-check">
-              <input class="form-check-input" type="checkbox" [id]="section" [checked]="selectedSections.includes(section)" (change)="toggleSection(section)">
-              <label class="form-check-label" [for]="section">{{ section }}</label>
-            </div>
-          </div>
-        </div>
-        <div class="d-grid">
-          <button type="submit" class="btn btn-success btn-lg" [disabled]="isGenerating || !selectedClass || !selectedMonth">
-            <span *ngIf="!isGenerating">Generate Invoices</span>
-            <span *ngIf="isGenerating"><i class="fas fa-spinner fa-spin"></i> Processing...</span>
-          </button>
-        </div>
-      </form>
-      <div *ngIf="result" class="mt-4 alert" [ngClass]="result.success ? 'alert-success' : 'alert-danger'">
-        <h5 class="alert-heading">{{ result.success ? 'Success!' : 'Error!' }}</h5>
-        <p *ngIf="result.success">Academic Year: {{ result.academicYear }}</p>
-        <p *ngIf="result.success">Total Students: {{ result.totalStudents }}</p>
-        <p *ngIf="result.success">New Invoices: {{ result.insertedCount }}</p>
-        <p *ngIf="result.success">Existing Invoices: {{ result.matchedCount }}</p>
-        <p *ngIf="!result.success">{{ result.error }}</p>
-      </div>
+      </app-card>
     </div>
   </div>
 </div>

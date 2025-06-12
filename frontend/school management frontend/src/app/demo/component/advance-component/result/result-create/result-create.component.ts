@@ -107,6 +107,7 @@ export class ResultCreateComponent implements OnInit {
 
     this.classSubjectService.getClassesBySchool(this.schoolId).subscribe({
       next: (classes) => {
+        console.log(classes)
         this.classes = classes;
         if (classes.length === 0) {
           this.toastr.info('No classes found for this school.', 'Info');
@@ -172,36 +173,40 @@ export class ResultCreateComponent implements OnInit {
     }
   }
 
-  onClassChange(): void {
-    this.selectedStudentId = '';
-    this.students = [];
-    if (!this.selectedClassId) {
-      console.log('No class selected, skipping student fetch.', this.selectedClassId);
-      return;
-    }
-
-    console.log('Fetching students for class ID:', this.selectedClassId);
-
-    this.isLoading = true;
-    this.classSubjectService.getStudentsByClass(this.selectedClassId).subscribe({
-      next: (students) => {
-        console.log('Raw response from getStudentsByClass:', students);
-        this.students = Array.isArray(students) ? students : [];
-        console.log('Updated students array:', this.students);
-        if (this.students.length === 0) {
-          this.toastr.info('No students found for this class.', 'Info');
-        }
-      },
-      error: (err) => {
-        console.error('Error fetching students:', err);
-        this.toastr.error('Failed to load students for this class. Please try again.', 'Error');
-        this.students = [];
-      },
-      complete: () => {
-        this.isLoading = false;
-      }
+onClassChange(): void {
+  this.selectedStudentId = '';
+  this.students = [];
+  if (!this.selectedClassId || !this.selectedAcademicYearId) {
+    console.log('No class or academic year selected, skipping student fetch.', {
+      classId: this.selectedClassId,
+      academicYearId: this.selectedAcademicYearId
     });
+    return;
   }
+
+  console.log('Fetching students for class ID:', this.selectedClassId, 'and academicYearId:', this.selectedAcademicYearId);
+
+  this.isLoading = true;
+  this.classSubjectService.getStudentsByClass(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+    next: (response) => {
+      console.log('Raw response from getStudentsByClass:', response);
+      // Adjust based on the actual response structure
+      this.students = response.students || (Array.isArray(response) ? response : []);
+      console.log('Updated students array:', this.students);
+      if (this.students.length === 0) {
+        this.toastr.info('No students found for this class.', 'Info');
+      }
+    },
+    error: (err) => {
+      console.error('Error fetching students:', err);
+      this.toastr.error('Failed to load students for this class. Please try again.', 'Error');
+      this.students = [];
+    },
+    complete: () => {
+      this.isLoading = false;
+    }
+  });
+}
 
   createResult(): void {
     if (!this.selectedStudentId || !this.selectedExamId || !this.selectedClassId || !this.subjects.length) {
