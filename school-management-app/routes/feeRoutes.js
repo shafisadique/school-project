@@ -111,7 +111,7 @@ router.get('/students/:studentId/summary', authMiddleware, getStudentFeeSummary)
 
 // Invoice Operations
 router.get('/invoices/:id', authMiddleware, validateSchoolAccess(Invoice), getInvoiceDetails);
-router.post('/invoices/:id/payments', authMiddleware, processPayment);
+router.post('/invoices/:invoiceId/payments', authMiddleware, processPayment);
 router.get('/invoices/:id/pdf', authMiddleware, validateSchoolAccess(Invoice), generateInvoicePDF);
 
 // Reports

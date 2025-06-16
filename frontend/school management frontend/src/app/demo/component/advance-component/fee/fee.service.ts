@@ -34,17 +34,18 @@ export class FeeService {
   getInvoicesByClassAndMonth(classId: string, month: string, academicYearId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/fees/invoices/class/${classId}/month/${month}`, { params: { academicYearId } });
   }
+  
 
   getStudentFeeSummary(studentId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/fees/students/${studentId}/summary`);
   }
 
   getInvoiceById(invoiceId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/api/fee/invoices/${invoiceId}`);
+    return this.http.get(`${this.apiUrl}/api/fees/invoices/${invoiceId}`);
   }
 
   processPayment(invoiceId: string, paymentData: any): Observable<any> {
-    return this.http.post(`${this.apiUrl}/api/fee/invoices/${invoiceId}/payments`, paymentData);
+    return this.http.post(`${this.apiUrl}/api/fees/invoices/${invoiceId}/payments`, paymentData);
   }
 
   downloadInvoicePDF(invoiceId: string): Observable<Blob> {

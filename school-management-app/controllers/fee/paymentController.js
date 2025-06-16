@@ -230,53 +230,92 @@ exports.generateBulkMonthlyInvoices = async (req, res) => {
   }
 };
 
-// Process individual payment
 exports.processPayment = async (req, res) => {
+  const session = await mongoose.startSession();
   try {
+    session.startTransaction();
     const { invoiceId } = req.params;
-    const { amount, paymentMethod = 'Cash' } = req.body;
-    const schoolId = req.user.schoolId;
+    console.log(req.body)
+    const { amount, paymentMethod, date, chequeNumber, transactionId } = req.body;
+    const { schoolId, role, id: userId } = req.user;
 
     // Validate invoice
-    const invoice = await FeeInvoice.findOne({ _id: invoiceId, schoolId });
+    console.log(invoiceId);
+    const invoice = await FeeInvoice.findOne({ _id: invoiceId, schoolId }).session(session);
     if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
+      throw new Error('Invoice not found');
+    }
+
+    // Role-based payment restrictions
+    if (role === 'Parent' && ['Cash', 'Cheque'].includes(paymentMethod)) {
+      throw new Error('Parents can only process online payments');
+    }
+    if (role === 'Student') {
+      throw new Error('Students are not authorized to process payments');
     }
 
     // Validate payment amount
-    if (amount <= 0 || amount > invoice.remainingDue) {
-      return res.status(400).json({ error: `Invalid amount. Remaining due: ₹${invoice.remainingDue}` });
+    if (typeof amount !== 'number' || amount <= 0 || amount > invoice.remainingDue) {
+      throw new Error(`Invalid amount. Remaining due: ₹${invoice.remainingDue}`);
+    }
+    console.log(paymentMethod)
+    // Validate payment method
+    if (!['Cash', 'Cheque', 'Online'].includes(paymentMethod)) {
+      throw new Error('Invalid payment method');
+    }
+    if (paymentMethod === 'Cheque' && (!chequeNumber || typeof chequeNumber !== 'string')) {
+      throw new Error('Cheque number is required');
+    }
+    if (paymentMethod === 'Online' && (!transactionId || typeof transactionId !== 'string')) {
+      throw new Error('Transaction ID is required for online payments');
+    }
+
+    // For parents, verify they own the student
+    if (role === 'Parent') {
+      const student = await Student.findOne({ _id: invoice.studentId, parentId: userId });
+      if (!student) {
+        throw new Error('Unauthorized: You can only pay for your child’s invoices');
+      }
     }
 
     // Update invoice
     invoice.paymentHistory.push({
-      date: new Date(),
+      date: date || new Date(),
       amount,
       method: paymentMethod,
-      processedBy: req.user.id
+      processedBy: userId,
+      ...(paymentMethod === 'Cheque' && { chequeNumber }),
+      ...(paymentMethod === 'Online' && { transactionId })
     });
 
     invoice.paidAmount += amount;
     invoice.remainingDue = invoice.totalAmount - invoice.paidAmount;
-    invoice.status = invoice.remainingDue > 0 ? 'Partially Paid' : 'Paid';
+    invoice.status = invoice.remainingDue > 0 ? 'Partial' : 'Paid';
 
     // Update student records
-    await Student.findByIdAndUpdate(invoice.studentId, {
-      $inc: { totalPaid: amount, totalDue: -amount }
-    });
+    await Student.findByIdAndUpdate(
+      invoice.studentId,
+      { $inc: { totalPaid: amount, totalDue: -amount } },
+      { session }
+    );
 
-    const updatedInvoice = await invoice.save();
+    await invoice.save({ session });
+    await session.commitTransaction();
 
-    // Generate payment receipt
-    const receiptPath = await generatePaymentReceipt(updatedInvoice, amount, paymentMethod);
+    // Generate receipt
+    const receiptPath = await generatePaymentReceipt(invoice, amount, paymentMethod);
 
     res.json({
       success: true,
-      data: updatedInvoice,
+      message: 'Payment processed successfully',
+      data: invoice,
       receipt: receiptPath
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    await session.abortTransaction();
+    res.status(err.message.includes('Unauthorized') ? 403 : 400).json({ error: err.message });
+  } finally {
+    session.endSession();
   }
 };
 

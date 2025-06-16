@@ -1,96 +1,178 @@
-<div class="container py-4">
+<div class="container">
   <div class="row">
     <div class="col-sm-12">
       <app-card>
         <div class="payment-container">
-          <!-- Loading State -->
+          <!-- Loading Spinner -->
           <div *ngIf="isLoading" class="text-center">
             <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
           </div>
 
-          <!-- Error State -->
-          <div *ngIf="errorMessage" class="alert alert-danger text-center">
+          <!-- Error Message -->
+          <div *ngIf="errorMessage && !isLoading" class="alert alert-danger text-center">
             {{ errorMessage }}
           </div>
 
-          <!-- Main Form -->
+          <!-- Payment Form -->
           <div *ngIf="!isLoading && !errorMessage">
-            <form (ngSubmit)="processPayment()">
-              <!-- Invoice Details -->
+            <form [formGroup]="paymentForm" (ngSubmit)="processPayment()">
+              <!-- Invoice Details Section -->
               <fieldset class="form-section">
                 <legend>Invoice Details</legend>
                 <div class="row g-4">
                   <div class="col-md-6 col-12">
                     <div class="form-group">
                       <label>Student Name:</label>
-                      <input type="text" class="form-control form-control-sm shadow-sm" [value]="invoice?.studentId?.name || 'N/A'" readonly />
+                      <input
+                        type="text"
+                        class="form-control form-control-sm shadow-sm"
+                        [value]="invoice?.studentId?.name || 'N/A'"
+                        readonly
+                      />
                     </div>
                   </div>
                   <div class="col-md-6 col-12">
                     <div class="form-group">
                       <label>Invoice Month:</label>
-                      <input type="text" class="form-control form-control-sm shadow-sm" [value]="invoice?.month || 'N/A'" readonly />
+                      <input
+                        type="text"
+                        class="form-control form-control-sm shadow-sm"
+                        [value]="invoice?.month || 'N/A'"
+                        readonly
+                      />
                     </div>
                   </div>
                   <div class="col-md-6 col-12">
                     <div class="form-group">
                       <label>Total Amount:</label>
-                      <input type="text" class="form-control form-control-sm shadow-sm" [value]="invoice?.totalAmount | currency:'INR'" readonly />
+                      <input
+                        type="text"
+                        class="form-control form-control-sm shadow-sm"
+                        [value]="invoice?.totalAmount | currency: 'INR'"
+                        readonly
+                      />
                     </div>
                   </div>
                   <div class="col-md-6 col-12">
                     <div class="form-group">
                       <label>Remaining Due:</label>
-                      <input type="text" class="form-control form-control-sm shadow-sm" [value]="invoice?.remainingDue | currency:'INR'" readonly />
+                      <input
+                        type="text"
+                        class="form-control form-control-sm shadow-sm"
+                        [value]="invoice?.remainingDue | currency: 'INR'"
+                        readonly
+                      />
                     </div>
                   </div>
                 </div>
               </fieldset>
 
-              <!-- Payment Details -->
+              <!-- Payment Details Section -->
               <fieldset class="form-section">
                 <legend>Payment Details (Paying for {{ invoice?.month || 'Selected Month' }})</legend>
                 <div class="row g-4">
                   <div class="col-md-6 col-12">
                     <div class="form-group">
                       <label>Amount to Pay:</label>
-                      <input type="number" class="form-control form-control-sm shadow-sm" [(ngModel)]="paymentData.amount" [ngModelOptions]="{standalone: true}" max="{{invoice?.remainingDue}}" min="1" required />
-                      <small *ngIf="amountError" class="error">{{ amountError }}</small>
+                      <input
+                        type="number"
+                        formControlName="amount"
+                        class="form-control form-control-sm shadow-sm"
+                        min="1"
+                        required
+                      />
+                      <small
+                        *ngIf="paymentForm.get('amount')?.touched && paymentForm.get('amount')?.hasError('required')"
+                        class="error"
+                      >
+                        Amount is required.
+                      </small>
+                      <small
+                        *ngIf="paymentForm.get('amount')?.touched && paymentForm.get('amount')?.hasError('min')"
+                        class="error"
+                      >
+                        Amount must be greater than 0.
+                      </small>
+                      <small
+                        *ngIf="paymentForm.get('amount')?.touched && paymentForm.get('amount')?.hasError('max')"
+                        class="error"
+                      >
+                        Amount cannot exceed {{ invoice?.remainingDue | currency: 'INR' }}.
+                      </small>
                     </div>
                   </div>
                   <div class="col-md-6 col-12">
                     <div class="form-group">
                       <label>Payment Method:</label>
-                      <select class="form-control form-control-sm shadow-sm" [(ngModel)]="paymentData.method" (change)="onPaymentMethodChange()" [ngModelOptions]="{standalone: true}" required>
-                        <option value="Cash">Cash</option>
-                        <option value="Cheque">Cheque</option>
-                        <option value="Online">Online (Razorpay)</option>
+                      <select
+                        formControlName="method"
+                        class="form-control form-control-sm shadow-sm"
+                        (change)="onPaymentMethodChange()"
+                        required
+                      >
+                        <option *ngFor="let method of paymentMethods" [value]="method.value" [disabled]="method.disabled">
+                          {{ method.label }}
+                        </option>
                       </select>
+                      <small
+                        *ngIf="paymentForm.get('method')?.touched && paymentForm.get('method')?.hasError('required')"
+                        class="error"
+                      >
+                        Payment method is required.
+                      </small>
                     </div>
                   </div>
-                  <div class="col-md-6 col-12" *ngIf="paymentData.method === 'Cheque'">
+                  <div class="col-md-6 col-12" *ngIf="paymentForm.get('method')?.value === 'Cheque'">
                     <div class="form-group">
                       <label>Cheque Number:</label>
-                      <input type="text" class="form-control form-control-sm shadow-sm" [(ngModel)]="paymentData.chequeNumber" [ngModelOptions]="{standalone: true}" required />
-                      <small *ngIf="chequeError" class="error">{{ chequeError }}</small>
+                      <input
+                        type="text"
+                        formControlName="chequeNumber"
+                        class="form-control form-control-sm shadow-sm"
+                        required
+                      />
+                      <small
+                        *ngIf="
+                          paymentForm.get('chequeNumber')?.touched &&
+                          paymentForm.get('chequeNumber')?.hasError('required')
+                        "
+                        class="error"
+                      >
+                        Cheque number is required.
+                      </small>
                     </div>
                   </div>
                   <div class="col-md-6 col-12">
                     <div class="form-group">
                       <label>Payment Date:</label>
-                      <input type="date" class="form-control form-control-sm shadow-sm" [(ngModel)]="paymentData.date" [ngModelOptions]="{standalone: true}" required />
+                      <input
+                        type="date"
+                        formControlName="date"
+                        class="form-control form-control-sm shadow-sm"
+                        required
+                      />
+                      <small
+                        *ngIf="paymentForm.get('date')?.touched && paymentForm.get('date')?.hasError('required')"
+                        class="error"
+                      >
+                        Payment date is required.
+                      </small>
                     </div>
                   </div>
                 </div>
               </fieldset>
 
               <!-- Submit Button -->
-              <div class="text-center">
-                <button type="submit" class="btn btn-primary payment-btn" [disabled]="isProcessing || !invoice">
-                  <span *ngIf="!isProcessing && paymentData.method !== 'Online'">Process Payment</span>
-                  <span *ngIf="!isProcessing && paymentData.method === 'Online'">Pay Online</span>
+              <div class="text-center mt-4">
+                <button
+                  type="submit"
+                  class="btn btn-primary payment-btn"
+                  [disabled]="isProcessing || paymentForm.invalid"
+                >
+                  <span *ngIf="!isProcessing && paymentForm.get('method')?.value !== 'Online'">Process Payment</span>
+                  <span *ngIf="!isProcessing && paymentForm.get('method')?.value === 'Online'">Pay Online</span>
                   <span *ngIf="isProcessing" class="spinner-border spinner-border-sm me-2" role="status"></span>
                   <span *ngIf="isProcessing">Processing...</span>
                 </button>

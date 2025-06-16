@@ -4,12 +4,10 @@ const FeeStructure = require('../models/feeStructure');
 const Student = require('../models/student');
 const AcademicYear = require('../models/academicyear');
 
-// Helper function to calculate fees (adapted from paymentController.js)
-const calculateFees = async (student, feeStructure, monthDate, previousDue = 0, paymentSchedule) => {
-  const isExamMonth = feeStructure.feeBreakdown.examFee > 0 && moment(monthDate).month() % 3 === 0;
-  let baseAmount = feeStructure.baseFee;
-  let totalAmount = baseAmount +
-    feeStructure.feeBreakdown.tuitionFee +
+// Helper function to calculate fees (adapted from paym entController.js)
+const calculateFees = async (student, feeStructure, monthDate, previousDue = 0, paymentSchedule, isExamMonth) => {
+  // Start with zero and only add the relevant breakdown components
+  let totalAmount = feeStructure.feeBreakdown.tuitionFee +
     (isExamMonth ? feeStructure.feeBreakdown.examFee : 0) +
     (student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0) +
     (student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0) +
@@ -17,19 +15,51 @@ const calculateFees = async (student, feeStructure, monthDate, previousDue = 0, 
     (feeStructure.feeBreakdown.labFee || 0) +
     previousDue;
 
-  // Adjust totalAmount based on payment schedule
+  // The baseAmount should reflect the adjusted base fee for reporting purposes
+  let baseAmount = totalAmount - previousDue; // Exclude previousDue for baseAmount
+
+  // Define invoice details (breakdown) for display in the invoice
+  let invoiceDetails = {
+    tuitionFee: feeStructure.feeBreakdown.tuitionFee,
+    examFee: isExamMonth ? feeStructure.feeBreakdown.examFee : 0,
+    transportFee: student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0,
+    hostelFee: student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0,
+    miscFee: feeStructure.feeBreakdown.miscFee,
+    labFee: feeStructure.feeBreakdown.labFee || 0,
+  };
+
+  // Adjust totalAmount and invoiceDetails based on payment schedule
   if (paymentSchedule === 'Monthly' && feeStructure.frequency === 'Quarterly') {
     totalAmount = totalAmount / 3; // Quarterly fee divided into 3 months
     baseAmount = baseAmount / 3;
+    invoiceDetails.tuitionFee = invoiceDetails.tuitionFee / 3;
+    invoiceDetails.examFee = invoiceDetails.examFee / 3;
+    invoiceDetails.transportFee = invoiceDetails.transportFee / 3;
+    invoiceDetails.hostelFee = invoiceDetails.hostelFee / 3;
+    invoiceDetails.miscFee = invoiceDetails.miscFee / 3;
+    invoiceDetails.labFee = invoiceDetails.labFee / 3;
   } else if (paymentSchedule === 'BiMonthly' && feeStructure.frequency === 'Quarterly') {
     totalAmount = (totalAmount / 3) * 2; // Pay for 2 months together
     baseAmount = (baseAmount / 3) * 2;
+    invoiceDetails.tuitionFee = (invoiceDetails.tuitionFee / 3) * 2;
+    invoiceDetails.examFee = (invoiceDetails.examFee / 3) * 2;
+    invoiceDetails.transportFee = (invoiceDetails.transportFee / 3) * 2;
+    invoiceDetails.hostelFee = (invoiceDetails.hostelFee / 3) * 2;
+    invoiceDetails.miscFee = (invoiceDetails.miscFee / 3) * 2;
+    invoiceDetails.labFee = (invoiceDetails.labFee / 3) * 2;
   } else if (paymentSchedule === 'Custom') {
     const months = parseInt(paymentSchedule.customPaymentDetails?.match(/\d+/)?.[0] || '1');
     totalAmount = (totalAmount / 3) * months;
     baseAmount = (baseAmount / 3) * months;
+    invoiceDetails.tuitionFee = (invoiceDetails.tuitionFee / 3) * months;
+    invoiceDetails.examFee = (invoiceDetails.examFee / 3) * months;
+    invoiceDetails.transportFee = (invoiceDetails.transportFee / 3) * months;
+    invoiceDetails.hostelFee = (invoiceDetails.hostelFee / 3) * months;
+    invoiceDetails.miscFee = (invoiceDetails.miscFee / 3) * months;
+    invoiceDetails.labFee = (invoiceDetails.labFee / 3) * months;
   }
 
+  // Calculate late fee
   let lateFee = 0;
   const dueDate = moment(monthDate).endOf('month').toDate();
   if (new Date() > dueDate && totalAmount > 0) {
@@ -41,6 +71,7 @@ const calculateFees = async (student, feeStructure, monthDate, previousDue = 0, 
     totalAmount += lateFee;
   }
 
+  // Apply discounts
   const discountsApplied = [];
   let discountTotal = 0;
   for (const discount of feeStructure.discounts) {
@@ -57,21 +88,8 @@ const calculateFees = async (student, feeStructure, monthDate, previousDue = 0, 
     baseAmount,
     previousDue,
     lateFee,
-    currentCharges: baseAmount +
-      feeStructure.feeBreakdown.tuitionFee +
-      (isExamMonth ? feeStructure.feeBreakdown.examFee : 0) +
-      (student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0) +
-      (student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0) +
-      feeStructure.feeBreakdown.miscFee +
-      (feeStructure.feeBreakdown.labFee || 0),
-    invoiceDetails: {
-      tuitionFee: feeStructure.feeBreakdown.tuitionFee,
-      examFee: isExamMonth ? feeStructure.feeBreakdown.examFee : 0,
-      transportFee: student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0,
-      hostelFee: student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0,
-      miscFee: feeStructure.feeBreakdown.miscFee,
-      labFee: feeStructure.feeBreakdown.labFee || 0,
-    },
+    currentCharges: baseAmount, // Current charges exclude previousDue and lateFee
+    invoiceDetails,
     totalAmount,
     remainingDue: totalAmount,
     discountsApplied,
@@ -105,7 +123,6 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
   }
 
   const feeStructure = await FeeStructure.findOne({ schoolId, className, academicYear: academicYearId });
-  console.log(`Fee structure for className: ${className}, schoolId: ${schoolId}, academicYearId: ${academicYearId}`, feeStructure);
   if (!feeStructure) {
     throw new Error('Fee structure not found for this class.');
   }
@@ -146,7 +163,6 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
     invoices.push(invoice);
   }
 
-  console.log(`Generated ${invoices.length} new invoices.`);
   if (invoices.length === 0) {
     throw new Error('Invoices already exist for this class and month.');
   }
