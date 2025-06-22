@@ -47,5 +47,19 @@ const isSuperAdmin = (req, res, next) => {
     };
   };
    
+  const externalRoleMiddleware = (...allowedRoles) => {
+  return (req, res, next) => {
+    console.log('Allowed roles:', allowedRoles); // Debug the raw input
+    const flattenedRoles = Array.isArray(allowedRoles[0]) ? allowedRoles[0] : allowedRoles;
+    console.log('Flattened allowed roles:', flattenedRoles);
+    const userRole = req.user?.role; // Safely access role
+    console.log('User role:', userRole, typeof userRole); // Log type to debug
+    if (!req.user || !flattenedRoles.includes(String(userRole))) { // Convert to string if needed
+      console.log('Access denied due to role mismatch');
+      return res.status(403).json({ message: 'Access denied: Insufficient permissions' });
+    }
+    next();
+  };
+};
   
-  module.exports = { isSuperAdmin, isAdmin, isTeacher, isStudent, isParent ,roleMiddleware};
+  module.exports = { isSuperAdmin, isAdmin, isTeacher, isStudent, isParent ,roleMiddleware,externalRoleMiddleware};

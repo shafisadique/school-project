@@ -101,12 +101,19 @@ const studentSchema = new mongoose.Schema({
       message: "Only PNG/JPEG images allowed"
     }
   },
-  usesTransport: { type: Boolean, default: false },
-  usesHostel: { type: Boolean, default: false },
-  otherFees: [{ 
-    name: { type: String, trim: true, required: true },
-    amount: { type: Number, min: 0, required: true }
-  }],
+  feePreferences: { 
+    type: Map,
+    of: Boolean,
+    default: {
+      usesTransport: false,
+      usesHostel: false,
+      usesLibrary: false,
+      needsDress: false,
+      usesLab: false,
+      needsExamFee: true,
+      needsMiscFee: false
+    }
+  },
   parents: {
     fatherName: { 
       type: String, 
@@ -154,15 +161,16 @@ const studentSchema = new mongoose.Schema({
   },
   status: { 
     type: Boolean, 
-    default: true // Default status is true (active)
+    default: true
   }
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  toObject: { virtuals: true },
+  strictPopulate: false
 });
 
-// Add custom validation to ensure at least one parent's details are provided
+// Add custom validation for parents
 studentSchema.pre('validate', function (next) {
   const parents = this.parents || {};
   const fatherNameProvided = parents.fatherName && parents.fatherName.trim() !== '';

@@ -1,0 +1,56 @@
+<!-- fee-bulk-invoice.component.html -->
+<div class="card">
+  <div class="card-header">
+    <h4>Generate Bulk Invoices</h4>
+  </div>
+  <div class="card-body">
+    <form [formGroup]="form" (ngSubmit)="generateInvoices()">
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Class</label>
+          <select formControlName="classId" class="form-control">
+            <option value="">Select Class</option>
+            <option *ngFor="let cls of classes" [value]="cls._id">{{ cls.name }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Academic Year</label>
+          <select formControlName="academicYearId" class="form-control">
+            <option value="">Select Academic Year</option>
+            <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Month</label>
+          <select formControlName="month" class="form-control">
+            <option value="">Select Month</option>
+            <option *ngFor="let m of months" [value]="m">{{ m }}</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Months Ahead (for Advance)</label>
+          <input type="number" formControlName="monthsAhead" class="form-control" min="1">
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="form-check">
+            <input type="checkbox" formControlName="isExamMonth" class="form-check-input" id="examMonth">
+            <label class="form-check-label" for="examMonth">Is Exam Month?</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-end">
+        <button type="submit" class="btn btn-primary" [disabled]="isLoading || form.invalid">
+          <span *ngIf="!isLoading">Generate Invoices</span>
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm"></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

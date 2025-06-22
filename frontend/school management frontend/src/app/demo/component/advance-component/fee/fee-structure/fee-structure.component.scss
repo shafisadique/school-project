@@ -1,5 +1,4 @@
 .container {
-  max-width: 1000px;
   margin: 0 auto;
 }
 
@@ -83,12 +82,16 @@ h3.text-primary {
 }
 
 fieldset {
-  border-color: #e9ecef;
+  border: 1px solid #e9ecef;
+  padding: 15px;
+  border-radius: 5px;
 }
 
 legend {
   font-size: 1rem;
   color: #007bff;
+  width: auto;
+  padding: 0 10px;
 }
 
 /* Buttons */
@@ -104,4 +107,37 @@ legend {
 
 .btn-success:hover {
   background-color: #218838;
+}
+
+/* Additional Styles */
+.fee-structure-container {
+  padding: 20px;
+}
+
+h5.text-primary {
+  color: #007bff;
+}
+
+.modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  border-top: none;
+  padding-top: 10px;
+}
+
+.modal-footer .btn {
+  margin-left: 10px;
+}
+
+.text-danger {
+  display: block;
+  font-size: 0.9em;
+}
+
+ul {
+  padding-left: 15px;
+  margin-bottom: 0;
 }

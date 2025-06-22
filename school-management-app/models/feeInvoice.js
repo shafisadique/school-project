@@ -1,101 +1,46 @@
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
 
-const InvoiceSchema = new Schema(
-  {
-    studentId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Student',
-      required: true,
-    },
-    feeStructureId: {
-      type: Schema.Types.ObjectId,
-      ref: 'FeeStructure',
-      required: true,
-    },
-    schoolId: {
-      type: String,
-      required: true,
-    },
-    academicYear: {
-      type: Schema.Types.ObjectId,
-      ref: 'AcademicYear',
-      required: true,
-    },
-    month: {
-      type: String, // Format: "YYYY-MM"
-      required: true,
-    },
-    baseAmount: {
-      type: Number,
-      required: true,
-    },
-    previousDue: {
-      type: Number,
-      default: 0,
-    },
-    lateFee: {
-      type: Number,
-      default: 0,
-    },
-    currentCharges: {
-      type: Number,
-      required: true,
-    },
-    invoiceDetails: {
-      tuitionFee: { type: Number, required: true },
-      examFee: { type: Number, default: 0 },
-      transportFee: { type: Number, default: 0 },
-      hostelFee: { type: Number, default: 0 },
-      miscFee: { type: Number, default: 0 },
-      labFee: { type: Number, default: 0 },
-    },
-    totalAmount: {
-      type: Number,
-      required: true,
-    },
-    paidAmount: {
-      type: Number,
-      default: 0,
-    },
-    remainingDue: {
-      type: Number,
-      required: true,
-    },
-    discountsApplied: [
-      {
-        name: { type: String, required: true },
-        amount: { type: Number, required: true },
-      },
-    ],
-    status: {
-      type: String,
-      enum: ['Pending', 'Partial', 'Paid', 'Overdue'],
-      required: true,
-    },
-    dueDate: {
-      type: Date,
-      required: true,
-    },
-    paymentSchedule: {
-      type: String,
-      enum: ['Monthly', 'BiMonthly', 'Quarterly', 'Yearly', 'Custom'],
-      default: 'Quarterly',
-    },
-    customPaymentDetails: {
-      type: String,
-      required: false,
-    },
-    paymentHistory: [
-      {
-        date: { type: Date, required: true },
-        amount: { type: Number, required: true },
-        method: { type: String, required: true },
-        processedBy: { type: Schema.Types.ObjectId, ref: 'User' },
-      },
-    ],
+const invoiceSchema = new mongoose.Schema({
+  studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
+  schoolId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  feeStructureId: { type: mongoose.Schema.Types.ObjectId, ref: 'FeeStructure', required: true },
+  academicYear: { type: mongoose.Schema.Types.ObjectId, required: true },
+  month: { type: String, required: true },
+  dueDate: { type: Date, required: true },
+  baseAmount: { type: Number, required: true },
+  previousDue: { type: Number, default: 0 },
+  lateFee: { type: Number, default: 0 },
+  currentCharges: { type: Number, default: 0 },
+  invoiceDetails: [
+    {
+      name: { type: String, required: true },
+      amount: { type: Number, required: true }
+    }
+  ],
+  totalAmount: { type: Number, required: true },
+  paidAmount: { type: Number, default: 0 }, // Add paidAmount with default 0
+  remainingDue: { type: Number, required: true },
+  discountsApplied: [{ type: String }],
+  status: {
+    type: String,
+    enum: ['Pending', 'Partial', 'Paid', 'Overdue'],
+    default: 'Pending'
   },
-  { timestamps: true }
-);
+  paymentSchedule: { type: String, default: 'Monthly' },
+  customPaymentDetails: { type: String },
+  paymentHistory: [
+    {
+      amount: { type: Number, required: true },
+      paymentMethod: { type: String, required: true },
+      date: { type: Date, required: true },
+      transactionId: { type: String },
+      chequeNumber: { type: String },
+      processedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } // Include processedBy for audit trail
+    }
+  ],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
 
-module.exports = mongoose.model('Invoice', InvoiceSchema);
+invoiceSchema.index({ schoolId: 1, studentId: 1, month: 1 }, { unique: true }); // Composite index for frequent queries
+module.exports = mongoose.model('Invoice', invoiceSchema);

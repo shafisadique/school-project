@@ -15,11 +15,25 @@ app.use(helmet({
 }));
 
 // ✅ Configure CORS (remove duplicate and ensure correct origins)
-const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4200'];
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4300'];
+console.log('Allowed Origins:', allowedOrigins); // Debug log
+// app.use(cors({
+//   origin: allowedOrigins, // e.g., ['http://localhost:4200']
+//   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+//   allowedHeaders: ['Content-Type', 'Authorization']
+// }));
 app.use(cors({
-  origin: allowedOrigins, // e.g., ['http://localhost:4200']
+  origin: function (origin, callback) {
+    console.log('Request Origin:', origin); // Debug the incoming origin
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Not allowed by CORS. Origin: ${origin}, Allowed: ${allowedOrigins}`));
+    }
+  },
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // Allow cookies/auth credentials if needed
 }));
 
 // ✅ Middlewares

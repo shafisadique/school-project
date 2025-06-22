@@ -15,8 +15,13 @@
             {{ errorMessage }}
           </div>
 
+          <!-- Payment Success Message -->
+          <div *ngIf="paymentSuccess && !isLoading" class="alert alert-success text-center">
+            Payment of ₹{{ paymentForm.value.amount }} processed successfully! Receipt generated.
+          </div>
+
           <!-- Payment Form -->
-          <div *ngIf="!isLoading && !errorMessage">
+          <div *ngIf="!isLoading && !errorMessage && !paymentSuccess">
             <form [formGroup]="paymentForm" (ngSubmit)="processPayment()">
               <!-- Invoice Details Section -->
               <fieldset class="form-section">
@@ -66,6 +71,16 @@
                       />
                     </div>
                   </div>
+                  <div class="col-md-6 col-12" *ngIf="invoice.paymentHistory?.length">
+                    <div class="form-group">
+                      <label>Payment History:</label>
+                      <textarea
+                        class="form-control form-control-sm shadow-sm"
+                        readonly
+                        [value]="paymentHistoryText"
+                      ></textarea>
+                    </div>
+                  </div>
                 </div>
               </fieldset>
 
@@ -81,6 +96,7 @@
                         formControlName="amount"
                         class="form-control form-control-sm shadow-sm"
                         min="1"
+                        [max]="invoice?.remainingDue"
                         required
                       />
                       <small
@@ -178,6 +194,12 @@
                 </button>
               </div>
             </form>
+          </div>
+
+          <!-- Payment Confirmation Section -->
+          <div *ngIf="paymentSuccess && !isLoading" class="text-center mt-4">
+            <a [href]="invoice.receipt" target="_blank" class="btn btn-success">Download Receipt</a>
+            <button class="btn btn-secondary ms-2" (click)="router.navigate(['/fee/invoice-list'])">Back to Invoice List</button>
           </div>
         </div>
       </app-card>

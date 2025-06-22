@@ -5,7 +5,8 @@ import { ToastrService } from 'ngx-toastr';
 import { FeeService } from '../fee.service';
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
 import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
-import { ActivatedRoute, Router } from '@angular/router'; // Add Router
+import { StudentService } from '../../students/student.service';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PaginationComponent } from '../../pagination/pagination.component';
 
 @Component({
@@ -20,8 +21,11 @@ export class BulkInvoiceListComponent implements OnInit {
   schoolId: string | null = null;
   activeAcademicYearId: string | null = null;
   classList: { id: string; name: string }[] = [];
+  students: any[] = [];
   selectedClassId: string = '';
   selectedClassName: string = '';
+  selectedStudentId: string = '';
+  selectedStudent: any = null; // To store the selected student object
   month: string = '';
   invoices: any[] = [];
   filteredInvoices: any[] = [];
@@ -30,15 +34,17 @@ export class BulkInvoiceListComponent implements OnInit {
   pageSize: number = 10;
   totalItems: number = 0;
   pageSizeOptions: number[] = [10, 25, 50, 100];
+  viewMode: 'class' | 'student' = 'class'; // Toggle between class and student view
 
   constructor(
     private feeService: FeeService,
     private authService: AuthService,
     private classSubjectService: ClassSubjectService,
+    private studentService: StudentService,
     private toastr: ToastrService,
     private datePipe: DatePipe,
     private route: ActivatedRoute,
-    private router: Router // Inject Router
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -50,17 +56,6 @@ export class BulkInvoiceListComponent implements OnInit {
         return;
       }
       this.loadClasses();
-      this.route.queryParams.subscribe(params => {
-        if (params['classId'] && params['month']) {
-          this.selectedClassId = params['classId'];
-          this.month = params['month'];
-          const selectedClass = this.classList.find(cls => cls.id === this.selectedClassId);
-          if (selectedClass) {
-            this.selectedClassName = selectedClass.name;
-            this.loadInvoices();
-          }
-        }
-      });
     } else {
       this.toastr.error('School ID not found. Please log in again.');
     }
@@ -75,17 +70,20 @@ export class BulkInvoiceListComponent implements OnInit {
     this.classSubjectService.getClassesBySchool(this.schoolId!).subscribe({
       next: (classes: any[]) => {
         this.classList = classes.map(c => ({ id: c._id, name: c.name }));
+        console.log('Loaded classes:', this.classList);
         if (this.classList.length === 0) {
           this.toastr.warning('No classes found for this school.');
         }
         this.route.queryParams.subscribe(params => {
-          if (params['classId'] && params['month'] && this.classList.length > 0) {
+          if (params['classId'] && params['month']) {
             this.selectedClassId = params['classId'];
             this.month = params['month'];
             const selectedClass = this.classList.find(cls => cls.id === this.selectedClassId);
             if (selectedClass) {
               this.selectedClassName = selectedClass.name;
-              this.loadInvoices();
+              this.loadStudents().then(() => {
+                this.loadInvoices();
+              });
             }
           }
         });
@@ -97,14 +95,59 @@ export class BulkInvoiceListComponent implements OnInit {
     });
   }
 
+  loadStudents(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.selectedClassId || !this.activeAcademicYearId) {
+        this.students = [];
+        resolve();
+        return;
+      }
+      this.studentService.getStudentsByClass(this.selectedClassId, this.activeAcademicYearId).subscribe({
+        next: (res: any[]) => {
+          this.students = res;
+          console.log('Loaded students:', this.students);
+          if (this.students.length === 0) {
+            this.toastr.warning('No students found for the selected class.');
+          }
+          resolve();
+        },
+        error: (err) => {
+          console.error('Error loading students:', err);
+          this.toastr.error(err.message || 'Failed to load students.');
+          this.students = [];
+          reject(err);
+        }
+      });
+    });
+  }
+
   updateClassSelection(event: Event): void {
     const target = event.target as HTMLSelectElement;
     const selectedClass = this.classList.find(cls => cls.id === target.value);
     if (selectedClass) {
       this.selectedClassId = selectedClass.id;
       this.selectedClassName = selectedClass.name;
-      this.loadInvoices();
+      this.selectedStudentId = '';
+      this.selectedStudent = null;
+      this.loadStudents().then(() => {
+        if (this.month) {
+          this.loadInvoices();
+        }
+      });
+    } else {
+      this.selectedClassId = '';
+      this.selectedClassName = '';
+      this.students = [];
+      this.invoices = [];
+      this.filteredInvoices = [];
     }
+  }
+
+  updateStudentSelection(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.selectedStudentId = target.value;
+    this.selectedStudent = this.students.find(student => student._id === this.selectedStudentId) || null;
+    this.filterInvoices();
   }
 
   loadInvoices(): void {
@@ -117,6 +160,7 @@ export class BulkInvoiceListComponent implements OnInit {
       next: (res) => {
         console.log('Invoices response:', res);
         this.invoices = res.data || [];
+        console.log('Parsed invoices:', this.invoices);
         this.totalItems = this.invoices.length;
         this.filterInvoices();
         if (this.invoices.length === 0) {
@@ -132,7 +176,7 @@ export class BulkInvoiceListComponent implements OnInit {
   }
 
   filterInvoices(): void {
-    const currentDate = new Date('2025-06-10T11:22:00+05:30'); // Updated to current date
+    const currentDate = new Date('2025-06-17T13:55:00+05:30');
     let filtered = this.invoices.map(invoice => {
       const dueDate = new Date(invoice.dueDate);
       if (invoice.status === 'Pending' && currentDate > dueDate) {
@@ -145,10 +189,26 @@ export class BulkInvoiceListComponent implements OnInit {
       filtered = filtered.filter(invoice => invoice.status === this.statusFilter);
     }
 
+    // Apply view mode filtering
+    if (this.viewMode === 'student' && this.selectedStudentId) {
+      filtered = filtered.filter(invoice => invoice.studentId?._id === this.selectedStudentId);
+    }
+    // In class view, no student filter is applied unless explicitly selected
+
     this.totalItems = filtered.length;
     const start = (this.currentPage - 1) * this.pageSize;
     const end = start + this.pageSize;
     this.filteredInvoices = filtered.slice(start, end);
+    console.log('Filtered invoices:', this.filteredInvoices);
+  }
+
+  setViewMode(mode: 'class' | 'student'): void {
+    this.viewMode = mode;
+    if (this.viewMode === 'class') {
+      this.selectedStudentId = ''; // Reset student selection in class view
+      this.selectedStudent = null;
+    }
+    this.filterInvoices();
   }
 
   onPageChange(page: number): void {
@@ -181,9 +241,22 @@ export class BulkInvoiceListComponent implements OnInit {
     });
   }
 
-  processPayment(invoiceId: string, amount: number): void {
-    // Navigate to FeePaymentComponent instead of direct payment
-    this.router.navigate(['/fee/payment', invoiceId]);
+processPayment(invoiceId: string, amount: number): void {
+    console.log('Processing payment for invoiceId:', invoiceId); // Debug log
+    this.feeService.getInvoiceById(invoiceId).subscribe({
+      next: (invoice) => {
+        console.log('Invoice data:', invoice); // Debug the full response
+        if (invoice && invoice.data && invoice.data.student && invoice.data.student._id) {
+          this.router.navigate(['/fee/payment', invoiceId]); // Navigate without queryParams
+        } else {
+          this.toastr.error('Invalid invoice data or student not found.');
+        }
+      },
+      error: (err) => {
+        this.toastr.error('Failed to load invoice details: ' + (err.error?.message || err.message));
+        console.error('Error fetching invoice:', err); // Debug error
+      }
+    });
   }
 
   notifyParents(): void {

@@ -1,5 +1,5 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
 
@@ -7,17 +7,23 @@ import { environment } from 'src/environments/environment';
   providedIn: 'root'
 })
 export class FeeStructureService {
-
   private apiUrl = environment.apiUrl;
 
   constructor(private http: HttpClient) { }
 
-  getFeeStructures(schoolId: string): Observable<any> {
+  // Fetch all fee structures for a school
+  getAllFeeStructuresForSchool(schoolId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/fees/get-fee-structure`, {
       params: { schoolId }
     });
   }
-  
+
+  // Fetch a specific fee structure for a school, class, and academic year
+  getFeeStructureForClassAndYear(schoolId: string, className: string, academicYearId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/fees/get-fee-structure`, {
+      params: { schoolId, className, academicYearId }
+    });
+  }
 
   createFeeStructure(data: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/fees/create-structure`, data);

@@ -1,0 +1,132 @@
+<!-- cash-report.component.html -->
+<div class="container-fluid">
+  
+
+  <div class="report-card">
+    <!-- Filters -->
+    <div class="filter-row">
+      <div class="filter-group">
+        <label class="filter-label">Payment Method</label>
+        <select class="filter-control form-select-sm" [(ngModel)]="filters.method">
+          <option *ngFor="let method of paymentMethods" [value]="method.value">{{method.label}}</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label class="filter-label">Start Date</label>
+        <input type="date" class="filter-control form-select-sm" [(ngModel)]="filters.startDate">
+      </div>
+      
+      <div class="filter-group">
+        <label class="filter-label">End Date</label>
+        <input type="date" class="filter-control form-select-sm" [(ngModel)]="filters.endDate">
+      </div>
+      
+      <div class="filter-group">
+        <label class="filter-label">Class</label>
+        <select class="filter-control form-select-sm" [(ngModel)]="filters.classId" (change)="onClassChange()">
+          <option value="">All Classes</option>
+          <option *ngFor="let cls of classes" [ngValue]="cls">{{cls.name}}</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label class="filter-label">Section</label>
+        <select class="filter-control form-select-sm" [(ngModel)]="filters.section">
+          <option value="">All Sections</option>
+          <option *ngFor="let sec of sections" [value]="sec">{{sec}}</option>
+        </select>
+      </div>
+      
+      <button class="filter-btn btn-sm" (click)="generateReport()">
+        <i class="fas fa-filter"></i> Apply Filters
+      </button>
+    </div>
+    
+    <!-- Loading indicator -->
+    <div *ngIf="isLoading" class="loading-container">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p>Loading report data...</p>
+    </div>
+    
+    <!-- Summary Section -->
+    <div *ngIf="reportData && !isLoading" class="summary-card">
+      <div class="summary-grid">
+        <div class="summary-item">
+          <div class="summary-label">Total Transactions</div>
+          <div class="summary-value">{{reportData.summary.transactionCount}}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Total Amount</div>
+          <div class="summary-value">₹{{reportData.summary.total | number}}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Cash</div>
+          <div class="summary-value">₹{{reportData.summary.cashTotal | number}}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Cheque</div>
+          <div class="summary-value">₹{{reportData.summary.chequeTotal | number}}</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-label">Online</div>
+          <div class="summary-value">₹{{reportData.summary.onlineTotal | number}}</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Export Button -->
+    <div *ngIf="reportData && !isLoading" class="export-container">
+      <button class="export-btn" (click)="exportToCSV()">
+        <i class="fas fa-file-csv"></i> Export to CSV
+      </button>
+    </div>
+    
+    <!-- Transactions Table -->
+    <div *ngIf="reportData && !isLoading" class="table-container">
+      <table class="report-table table-sm">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Student</th>
+            <th>Admission No</th>
+            <th>Class</th>
+            <th>Section</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Processed By</th>
+            <th>Invoice Month</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of reportData.transactions">
+            <td>{{t.date | date: 'dd/MM/yyyy'}}</td>
+            <td>{{t.student.name}}</td>
+            <td>{{t.student.admissionNo}}</td>
+            <td>{{t.student.className}}</td>
+            <td>{{t.student.section}}</td>
+            <td>₹{{t.amount | number}}</td>
+            <td>
+              <span [ngClass]="{
+                'method-badge cash-badge': t.method === 'Cash',
+                'method-badge cheque-badge': t.method === 'Cheque',
+                'method-badge online-badge': t.method === 'Online'
+              }">
+                {{t.method}}
+              </span>
+            </td>
+            <td>{{t.processedBy || 'System'}}</td>
+            <td>{{t.invoiceMonth}}</td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div *ngIf="reportData.transactions.length === 0" class="no-data">
+        <i class="fas fa-file-excel"></i>
+        <h5>No transactions found for the selected filters</h5>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,174 +1,197 @@
+const mongoose = require('mongoose');
 const moment = require('moment');
-const Invoice = require('../models/feeInvoice');
 const FeeStructure = require('../models/feeStructure');
 const Student = require('../models/student');
+const Invoice = require('../models/feeInvoice');
 const AcademicYear = require('../models/academicyear');
 
-// Helper function to calculate fees (adapted from paym entController.js)
-const calculateFees = async (student, feeStructure, monthDate, previousDue = 0, paymentSchedule, isExamMonth) => {
-  // Start with zero and only add the relevant breakdown components
-  let totalAmount = feeStructure.feeBreakdown.tuitionFee +
-    (isExamMonth ? feeStructure.feeBreakdown.examFee : 0) +
-    (student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0) +
-    (student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0) +
-    feeStructure.feeBreakdown.miscFee +
-    (feeStructure.feeBreakdown.labFee || 0) +
-    previousDue;
+const generateInvoices = async (schoolId, classId, className, month, academicYearId, customSchedules = [], isExamMonth = false, studentId = null) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  // The baseAmount should reflect the adjusted base fee for reporting purposes
-  let baseAmount = totalAmount - previousDue; // Exclude previousDue for baseAmount
+  try {
+    // Validate inputs
+    if (!schoolId || !classId || !month || !academicYearId) {
+      throw new Error('Missing required fields: schoolId, classId, month, and academicYearId are required.');
+    }
 
-  // Define invoice details (breakdown) for display in the invoice
-  let invoiceDetails = {
-    tuitionFee: feeStructure.feeBreakdown.tuitionFee,
-    examFee: isExamMonth ? feeStructure.feeBreakdown.examFee : 0,
-    transportFee: student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0,
-    hostelFee: student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0,
-    miscFee: feeStructure.feeBreakdown.miscFee,
-    labFee: feeStructure.feeBreakdown.labFee || 0,
-  };
+    // Convert month name to YYYY-MM format
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const monthIndex = monthNames.indexOf(month);
+    if (monthIndex === -1) {
+      throw new Error('Invalid month name. Please use full month names like "January", "February", etc.');
+    }
+    const year = new Date().getFullYear();
+    const formattedMonth = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+    const monthNumber = parseInt(formattedMonth.split('-')[1]);
 
-  // Adjust totalAmount and invoiceDetails based on payment schedule
-  if (paymentSchedule === 'Monthly' && feeStructure.frequency === 'Quarterly') {
-    totalAmount = totalAmount / 3; // Quarterly fee divided into 3 months
-    baseAmount = baseAmount / 3;
-    invoiceDetails.tuitionFee = invoiceDetails.tuitionFee / 3;
-    invoiceDetails.examFee = invoiceDetails.examFee / 3;
-    invoiceDetails.transportFee = invoiceDetails.transportFee / 3;
-    invoiceDetails.hostelFee = invoiceDetails.hostelFee / 3;
-    invoiceDetails.miscFee = invoiceDetails.miscFee / 3;
-    invoiceDetails.labFee = invoiceDetails.labFee / 3;
-  } else if (paymentSchedule === 'BiMonthly' && feeStructure.frequency === 'Quarterly') {
-    totalAmount = (totalAmount / 3) * 2; // Pay for 2 months together
-    baseAmount = (baseAmount / 3) * 2;
-    invoiceDetails.tuitionFee = (invoiceDetails.tuitionFee / 3) * 2;
-    invoiceDetails.examFee = (invoiceDetails.examFee / 3) * 2;
-    invoiceDetails.transportFee = (invoiceDetails.transportFee / 3) * 2;
-    invoiceDetails.hostelFee = (invoiceDetails.hostelFee / 3) * 2;
-    invoiceDetails.miscFee = (invoiceDetails.miscFee / 3) * 2;
-    invoiceDetails.labFee = (invoiceDetails.labFee / 3) * 2;
-  } else if (paymentSchedule === 'Custom') {
-    const months = parseInt(paymentSchedule.customPaymentDetails?.match(/\d+/)?.[0] || '1');
-    totalAmount = (totalAmount / 3) * months;
-    baseAmount = (baseAmount / 3) * months;
-    invoiceDetails.tuitionFee = (invoiceDetails.tuitionFee / 3) * months;
-    invoiceDetails.examFee = (invoiceDetails.examFee / 3) * months;
-    invoiceDetails.transportFee = (invoiceDetails.transportFee / 3) * months;
-    invoiceDetails.hostelFee = (invoiceDetails.hostelFee / 3) * months;
-    invoiceDetails.miscFee = (invoiceDetails.miscFee / 3) * months;
-    invoiceDetails.labFee = (invoiceDetails.labFee / 3) * months;
+    // Fetch the academic year
+    const academicYear = await AcademicYear.findById(academicYearId).session(session);
+    if (!academicYear) {
+      throw new Error('Academic year not found.');
+    }
+
+    // Fetch the fee structure
+    const feeStructure = await FeeStructure.findOne({ schoolId, classId, academicYearId }).session(session);
+    if (!feeStructure) {
+      throw new Error(`No fee structure found for class ${className} in academic year ${academicYear.name}.`);
+    }
+
+    // Fetch students
+    let students;
+    if (studentId) {
+      students = await Student.find({ _id: studentId, schoolId, classId }).session(session);
+    } else {
+      students = await Student.find({ schoolId, classId }).session(session);
+    }
+    if (students.length === 0) {
+      throw new Error(`No students found in class ${className}.`);
+    }
+
+    const invoices = [];
+    const currentDate = new Date();
+    const dueDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 10); // Due on 10th of next month
+
+    for (const student of students) {
+      // Check for existing invoice from the previous month
+      const previousMonthIndex = monthIndex === 0 ? 11 : monthIndex - 1;
+      const previousMonth = monthNames[previousMonthIndex];
+      const previousFormattedMonth = `${year}-${String(previousMonthIndex + 1).padStart(2, '0')}`;
+      const previousInvoice = await Invoice.findOne({
+        studentId: student._id,
+        month: previousFormattedMonth,
+        academicYear: academicYearId,
+        schoolId,
+      }).session(session);
+
+      let previousDue = 0;
+      if (previousInvoice) {
+        previousDue = previousInvoice.remainingDue; // Carry forward remaining due
+      }
+
+      // Check for existing invoice for the current month
+      const existingInvoice = await Invoice.findOne({
+        studentId: student._id,
+        month: formattedMonth,
+        academicYear: academicYearId,
+        schoolId,
+      }).session(session);
+      if (existingInvoice) continue;
+
+      // Initialize fee tracking
+      let baseAmount = 0;
+      let currentCharges = 0;
+      const feeDetails = [];
+      const appliedDiscounts = [];
+
+      // Process all fees (assuming monthly)
+      for (const fee of feeStructure.fees) {
+        if ((fee.name.toLowerCase().includes('exam') || fee.name.toLowerCase() === 'examfee') && !isExamMonth) {
+          continue;
+        }
+
+        let applies = true;
+        if (fee.type === 'Optional' && fee.preferenceKey) {
+          applies = student.feePreferences?.get(fee.preferenceKey) === true;
+        }
+
+        if (applies) {
+          const amount = fee.amount;
+          if (fee.type === 'Base') {
+            baseAmount += amount;
+          } else {
+            currentCharges += amount;
+          }
+          feeDetails.push({
+            name: fee.name,
+            amount,
+            type: fee.type,
+            frequency: 'Monthly',
+            preferenceKey: fee.preferenceKey,
+          });
+        }
+      }
+
+      // Apply discounts
+      let discountAmount = 0;
+      for (const discount of feeStructure.discounts) {
+        let discountValue = discount.type === 'Percentage' ? (currentCharges * discount.amount) / 100 : discount.amount;
+        discountValue = Math.min(discountValue, currentCharges);
+        discountAmount += discountValue;
+        appliedDiscounts.push({
+          name: discount.name,
+          amount: discountValue,
+          type: discount.type,
+        });
+      }
+      currentCharges -= discountAmount;
+      const totalAmount = baseAmount + currentCharges;
+
+      // Create the invoice
+      const invoice = new Invoice({
+        schoolId,
+        studentId: student._id,
+        classId,
+        className,
+        academicYear: academicYearId,
+        feeStructureId: feeStructure._id,
+        month: formattedMonth,
+        dueDate,
+        baseAmount,
+        previousDue,
+        lateFee: 0,
+        currentCharges,
+        invoiceDetails: feeDetails,
+        totalAmount,
+        paidAmount: 0,
+        remainingDue: totalAmount + previousDue,
+        discountsApplied: appliedDiscounts,
+        paymentSchedule: 'Monthly',
+        status: 'Pending',
+        paymentHistory: [],
+      });
+
+      await invoice.save({ session });
+      invoices.push(invoice);
+    }
+
+    await session.commitTransaction();
+    return invoices;
+  } catch (error) {
+    await session.abortTransaction();
+    console.error('Invoice generation error:', error);
+    throw new Error(`Failed to generate invoices: ${error.message}`);
+  } finally {
+    session.endSession();
   }
+};
 
-  // Calculate late fee
-  let lateFee = 0;
-  const dueDate = moment(monthDate).endOf('month').toDate();
-  if (new Date() > dueDate && totalAmount > 0) {
-    const daysLate = moment().diff(dueDate, 'days');
-    lateFee = Math.min(
-      feeStructure.lateFeeRules.dailyRate * daysLate,
-      feeStructure.lateFeeRules.maxLateFee
+const getInvoiceById = async (invoiceId) => {
+  try {
+    return await Invoice.findById(invoiceId)
+      .populate('studentId', 'name admissionNo className')
+      .populate('academicYear', 'name')
+      .populate('schoolId', 'name address')
+      .populate('feeStructureId');
+  } catch (error) {
+    throw new Error(`Failed to get invoice: ${error.message}`);
+  }
+};
+
+const updateInvoiceStatus = async (invoiceId, status) => {
+  try {
+    return await Invoice.findByIdAndUpdate(
+      invoiceId,
+      { status },
+      { new: true }
     );
-    totalAmount += lateFee;
+  } catch (error) {
+    throw new Error(`Failed to update invoice status: ${error.message}`);
   }
-
-  // Apply discounts
-  const discountsApplied = [];
-  let discountTotal = 0;
-  for (const discount of feeStructure.discounts) {
-    let discountAmount = discount.type === 'Percentage'
-      ? (totalAmount * discount.amount) / 100
-      : discount.amount;
-    discountTotal += discountAmount;
-    discountsApplied.push({ name: discount.name, amount: discountAmount });
-  }
-  totalAmount -= discountTotal;
-
-  return {
-    studentId: student._id,
-    baseAmount,
-    previousDue,
-    lateFee,
-    currentCharges: baseAmount, // Current charges exclude previousDue and lateFee
-    invoiceDetails,
-    totalAmount,
-    remainingDue: totalAmount,
-    discountsApplied,
-  };
 };
 
-const generateInvoices = async (schoolId, classId, className, month, academicYearId, customSchedules = []) => {
-  console.log(`Generating invoices for classId: ${classId}, className: ${className}, month: ${month}, academicYearId: ${academicYearId}`);
-  const monthDate = moment(month, 'YYYY-MM');
-  if (!monthDate.isValid()) {
-    throw new Error('Invalid month format. Use YYYY-MM.');
-  }
-
-  const academicYear = await AcademicYear.findById(academicYearId);
-  if (!academicYear) {
-    throw new Error('Invalid academic year ID.');
-  }
-
-  if (monthDate < moment(academicYear.startDate) || monthDate > moment(academicYear.endDate)) {
-    throw new Error(`Month ${month} is not within the academic year ${academicYear.name}`);
-  }
-
-  if (academicYear.schoolId.toString() !== schoolId) {
-    throw new Error('Academic year does not belong to this school.');
-  }
-
-  const students = await Student.find({ schoolId, classId: classId });
-  console.log(`Found ${students.length} students for classId: ${classId}`);
-  if (!students.length) {
-    throw new Error('No students found for this class.');
-  }
-
-  const feeStructure = await FeeStructure.findOne({ schoolId, className, academicYear: academicYearId });
-  if (!feeStructure) {
-    throw new Error('Fee structure not found for this class.');
-  }
-
-  const invoices = [];
-  for (const student of students) {
-    const existingInvoice = await Invoice.findOne({
-      studentId: student._id,
-      academicYear: academicYear._id,
-      month: monthDate.format('YYYY-MM'),
-    });
-    if (existingInvoice) continue;
-
-    const customSchedule = customSchedules.find(cs => cs.studentId === student._id.toString());
-    const paymentSchedule = customSchedule?.paymentSchedule || feeStructure.frequency;
-
-    const previousInvoices = await Invoice.find({
-      studentId: student._id,
-      academicYear: academicYear._id,
-      month: { $lt: monthDate.format('YYYY-MM') },
-    });
-    const previousDue = previousInvoices.reduce((sum, inv) => sum + inv.remainingDue, 0);
-
-    const feeDetails = await calculateFees(student, feeStructure, monthDate, previousDue, customSchedule || { paymentSchedule });
-
-    const invoice = new Invoice({
-      ...feeDetails,
-      schoolId,
-      feeStructureId: feeStructure._id,
-      academicYear: academicYear._id,
-      month: monthDate.format('YYYY-MM'),
-      dueDate: moment(monthDate).endOf('month').toDate(),
-      status: 'Pending',
-      paymentSchedule,
-      customPaymentDetails: customSchedule?.customPaymentDetails,
-      paymentHistory: [],
-    });
-    invoices.push(invoice);
-  }
-
-  if (invoices.length === 0) {
-    throw new Error('Invoices already exist for this class and month.');
-  }
-
-  await Invoice.insertMany(invoices);
-  return invoices;
+module.exports = {
+  generateInvoices,
+  getInvoiceById,
+  updateInvoiceStatus
 };
-
-module.exports = { generateInvoices };

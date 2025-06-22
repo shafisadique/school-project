@@ -222,10 +222,10 @@ export const NavigationItems: NavigationItem[] = [
       // },
 
       {
-        id: 'generate-invoice',
-        title: 'Recipt Fee',
+        id: 'fee-collection-reports',
+        title: 'Fee collection Reports',
         type: 'item',
-        url: '/fee/fee-receipt',
+        url: '/fee/fee-collection-reports',
         icon: 'user'
       },
     ]

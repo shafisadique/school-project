@@ -9,317 +9,128 @@ const FeeInvoice = require('../../models/feeInvoice');
 const AcademicYear = require('../../models/academicyear');
 const School = require('../../models/school');
 
-// Helper function for fee calculations
-const calculateFees = async (student, feeStructure, monthDate, previousDue = 0, isExamMonth = false) => {
-  let totalAmount = feeStructure.baseFee +
-    feeStructure.feeBreakdown.tuitionFee +
-    (isExamMonth ? feeStructure.feeBreakdown.examFee : 0) +
-    (student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0) +
-    (student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0) +
-    feeStructure.feeBreakdown.miscFee +
-    (feeStructure.feeBreakdown.labFee || 0) +
-    previousDue;
 
-  // Calculate late fee if overdue
-  let lateFee = 0;
-  const dueDate = moment(monthDate).endOf('month').toDate();
-  if (new Date() > dueDate && totalAmount > 0) {
-    const daysLate = moment().diff(dueDate, 'days');
-    lateFee = Math.min(
-      feeStructure.lateFeeRules.dailyRate * daysLate,
-      feeStructure.lateFeeRules.maxLateFee
-    );
-    totalAmount += lateFee;
-  }
-
-  // Apply discounts
-  const discountsApplied = [];
-  let discountTotal = 0;
-  for (const discount of feeStructure.discounts) {
-    let discountAmount = discount.type === 'Percentage'
-      ? (totalAmount * discount.amount) / 100
-      : discount.amount;
-    discountTotal += discountAmount;
-    discountsApplied.push({ name: discount.name, amount: discountAmount });
-  }
-  totalAmount -= discountTotal;
-
-  return {
-    studentId: student._id,
-    baseAmount: feeStructure.baseFee,
-    previousDue,
-    lateFee,
-    currentCharges: feeStructure.baseFee +
-      feeStructure.feeBreakdown.tuitionFee +
-      (isExamMonth ? feeStructure.feeBreakdown.examFee : 0) +
-      (student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0) +
-      (student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0) +
-      feeStructure.feeBreakdown.miscFee +
-      (feeStructure.feeBreakdown.labFee || 0),
-    invoiceDetails: {
-      tuitionFee: feeStructure.feeBreakdown.tuitionFee,
-      examFee: isExamMonth ? feeStructure.feeBreakdown.examFee : 0,
-      transportFee: student.usesTransport ? feeStructure.feeBreakdown.transportFee : 0,
-      hostelFee: student.usesHostel ? feeStructure.feeBreakdown.hostelFee : 0,
-      miscFee: feeStructure.feeBreakdown.miscFee,
-      labFee: feeStructure.feeBreakdown.labFee || 0
-    },
-    totalAmount,
-    remainingDue: totalAmount,
-    discountsApplied
-  };
-};
-
-// Generate single invoice for a student
-exports.generateSingleInvoice = async (req, res) => {
-  try {
-    const { studentId, month, academicYearId } = req.body;
-    const schoolId = req.user.schoolId;
-
-    // Validate academic year
-    const academicYear = await AcademicYear.findOne({ _id: academicYearId, schoolId });
-    if (!academicYear) {
-      return res.status(404).json({ error: 'Academic year not found' });
-    }
-
-    // Validate month
-    const monthDate = moment(month, 'YYYY-MM');
-    if (!monthDate.isValid() || monthDate < academicYear.startDate || monthDate > academicYear.endDate) {
-      return res.status(400).json({ error: `Invalid month or not in ${academicYear.name} session` });
-    }
-
-    // Get student
-    const student = await Student.findOne({ _id: studentId, schoolId });
-    if (!student) {
-      return res.status(404).json({ error: 'Student not found' });
-    }
-
-    // Get fee structure
-    const feeStructure = await FeeStructure.findOne({
-      schoolId,
-      academicYear: academicYearId,
-      className: student.className
-    });
-    if (!feeStructure) {
-      return res.status(404).json({ error: 'Fee structure not found' });
-    }
-
-    // Check for existing invoice
-    const existingInvoice = await FeeInvoice.findOne({
-      studentId,
-      academicYear: academicYearId,
-      month: monthDate.format('YYYY-MM')
-    });
-    if (existingInvoice) {
-      return res.status(409).json({ error: 'Invoice already exists for this month' });
-    }
-
-    // Calculate previous due
-    const previousInvoices = await FeeInvoice.find({
-      studentId,
-      academicYear: academicYearId,
-      month: { $lt: monthDate.format('YYYY-MM') }
-    });
-    const previousDue = previousInvoices.reduce((sum, inv) => sum + inv.remainingDue, 0);
-
-    // Calculate fees (isExamMonth defaults to false for now)
-    const feeDetails = await calculateFees(student, feeStructure, monthDate, previousDue);
-
-    // Create invoice
-    const newInvoice = await FeeInvoice.create({
-      ...feeDetails,
-      schoolId,
-      academicYear: academicYearId,
-      month: monthDate.format('YYYY-MM'),
-      dueDate: moment(monthDate).endOf('month').toDate(),
-      status: 'Pending',
-      paymentHistory: []
-    });
-
-    res.status(201).json({ success: true, data: newInvoice });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
-
-// Bulk invoice generation for a class
-exports.generateBulkMonthlyInvoices = async (req, res) => {
-  try {
-    const { className, month, academicYearId, sections } = req.body;
-    const schoolId = req.user.schoolId;
-
-    // Validate academic year
-    const academicYear = await AcademicYear.findOne({ _id: academicYearId, schoolId });
-    if (!academicYear) {
-      return res.status(404).json({ error: 'Academic year not found' });
-    }
-
-    // Validate month
-    const monthDate = moment(month, 'YYYY-MM');
-    if (!monthDate.isValid() || monthDate < academicYear.startDate || monthDate > academicYear.endDate) {
-      return res.status(400).json({ error: `Invalid month or not in ${academicYear.name} session` });
-    }
-
-    // Get fee structure
-    const feeStructure = await FeeStructure.findOne({
-      schoolId,
-      academicYear: academicYearId,
-      className
-    });
-    if (!feeStructure) {
-      return res.status(404).json({ error: 'Fee structure not found' });
-    }
-
-    // Get students
-    const students = await Student.find({
-      schoolId,
-      className,
-      academicYear: academicYearId,
-      section: { $in: sections }
-    }).select('_id className usesTransport usesHostel');
-
-    // Prepare bulk operations
-    const bulkOps = [];
-    for (const student of students) {
-      const existingInvoice = await FeeInvoice.findOne({
-        studentId: student._id,
-        academicYear: academicYearId,
-        month: monthDate.format('YYYY-MM')
-      });
-      if (existingInvoice) continue;
-
-      // Calculate previous due
-      const previousInvoices = await FeeInvoice.find({
-        studentId: student._id,
-        academicYear: academicYearId,
-        month: { $lt: monthDate.format('YYYY-MM') }
-      });
-      const previousDue = previousInvoices.reduce((sum, inv) => sum + inv.remainingDue, 0);
-
-      const feeDetails = await calculateFees(student, feeStructure, monthDate, previousDue);
-
-      bulkOps.push({
-        insertOne: {
-          document: {
-            ...feeDetails,
-            schoolId,
-            academicYear: academicYearId,
-            month: monthDate.format('YYYY-MM'),
-            dueDate: moment(monthDate).endOf('month').toDate(),
-            status: 'Pending',
-            paymentHistory: []
-          }
-        }
-      });
-    }
-
-    // Execute bulk operation
-    if (bulkOps.length === 0) {
-      return res.status(200).json({ success: true, message: 'No new invoices to generate' });
-    }
-
-    const result = await FeeInvoice.bulkWrite(bulkOps, { ordered: false });
-
-    res.json({
-      success: true,
-      created: result.insertedCount,
-      message: `${result.insertedCount} invoices generated`
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
 
 exports.processPayment = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     session.startTransaction();
-    const { invoiceId } = req.params;
-    console.log(req.body)
+    const { studentId } = req.params;
     const { amount, paymentMethod, date, chequeNumber, transactionId } = req.body;
-    const { schoolId, role, id: userId } = req.user;
+    const { schoolId, id: userId } = req.user;
 
-    // Validate invoice
-    console.log(invoiceId);
-    const invoice = await FeeInvoice.findOne({ _id: invoiceId, schoolId }).session(session);
-    if (!invoice) {
-      throw new Error('Invoice not found');
-    }
+    // Validate inputs
+    if (!studentId) throw new Error('Student ID is required');
+    if (typeof amount !== 'number' || amount <= 0) throw new Error('Invalid amount');
 
-    // Role-based payment restrictions
-    if (role === 'Parent' && ['Cash', 'Cheque'].includes(paymentMethod)) {
-      throw new Error('Parents can only process online payments');
-    }
-    if (role === 'Student') {
-      throw new Error('Students are not authorized to process payments');
-    }
+    // Get ALL unpaid invoices sorted by due date (oldest first)
+    const invoices = await FeeInvoice.find({
+      studentId,
+      schoolId,
+      status: { $in: ['Pending', 'Partial', 'Overdue'] }
+    }).sort({ dueDate: 1 }).session(session);
 
-    // Validate payment amount
-    if (typeof amount !== 'number' || amount <= 0 || amount > invoice.remainingDue) {
-      throw new Error(`Invalid amount. Remaining due: ₹${invoice.remainingDue}`);
-    }
-    console.log(paymentMethod)
-    // Validate payment method
-    if (!['Cash', 'Cheque', 'Online'].includes(paymentMethod)) {
-      throw new Error('Invalid payment method');
-    }
-    if (paymentMethod === 'Cheque' && (!chequeNumber || typeof chequeNumber !== 'string')) {
-      throw new Error('Cheque number is required');
-    }
-    if (paymentMethod === 'Online' && (!transactionId || typeof transactionId !== 'string')) {
-      throw new Error('Transaction ID is required for online payments');
+    if (invoices.length === 0) {
+      throw new Error('No outstanding invoices found');
     }
 
-    // For parents, verify they own the student
-    if (role === 'Parent') {
-      const student = await Student.findOne({ _id: invoice.studentId, parentId: userId });
-      if (!student) {
-        throw new Error('Unauthorized: You can only pay for your child’s invoices');
-      }
+    let remainingAmount = amount;
+    const updatedInvoices = [];
+
+    // Apply payment to invoices chronologically
+    for (const invoice of invoices) {
+      if (remainingAmount <= 0) break;
+
+      const amountToApply = Math.min(remainingAmount, invoice.remainingDue);
+      if (amountToApply <= 0) continue;
+
+      // Add payment record
+      invoice.paymentHistory.push({
+        date: date || new Date(),
+        amount: amountToApply,
+        paymentMethod,
+        processedBy: userId,
+        ...(paymentMethod === 'Cheque' && { chequeNumber }),
+        ...(paymentMethod === 'Online' && { transactionId }),
+      });
+
+      // Update invoice
+      invoice.paidAmount += amountToApply;
+      invoice.remainingDue = invoice.totalAmount - invoice.paidAmount;
+      invoice.status = invoice.remainingDue > 0 ? 'Partial' : 'Paid';
+
+      remainingAmount -= amountToApply;
+      updatedInvoices.push(await invoice.save({ session }));
     }
 
-    // Update invoice
-    invoice.paymentHistory.push({
-      date: date || new Date(),
-      amount,
-      method: paymentMethod,
-      processedBy: userId,
-      ...(paymentMethod === 'Cheque' && { chequeNumber }),
-      ...(paymentMethod === 'Online' && { transactionId })
-    });
-
-    invoice.paidAmount += amount;
-    invoice.remainingDue = invoice.totalAmount - invoice.paidAmount;
-    invoice.status = invoice.remainingDue > 0 ? 'Partial' : 'Paid';
-
-    // Update student records
+    // Update student's overall fee status
+    const totalPaid = amount - remainingAmount;
     await Student.findByIdAndUpdate(
-      invoice.studentId,
-      { $inc: { totalPaid: amount, totalDue: -amount } },
+      studentId,
+      { $inc: { totalPaid, totalDue: -totalPaid } },
       { session }
     );
 
-    await invoice.save({ session });
     await session.commitTransaction();
-
-    // Generate receipt
-    const receiptPath = await generatePaymentReceipt(invoice, amount, paymentMethod);
 
     res.json({
       success: true,
-      message: 'Payment processed successfully',
-      data: invoice,
-      receipt: receiptPath
+      message: 'Payment processed across invoices',
+      data: updatedInvoices
     });
   } catch (err) {
     await session.abortTransaction();
-    res.status(err.message.includes('Unauthorized') ? 403 : 400).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   } finally {
     session.endSession();
   }
 };
 
-// Generate payment receipt PDF
+exports.generateAdvanceInvoices = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    session.startTransaction();
+    const { studentId, monthsAhead } = req.body;
+    const { schoolId, classId, academicYearId } = await Student.findById(studentId).select('schoolId classId academicYear');
+
+    if (!studentId || !monthsAhead || monthsAhead < 1) {
+      throw new Error('studentId and monthsAhead are required, and monthsAhead must be positive');
+    }
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const currentMonthIndex = new Date().getMonth();
+    const invoices = [];
+
+    for (let i = 1; i <= monthsAhead; i++) {
+      const futureMonthIndex = (currentMonthIndex + i) % 12;
+      const futureMonth = monthNames[futureMonthIndex];
+      const futureYear = new Date().getFullYear() + Math.floor((currentMonthIndex + i) / 12);
+      const formattedMonth = `${futureYear}-${String(futureMonthIndex + 1).padStart(2, '0')}`;
+
+      const existingInvoice = await Invoice.findOne({
+        studentId,
+        month: formattedMonth,
+        academicYear: academicYearId,
+        schoolId,
+      }).session(session);
+
+      if (existingInvoice) continue;
+
+      const className = (await Student.findById(studentId).select('className')).className;
+      const invoice = await generateInvoices(schoolId, classId, className, futureMonth, academicYearId, [], false, studentId);
+      invoices.push(...invoice);
+    }
+
+    await session.commitTransaction();
+    res.json({ success: true, data: invoices });
+  } catch (err) {
+    await session.abortTransaction();
+    res.status(400).json({ error: err.message });
+  } finally {
+    session.endSession();
+  }
+};
+
 const generatePaymentReceipt = async (invoice, amount, paymentMethod) => {
   const doc = new PDFDocument();
   const filePath = `./temp/receipt_${invoice._id}_${Date.now()}.pdf`;
@@ -333,12 +144,10 @@ const generatePaymentReceipt = async (invoice, amount, paymentMethod) => {
   const school = await School.findById(invoice.schoolId);
   const student = await Student.findById(invoice.studentId);
 
-  // Header
   doc.fontSize(18).text(school.name, { align: 'center' });
   doc.fontSize(12).text(school.address, { align: 'center' });
   doc.moveDown();
 
-  // Receipt Details
   doc.fontSize(14).text('Payment Receipt', { align: 'center' });
   doc.moveDown();
   doc.fontSize(12).text(`Receipt Date: ${moment().format('DD/MM/YYYY')}`);
@@ -354,7 +163,6 @@ const generatePaymentReceipt = async (invoice, amount, paymentMethod) => {
   return filePath;
 };
 
-// Get student fee summary
 exports.getStudentFeeSummary = async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -396,7 +204,6 @@ exports.getStudentFeeSummary = async (req, res) => {
   }
 };
 
-// Get invoice details
 exports.getInvoiceDetails = async (req, res) => {
   try {
     const invoice = await FeeInvoice.findById(req.params.id)
@@ -415,7 +222,7 @@ exports.getInvoiceDetails = async (req, res) => {
         dueDate: invoice.dueDate,
         status: invoice.status,
         student: invoice.studentId,
-        academicYear: invoice.academicYear.name,
+        academicYear: invoice.academicYear.name, // Already included
         school: invoice.schoolId,
         breakdown: invoice.invoiceDetails,
         previousDue: invoice.previousDue,
@@ -435,7 +242,6 @@ exports.getInvoiceDetails = async (req, res) => {
   }
 };
 
-// Generate invoice PDF
 exports.generateInvoicePDF = async (req, res) => {
   try {
     const { id } = req.params;
@@ -459,12 +265,10 @@ exports.generateInvoicePDF = async (req, res) => {
 
     doc.pipe(fs.createWriteStream(filePath));
 
-    // Header
     doc.fontSize(18).text(invoice.schoolId.name, { align: 'center' });
     doc.fontSize(12).text(invoice.schoolId.address, { align: 'center' });
     doc.moveDown();
 
-    // Invoice Details
     doc.fontSize(14).text('Fee Invoice', { align: 'center' });
     doc.moveDown();
     doc.fontSize(12).text(`Invoice Date: ${moment(invoice.createdAt).format('DD/MM/YYYY')}`);
@@ -475,22 +279,20 @@ exports.generateInvoicePDF = async (req, res) => {
     doc.text(`Month: ${invoice.month}`);
     doc.text(`Academic Year: ${invoice.academicYear.name}`);
 
-    // Fee Breakdown Table
     doc.moveDown();
     const feeTable = {
       headers: ['Description', 'Amount (₹)'],
-      rows: [
-        ['Base Fee', invoice.baseAmount],
-        ['Tuition Fee', invoice.invoiceDetails.tuitionFee],
-        ['Exam Fee', invoice.invoiceDetails.examFee],
-        ['Transport Fee', invoice.invoiceDetails.transportFee],
-        ['Hostel Fee', invoice.invoiceDetails.hostelFee],
-        ['Miscellaneous Fee', invoice.invoiceDetails.miscFee],
-        ['Lab Fee', invoice.invoiceDetails.labFee],
-        ['Previous Due', invoice.previousDue],
-        ['Late Fee', invoice.lateFee]
-      ]
+      rows: []
     };
+
+    for (const [key, value] of Object.entries(invoice.invoiceDetails)) {
+      if (value > 0) {
+        feeTable.rows.push([key.charAt(0).toUpperCase() + key.slice(1), value]);
+      }
+    }
+
+    feeTable.rows.push(['Previous Due', invoice.previousDue]);
+    feeTable.rows.push(['Late Fee', invoice.lateFee]);
 
     if (invoice.discountsApplied.length > 0) {
       invoice.discountsApplied.forEach(discount => {
@@ -505,7 +307,6 @@ exports.generateInvoicePDF = async (req, res) => {
       padding: 5
     });
 
-    // Payment Status
     doc.moveDown();
     doc.text(`Paid Amount: ₹${invoice.paidAmount}`);
     doc.text(`Remaining Due: ₹${invoice.remainingDue}`);
@@ -521,38 +322,68 @@ exports.generateInvoicePDF = async (req, res) => {
   }
 };
 
-// Fee collection report
 exports.getFeeCollectionReport = async (req, res) => {
   try {
     const { academicYearId, month, className } = req.query;
     const schoolId = req.user.schoolId;
 
-    const filter = { schoolId };
-    if (academicYearId) filter.academicYear = academicYearId;
-    if (month) filter.month = month;
+    const matchStage = { schoolId };
+    if (academicYearId) matchStage.academicYear = mongoose.Types.ObjectId(academicYearId);
+    if (month) matchStage.month = month;
     if (className) {
       const students = await Student.find({ schoolId, className }).select('_id');
-      filter.studentId = { $in: students.map(s => s._id) };
+      matchStage.studentId = { $in: students.map(s => s._id) };
     }
 
-    const invoices = await FeeInvoice.find(filter)
-      .populate('studentId', 'name admissionNo className')
-      .populate('academicYear', 'name');
+    const invoices = await FeeInvoice.aggregate([
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: 'students',
+          localField: 'studentId',
+          foreignField: '_id',
+          as: 'student',
+        },
+      },
+      { $unwind: '$student' },
+      {
+        $lookup: {
+          from: 'academicyears',
+          localField: 'academicYear',
+          foreignField: '_id',
+          as: 'academicYear',
+        },
+      },
+      { $unwind: '$academicYear' },
+      {
+        $group: {
+          _id: null,
+          totalInvoices: { $sum: 1 },
+          totalAmount: { $sum: '$totalAmount' },
+          totalPaid: { $sum: '$paidAmount' },
+          totalDue: { $sum: '$remainingDue' },
+          invoices: {
+            $push: {
+              student: { name: '$student.name', admissionNo: '$student.admissionNo', className: '$student.className' },
+              month: '$month',
+              totalAmount: '$totalAmount',
+              paidAmount: '$paidAmount',
+              remainingDue: '$remainingDue',
+              status: '$status',
+              academicYear: '$academicYear.name',
+            },
+          },
+        },
+      },
+      { $project: { _id: 0 } },
+    ]);
 
-    const summary = {
-      totalInvoices: invoices.length,
-      totalAmount: invoices.reduce((sum, inv) => sum + inv.totalAmount, 0),
-      totalPaid: invoices.reduce((sum, inv) => sum + inv.paidAmount, 0),
-      totalDue: invoices.reduce((sum, inv) => sum + inv.remainingDue, 0),
-      invoices: invoices.map(invoice => ({
-        student: invoice.studentId,
-        month: invoice.month,
-        totalAmount: invoice.totalAmount,
-        paidAmount: invoice.paidAmount,
-        remainingDue: invoice.remainingDue,
-        status: invoice.status,
-        academicYear: invoice.academicYear.name
-      }))
+    const summary = invoices[0] || {
+      totalInvoices: 0,
+      totalAmount: 0,
+      totalPaid: 0,
+      totalDue: 0,
+      invoices: [],
     };
 
     res.json({ success: true, data: summary });
@@ -561,7 +392,6 @@ exports.getFeeCollectionReport = async (req, res) => {
   }
 };
 
-// Get defaulters list
 exports.getDefaultersList = async (req, res) => {
   try {
     const { academicYearId, className } = req.query;
@@ -599,12 +429,10 @@ exports.generateClassReceipts = async (req, res) => {
   try {
     const { schoolId, className, month, academicYearId } = req.body;
 
-    // Validate required fields
     if (!schoolId || !className || !month || !academicYearId) {
       return res.status(400).json({ error: 'Missing required fields: schoolId, className, month, and academicYearId are required.' });
     }
 
-    // Find students for the given class and academic year
     const students = await Student.find({
       schoolId,
       className,
@@ -615,7 +443,6 @@ exports.generateClassReceipts = async (req, res) => {
       return res.status(404).json({ error: 'No students found for this class and academic year.' });
     }
 
-    // Find invoices for the students for the given month
     const studentIds = students.map(student => student._id);
     const invoices = await FeeInvoice.find({
       schoolId,
@@ -637,7 +464,7 @@ exports.generateClassReceipts = async (req, res) => {
 
     for (const student of students) {
       const studentInvoice = invoices.find(inv => inv.studentId.toString() === student._id.toString());
-      if (!studentInvoice) continue; // Skip students with no invoice for this month
+      if (!studentInvoice) continue;
 
       const doc = new PDFDocument();
       const filePath = `${tempDir}/${student.admissionNo}_receipt.pdf`;
@@ -655,10 +482,14 @@ exports.generateClassReceipts = async (req, res) => {
 
       const feeTable = {
         headers: ['Description', 'Amount (Rs.)'],
-        rows: studentInvoice.invoiceDetails ? Object.entries(studentInvoice.invoiceDetails).map(([key, value]) => [
-          key.charAt(0).toUpperCase() + key.slice(1),
-          value
-        ]) : []
+        rows: studentInvoice.invoiceDetails
+          ? Object.entries(studentInvoice.invoiceDetails)
+              .filter(([_, value]) => value > 0)
+              .map(([key, value]) => [
+                key.charAt(0).toUpperCase() + key.slice(1),
+                value
+              ])
+          : []
       };
 
       doc.moveDown();
@@ -685,5 +516,134 @@ exports.generateClassReceipts = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+};
+
+
+exports.getFeeCollectionDetailsReport = async (req, res) => {
+  try {
+    const { startDate, endDate, classId, section, method } = req.query;
+    const schoolId = req.user.schoolId;
+
+    // Validate and convert classId to ObjectId
+    let classIdObj = null;
+    if (classId) {
+      try {
+        classIdObj = new mongoose.Types.ObjectId(classId);
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid class ID format'
+        });
+      }
+    }
+
+    // Create date range filter
+    const dateFilter = {};
+    if (startDate) dateFilter.$gte = new Date(startDate);
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      dateFilter.$lte = end;
+    }
+
+    const aggregation = [
+      // Stage 1: Match by school
+      { 
+        $match: { 
+          schoolId: new mongoose.Types.ObjectId(schoolId) 
+        } 
+      },
+      
+      // Stage 2: Lookup student information
+      {
+        $lookup: {
+          from: 'students',
+          localField: 'studentId',
+          foreignField: '_id',
+          as: 'student'
+        }
+      },
+      { $unwind: '$student' },
+      
+      // Stage 3: Apply class/section filter
+      {
+        $match: {
+          ...(classIdObj ? { 'student.classId': classIdObj } : {}),
+          ...(section ? { 'student.section': section } : {})
+        }
+      },
+      
+      // Stage 4: Unwind payment history
+      { $unwind: '$paymentHistory' },
+      
+      // Stage 5: Apply method filter
+      ...(method ? [{
+        $match: { 'paymentHistory.paymentMethod': method }
+      }] : []),
+      
+      // Stage 6: Apply date filter
+      ...(Object.keys(dateFilter).length > 0 ? [{
+        $match: { 'paymentHistory.date': dateFilter }
+      }] : []),
+      
+      // Stage 7: Project relevant fields
+      {
+        $project: {
+          date: '$paymentHistory.date',
+          amount: '$paymentHistory.amount',
+          method: '$paymentHistory.paymentMethod',
+          chequeNumber: '$paymentHistory.chequeNumber',
+          transactionId: '$paymentHistory.transactionId',
+          processedBy: '$paymentHistory.processedBy',
+          student: {
+            name: '$student.name',
+            admissionNo: '$student.admissionNo',
+            classId: '$student.classId',
+            className: '$student.className',
+            section: '$student.section'
+          },
+          invoiceMonth: '$month'
+        }
+      },
+      
+      // Stage 8: Sort by date
+      { $sort: { date: -1 } }
+    ];
+
+    const transactions = await FeeInvoice.aggregate(aggregation);
+    
+    // Calculate summary
+    const summary = {
+      total: 0,
+      cashTotal: 0,
+      chequeTotal: 0,
+      onlineTotal: 0,
+      transactionCount: transactions.length
+    };
+    
+    transactions.forEach(t => {
+      const amount = t.amount;
+      summary.total += amount;
+      if (t.method === 'Cash') summary.cashTotal += amount;
+      else if (t.method === 'Cheque') summary.chequeTotal += amount;
+      else if (t.method === 'Online') summary.onlineTotal += amount;
+    });
+
+    res.json({ 
+      success: true, 
+      data: {
+        summary,
+        transactions
+      }
+    });
+
+  } catch (err) {
+    console.error('Report generation error:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to generate report',
+      error: err.message 
+    });
   }
 };

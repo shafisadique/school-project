@@ -1,30 +1,92 @@
-const mongoose = require('mongoose');
+  const mongoose = require('mongoose');
 
-const feeStructureSchema = new mongoose.Schema({
-  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
-  academicYear: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear', required: true },
-  className: { type: String, required: true },
-  frequency: { type: String, enum: ['Monthly', 'Quarterly', 'Yearly'], default: 'Monthly', required: true },
-  baseFee: { type: Number, required: true, min: 0 },
-  feeBreakdown: {
-    tuitionFee: { type: Number, required: true, min: 0 },
-    examFee: { type: Number, default: 0, min: 0 },
-    labFee: { type: Number, default: 0, min: 0 },
-    transportFee: { type: Number, default: 0, min: 0 },
-    hostelFee: { type: Number, default: 0, min: 0 },
-    miscFee: { type: Number, default: 0, min: 0 }
-  },
-  lateFeeRules: {
-    dailyRate: { type: Number, default: 0, min: 0 }, // Late fee per day after due date
-    maxLateFee: { type: Number, default: 0, min: 0 } // Maximum late fee cap
-  },
-  discounts: [{
-    name: { type: String, required: true }, // e.g., "Sibling Discount"
-    amount: { type: Number, required: true, min: 0 },
-    type: { type: String, enum: ['Fixed', 'Percentage'], default: 'Fixed' }
-  }]
-}, { timestamps: true });
+  const feeStructureSchema = new mongoose.Schema({
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      required: true,
+      index: true
+    },
+    schoolId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'School',
+      required: true,
+      index: true
+    },
+    academicYearId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'AcademicYear',
+      required: true,
+      index: true
+    },
+    fees: [{
+      name: {
+        type: String,
+        required: true,
+        trim: true // e.g., "tuitionFee", "transportFee", "hostelFee"
+      },
+      amount: {
+        type: Number,
+        required: true,
+        min: 0
+      },
+      type: {
+        type: String,
+        enum: ['Base', 'Optional'],
+        required: true
+      },
+      preferenceKey: {
+        type: String,
+        trim: true // e.g., "usesTransport", "usesHostel", null for Base fees
+      },
+      frequency: {
+        type: String,
+        enum: ['Monthly', 'Quarterly', 'Yearly', 'Specific Months'],
+        required: true
+      }
+    }],
+    lateFeeRules: {
+      dailyRate: {
+        type: Number,
+        default: 0,
+        min: 0
+      },
+      maxLateFee: {
+        type: Number,
+        default: 0,
+        min: 0
+      }
+    },
+    discounts: [{
+      name: {
+        type: String,
+        required: true,
+        trim: true
+      },
+      amount: {
+        type: Number,
+        required: true,
+        min: 0
+      },
+      type: {
+        type: String,
+        enum: ['Percentage', 'Fixed'],
+        required: true
+      }
+    }],
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    status: {
+      type: Boolean,
+      default: true
+    }
+  }, {
+    timestamps: true
+  });
 
-feeStructureSchema.index({ schoolId: 1, academicYear: 1, className: 1 }, { unique: true });
+  feeStructureSchema.index({ classId: 1, schoolId: 1, academicYearId: 1 }, { unique: true });
 
-module.exports = mongoose.model('FeeStructure', feeStructureSchema);
+  module.exports = mongoose.model('FeeStructure', feeStructureSchema);

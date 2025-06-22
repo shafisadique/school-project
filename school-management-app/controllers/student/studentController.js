@@ -104,7 +104,6 @@ const getStudentsByClass = async (req, res, next) => {
   }
 };
 
-// Existing functions
 const generateAdmissionNo = async (schoolId, academicYearId) => {
   try {
     // Fetch the school to get the school code
@@ -117,20 +116,66 @@ const generateAdmissionNo = async (schoolId, academicYearId) => {
     // Fetch the academic year to get the year
     const academicYear = await AcademicYear.findById(academicYearId);
     if (!academicYear) {
-      throw new Error('Academic year not found');
+      throw new Error('Academic year must be set up');
     }
-    // Assuming academicYear has a name like "2024-2025", extract the start year
+    // Assuming academicYear has a name like "2024-2024", extract the start year
     const year = academicYear.name.split('-')[0]; // e.g., "2024"
 
-    // Count the number of students in the given school and academic year
-    const studentCount = await Student.countDocuments({ schoolId, academicYearId });
-    const sequentialNumber = (studentCount + 1).toString().padStart(3, '0'); // e.g., "001"
+    // Find the highest existing admissionNo for this school and academic year
+    const regex = new RegExp(`^${schoolCode}-${year}-\\d+$`); // e.g., matches "SCH-2025-029"
+    const latestStudent = await Student.findOne({
+      schoolId,
+      academicYearId,
+      admissionNo: { $regex: regex }
+    }).sort({ admissionNo: -1 }).select('admissionNo');
 
-    // Generate the admission number in the format SCHOOLCODE-YYYY-NNN
-    const admissionNo = `${schoolCode}-${year}-${sequentialNumber}`;
+    let sequentialNumber = 0;
+    if (latestStudent) {
+      // Extract the sequential number from the latest admissionNo (e.g., "029" from "SCH-2025-029")
+      const match = latestStudent.admissionNo.match(/(\d+)$/);
+      if (match) {
+        sequentialNumber = parseInt(match[1], 10);
+      }
+    }
+
+    // Increment to get the next sequential number
+    sequentialNumber += 1;
+    const formattedSequentialNumber = sequentialNumber.toString().padStart(3, '0'); // e.g., "030"
+
+    // Generate the admission number
+    const admissionNo = `${schoolCode}-${year}-${formattedSequentialNumber}`;
+
+    // Double-check if the generated admissionNo already exists (edge case for concurrent inserts)
+    const existingStudent = await Student.findOne({ admissionNo });
+    if (existingStudent) {
+      // Recursively call to try the next number
+      return generateAdmissionNo(schoolId, academicYearId);
+    }
+
     return admissionNo;
   } catch (error) {
     throw new Error(`Error generating admission number: ${error.message}`);
+  }
+};
+
+const validateParent = async (req, res) => {
+  try {
+    const studentId = req.params.studentId;
+    const userId = req.query.userId; // Extract userId from query params
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const student = await Student.findOne({ _id: studentId, parentId: userId });
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found or parent not authorized' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Validation error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -160,8 +205,12 @@ const createStudent = async (req, res) => {
       gender,
       usesTransport,
       usesHostel,
+      usesLibrary,
+      needsDress,
+      usesLab,
+      needsExamFee,
       parents,
-      academicYearId,
+      academicYearId
     } = req.body;
 
     const parsedSection = typeof section === 'string' ? JSON.parse(section) : section;
@@ -169,6 +218,15 @@ const createStudent = async (req, res) => {
 
     const schoolId = req.user.schoolId;
     const admissionNo = await generateAdmissionNo(schoolId, academicYearId);
+
+    // Construct feePreferences map
+    const feePreferences = new Map();
+    feePreferences.set('usesTransport', usesTransport === 'true');
+    feePreferences.set('usesHostel', usesHostel === 'true');
+    feePreferences.set('usesLibrary', usesLibrary === 'true');
+    feePreferences.set('needsDress', needsDress === 'true');
+    feePreferences.set('usesLab', usesLab === 'true');
+    feePreferences.set('needsExamFee', needsExamFee === 'true');
 
     const newStudent = new Student({
       admissionNo,
@@ -185,12 +243,11 @@ const createStudent = async (req, res) => {
       gender,
       schoolId,
       academicYearId,
-      usesTransport: usesTransport === 'true',
-      usesHostel: usesHostel === 'true',
+      feePreferences,
       parents: parsedParents,
       createdBy: userId,
-      profileImage: req.file ? req.file.path : '',
-      status: true // Explicitly set status to true (though the default already handles this)
+      profileImage: req.file ? `/uploads/${req.file.filename}` : '',
+      status: true
     });
 
     await newStudent.save();
@@ -740,5 +797,6 @@ module.exports = {
   searchStudents,
   assignRollNumbers,
   assignRollNumbersAlphabetically,
+  validateParent,
   getStudentsByClass // Added to exports
 };

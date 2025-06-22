@@ -11,14 +11,21 @@
     usesHostel: boolean;
   }
   
- export interface FeeStructure {
-    _id: string;
-    baseFee: number;
-    feeBreakdown: {
-      tuitionFee: number;
-      examFee: number;
-      transportFee: number;
-      hostelFee: number;
-      miscFee: number;
-    };
-  }
+export interface FeeStructure {
+  _id?: string;
+  schoolId: string;
+  academicYear: string;
+  className: string;
+  fees: { name: string; amount: number; type: string; frequency: string }[];
+  lateFeeRules: { dailyRate: number; maxLateFee: number };
+  discounts: { name: string; amount: number; type: string }[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FeeEntry {
+  name: string;
+  amount: number;
+  type: string;
+  frequency: string;
+}

@@ -1,4 +1,23 @@
 <div class="container">
+  <!-- Toggle Switch -->
+  <div class="d-flex justify-content-start mb-3">
+    <div class="btn-group" role="group">
+      <button 
+        class="btn btn-sm" 
+        [ngClass]="{'btn-primary': viewMode === 'class', 'btn-outline-primary': viewMode !== 'class'}"
+        (click)="setViewMode('class')">
+        Class View
+      </button>
+      <button 
+        class="btn btn-sm" 
+        [ngClass]="{'btn-primary': viewMode === 'student', 'btn-outline-primary': viewMode !== 'student'}"
+        (click)="setViewMode('student')"
+        [disabled]="!selectedClassId">
+        Student View
+      </button>
+    </div>
+  </div>
+
   <!-- Filters and Search -->
   <div class="d-flex justify-content-between align-items-center mb-4">
     <!-- Left Side: Filters and Notify Button -->
@@ -10,6 +29,17 @@
         style="width: 150px;">
         <option value="">All Classes</option>
         <option *ngFor="let classItem of classList" [value]="classItem.id">{{ classItem.name }}</option>
+      </select>
+
+      <select 
+        *ngIf="viewMode === 'student'"
+        class="form-control form-control-sm me-2" 
+        [(ngModel)]="selectedStudentId" 
+        (change)="updateStudentSelection($event)"
+        style="width: 150px;"
+        [disabled]="!selectedClassId">
+        <option value="">All Students</option>
+        <option *ngFor="let student of students" [value]="student._id">{{ student.name }} ({{ student.admissionNo }})</option>
       </select>
 
       <input 
@@ -43,7 +73,7 @@
 
     <!-- Right Side: Title -->
     <h2 *ngIf="selectedClassName && month" class="mb-0">
-      Invoices for {{ selectedClassName }} ({{ month }})
+      Invoices for {{ viewMode === 'class' ? selectedClassName : (selectedStudent?.name || 'Selected Student') }} ({{ month }})
     </h2>
   </div>
 
@@ -67,9 +97,9 @@
           <td class="profile-cell">
             <div class="profile-wrapper">
               <div class="avatar-placeholder">
-                {{ getInitials(invoice.studentId.name) }}
+                {{ getInitials(invoice.studentId?.name || 'Unknown') }}
               </div>
-              <span class="student-name">{{ invoice.studentId.name }}</span>
+              <span class="student-name">{{ invoice.studentId?.name || 'Unknown' }}</span>
             </div>
           </td>
           <td>{{ invoice.totalAmount | currency:'INR' }}</td>
@@ -96,7 +126,7 @@
         </tr>
         <tr *ngIf="filteredInvoices.length === 0 && selectedClassId && month">
           <td colspan="7" style="text-align: center; font-family: 'Poppins', sans-serif; font-weight: 600;">
-            No Invoices Found for the Selected Class and Month
+            No Invoices Found for the {{ viewMode === 'class' ? 'Selected Class' : 'Selected Student' }} and Month
           </td>
         </tr>
       </tbody>

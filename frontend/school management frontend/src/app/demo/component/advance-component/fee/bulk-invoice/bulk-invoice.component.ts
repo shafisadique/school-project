@@ -8,6 +8,7 @@ import { ClassSubjectService } from '../../class-subject-management/class-subjec
 import { StudentService } from '../../students/student.service';
 import { Router } from '@angular/router';
 import { CardComponent } from 'src/app/theme/shared/components/card/card.component';
+import { FilterByStudentIdPipe } from 'src/app/theme/shared/interceptor/filter-by-student-id.pipe';
 
 @Component({
   selector: 'app-bulk-invoice',
@@ -28,7 +29,7 @@ export class BulkInvoiceComponent implements OnInit {
   customSchedules: { studentId: string; paymentSchedule: string; customPaymentDetails?: string }[] = [];
   paymentOptions: string[] = ['Monthly', 'BiMonthly', 'Quarterly', 'Custom'];
   isGenerating: boolean = false;
-  isExamMonth: boolean = false; // New property for exam month checkbox
+  isExamMonth: boolean = false;
 
   constructor(
     private feeService: FeeService,
@@ -79,9 +80,10 @@ export class BulkInvoiceComponent implements OnInit {
       this.toastr.error('Please select a class and ensure an active academic year is set.');
       return;
     }
-    this.studentService.getStudentsByClass(this.selectedClassId, this.activeAcademicYearId).subscribe({
-      next: (res: any[]) => {
-        this.students = res;
+    this.studentService.fetchStudentsByClassForInvoices(this.selectedClassId, this.activeAcademicYearId).subscribe({
+      next: (students: any[]) => {
+        console.log('Loaded students:', students); // Debug log
+        this.students = students;
         this.customSchedules = this.students.map(student => ({
           studentId: student._id.toString(),
           paymentSchedule: 'Quarterly',
@@ -94,6 +96,7 @@ export class BulkInvoiceComponent implements OnInit {
       error: (err) => {
         console.error('Error loading students:', err);
         this.toastr.error(err.message || 'Failed to load students.');
+        this.students = [];
       }
     });
   }
@@ -129,19 +132,34 @@ export class BulkInvoiceComponent implements OnInit {
     }
   }
 
+  private convertToMonthName(monthValue: string): string {
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthIndex = parseInt(monthValue.split('-')[1], 10) - 1;
+    return monthNames[monthIndex] || '';
+  }
+
   generateInvoices(): void {
     if (!this.validate()) return;
     this.isGenerating = true;
+
+    // Filter out the default 'Quarterly' schedules
+    const filteredCustomSchedules = this.customSchedules.filter(cs => cs.paymentSchedule !== 'Quarterly');
+
+    const formattedMonth = this.convertToMonthName(this.month);
+
     const data = {
       schoolId: this.schoolId,
       classId: this.selectedClassId,
       className: this.selectedClassName,
-      month: this.month,
+      month: formattedMonth,
       academicYearId: this.activeAcademicYearId,
-      customSchedules: this.customSchedules.filter(cs => cs.paymentSchedule !== 'Quarterly'),
-      isExamMonth: this.isExamMonth // Add isExamMonth to the payload
+      customSchedules: filteredCustomSchedules,
+      isExamMonth: this.isExamMonth
     };
-    console.log('Sending data to generateInvoices:', data);
+    console.log('Generating invoices with payload:', data); // Debug log
     this.feeService.generateInvoices(data).subscribe({
       next: (res) => {
         console.log('Generate invoices response:', res);
@@ -202,6 +220,6 @@ export class BulkInvoiceComponent implements OnInit {
     this.students = [];
     this.customSchedules = [];
     this.isGenerating = false;
-    this.isExamMonth = false; // Reset the exam month checkbox
+    this.isExamMonth = false;
   }
 }

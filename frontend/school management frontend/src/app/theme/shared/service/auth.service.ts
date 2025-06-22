@@ -47,12 +47,22 @@ export class AuthService {
     return localStorage.getItem('schoolId');
   }
 
+  validateParentForStudent(studentId: string): Observable<boolean> {
+  return this.http.get<boolean>(`${this.baseUrl}/api/auth/validate-parent/${studentId}`, {
+    params: { userId: this.getUserId() || '' }
+  });
+}
+
   getUserRole(): string | null {
     return localStorage.getItem('role');
   }
   
   getActiveAcademicYearId(): string | null {
-  return localStorage.getItem('activeAcademicYearId');
+    return localStorage.getItem('activeAcademicYearId');
+  }
+
+  getUserId(): string | null {
+    return localStorage.getItem('userId');
   }
 
   get isLoggedIn$(): Observable<boolean> {
