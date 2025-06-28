@@ -6,9 +6,9 @@
           <form (ngSubmit)="generateInvoices()">
             <!-- Step 1: Select Class -->
             <fieldset class="form-section">
-              <legend>Step 1: Select a Class</legend>
               <div class="row g-4">
                 <div class="col-md-6 col-12">
+                  <legend>Step 1: Select a Class</legend>
                   <div class="form-group">
                     <label>Class:</label>
                     <select class="form-control form-control-sm shadow-sm" [(ngModel)]="selectedClassId" (change)="updateClassSelection($event)" [ngModelOptions]="{standalone: true}">
@@ -17,14 +17,9 @@
                     </select>
                   </div>
                 </div>
-              </div>
-            </fieldset>
-
-            <!-- Step 2: Select Month -->
-            <fieldset class="form-section">
-              <legend>Step 2: Select Month</legend>
-              <div class="row g-4">
                 <div class="col-md-6 col-12">
+              <legend>Step 2: Select Month</legend>
+
                   <div class="form-group">
                     <label>Month:</label>
                     <input type="month" class="form-control form-control-sm shadow-sm"
@@ -34,16 +29,16 @@
                            [max]="maxMonth">
                   </div>
                 </div>
-                <div class="col-md-6 col-12">
-                  <div class="form-group">
+                 <div class="form-group">
                     <label class="checkbox-label">
                       <input type="checkbox" [(ngModel)]="isExamMonth" [ngModelOptions]="{standalone: true}">
                       Is this an exam month?
                     </label>
                   </div>
-                </div>
               </div>
             </fieldset>
+
+        
 
             <!-- Step 3: Set Payment Schedules -->
             <fieldset class="form-section" *ngIf="students.length > 0">

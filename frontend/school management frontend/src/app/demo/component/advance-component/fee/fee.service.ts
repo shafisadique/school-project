@@ -71,9 +71,19 @@ export class FeeService {
     });
   }
 
-  downloadInvoicePDF(invoiceId: string): Observable<Blob> {
-    return this.http.get(`${this.apiUrl}/api/fees/invoices/${invoiceId}/pdf`, { responseType: 'blob' }); // Also fixed this to match backend
-  }
+    downloadInvoicePDF(invoiceId: string): Observable<Blob> {
+      return this.http.get(`${this.apiUrl}/api/fees/invoices/${invoiceId}/pdf`, {
+        responseType: 'blob'
+      });
+    }
+
+    
+    downloadReceiptPDF(receiptId: string): Observable<Blob> {
+      return this.http.get(`${this.apiUrl}/api/fees/receipts/${receiptId}/pdf`, {
+        responseType: 'blob'
+      });
+    }
+
 
   notifyParents(classId: string, month: string, academicYearId: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/fees/notify-parents`, { classId, month, academicYearId }); // Fixed this to match backend

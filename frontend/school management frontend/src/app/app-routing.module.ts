@@ -32,6 +32,11 @@ export const routes: Routes = [
         loadComponent: () => import('./demo/dashboard/default/default.component').then((c) => c.DefaultComponent)
       },
       {
+        path:'route',
+        canActivate:[AuthGuard],
+        loadChildren:()=>import('./demo/component/route/route-routing').then((c)=>c.RouteRoutes)
+      },
+      {
         path: 'teacher',
         canActivate:[AuthGuard],
         loadChildren: () => import('./demo/component/advance-component/teacher/teacher-routing').then((c) => c.teacherRoutes)

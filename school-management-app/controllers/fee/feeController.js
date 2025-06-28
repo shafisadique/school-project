@@ -2,94 +2,75 @@ const FeeStructure = require('../../models/feeStructure');
 const AcademicYear = require('../../models/academicyear');
 const Class = require('../../models/class');
 const FeeInvoice = require('../../models/feeInvoice')
-// Create a new fee structure
+const mongoose = require('mongoose');
+
+const Route = require('../../models/route');
+
 exports.createFeeStructure = async (req, res) => {
   try {
-    const {
-      schoolId,
-      classId,
-      academicYearId,
-      fees,
-      lateFeeRules,
-      discounts,
-      createdBy
-    } = req.body;
+    const { schoolId, classId, academicYearId, fees, lateFeeConfig, discounts, createdBy } = req.body;
 
-    // Validate required fields
+    // Basic validation
     if (!schoolId || !classId || !academicYearId || !createdBy) {
-      return res.status(400).json({ message: 'schoolId, classId, academicYearId, and createdBy are required' });
+      return res.status(400).json({ message: 'Missing schoolId, classId, academicYearId, or createdBy' });
     }
-
     if (!fees || !Array.isArray(fees) || fees.length === 0) {
       return res.status(400).json({ message: 'At least one fee is required' });
     }
 
-    // Validate fees array
-    for (const fee of fees) {
-      if (!fee.name || !fee.amount || !fee.type || !fee.frequency) {
-        return res.status(400).json({ message: 'Each fee must have name, amount, type, and frequency' });
-      }
-      if (fee.amount < 0) {
-        return res.status(400).json({ message: 'Fee amount cannot be negative' });
-      }
-      if (!['Base', 'Optional'].includes(fee.type)) {
-        return res.status(400).json({ message: 'Fee type must be Base or Optional' });
-      }
-      if (!['Monthly', 'Quarterly', 'Yearly', 'Specific Months'].includes(fee.frequency)) {
-        return res.status(400).json({ message: 'Fee frequency must be Monthly, Quarterly, Yearly, or Specific Months' });
-      }
-      if (fee.type === 'Optional' && !fee.preferenceKey) {
-        return res.status(400).json({ message: 'Optional fees must have a preferenceKey (e.g., usesTransport)' });
-      }
-      if (fee.type === 'Base' && fee.preferenceKey) {
-        return res.status(400).json({ message: 'Base fees should not have a preferenceKey' });
-      }
-    }
-
-    // Validate discounts
-    if (discounts && Array.isArray(discounts)) {
-      for (const discount of discounts) {
-        if (!discount.name || !discount.amount || !discount.type) {
-          return res.status(400).json({ message: 'Each discount must have name, amount, and type' });
-        }
-        if (discount.amount < 0) {
-          return res.status(400).json({ message: 'Discount amount cannot be negative' });
-        }
-        if (!['Percentage', 'Fixed'].includes(discount.type)) {
-          return res.status(400).json({ message: 'Discount type must be Percentage or Fixed' });
-        }
-      }
-    }
-
-    // Validate lateFeeRules
-    if (lateFeeRules && (lateFeeRules.dailyRate < 0 || lateFeeRules.maxLateFee < 0)) {
-      return res.status(400).json({ message: 'Late fee rules cannot have negative values' });
-    }
-
-    // Validate references
-    const academicYearDoc = await AcademicYear.findById(academicYearId);
-    if (!academicYearDoc) {
+    // Check if academic year and class exist
+    const academicYear = await AcademicYear.findById(academicYearId);
+    if (!academicYear) {
       return res.status(404).json({ message: 'Academic year not found' });
     }
-
     const classDoc = await Class.findById(classId);
     if (!classDoc) {
       return res.status(404).json({ message: 'Class not found' });
     }
 
-    // Check for existing fee structure
+    // Check for duplicate fee structure
     const existingFeeStructure = await FeeStructure.findOne({ schoolId, classId, academicYearId });
     if (existingFeeStructure) {
-      return res.status(400).json({ message: 'Fee structure already exists for this class and academic year' });
+      return res.status(400).json({ message: 'Fee structure already exists' });
     }
 
-    // Create the fee structure
+    // Validate and prepare fees with route check
+    const validatedFees = await Promise.all(fees.map(async (fee) => {
+      let routeOptions = fee.routeOptions || [];
+      if (fee.name.toLowerCase().includes('transport') && routeOptions.length > 0) {
+        // Validate each routeId exists in the Route collection
+        const validRoutes = await Promise.all(routeOptions.map(async (opt) => {
+          const route = await Route.findOne({ _id: opt.routeId, schoolId });
+          return route ? { routeId: opt.routeId, amount: opt.amount >= 0 ? opt.amount : 0 } : null;
+        }));
+        routeOptions = validRoutes.filter(opt => opt !== null);
+      }
+      return {
+        name: fee.name,
+        amount: fee.amount >= 0 ? fee.amount : 0,
+        type: ['Base', 'Optional'].includes(fee.type) ? fee.type : 'Base',
+        preferenceKey: fee.preferenceKey || null,
+        routeOptions: routeOptions,
+        frequency: ['Monthly', 'Quarterly', 'Yearly', 'Specific Months'].includes(fee.frequency) ? fee.frequency : 'Monthly',
+        specificMonths: Array.isArray(fee.specificMonths) ? fee.specificMonths : []
+      };
+    }));
+
+    // Create new fee structure
     const feeStructure = new FeeStructure({
       schoolId,
       classId,
       academicYearId,
-      fees,
-      lateFeeRules: lateFeeRules || { dailyRate: 0, maxLateFee: 0 },
+      fees: validatedFees,
+      lateFeeConfig: lateFeeConfig || {
+        isEnabled: false,
+        calculationType: 'daily',
+        dailyRate: 0,
+        fixedAmount: 0,
+        percentageRate: 0,
+        maxLateFee: 0,
+        gracePeriodDays: 0
+      },
       discounts: discounts || [],
       createdBy,
       status: true
@@ -97,10 +78,13 @@ exports.createFeeStructure = async (req, res) => {
 
     await feeStructure.save();
 
-    res.status(201).json({ message: 'Fee structure created successfully', data: feeStructure });
+    res.status(201).json({ 
+      message: 'Fee structure created successfully', 
+      data: feeStructure 
+    });
   } catch (error) {
     console.error('Error creating fee structure:', error);
-    res.status(500).json({ message: 'Server error while creating fee structure', error: error.message });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -237,7 +221,29 @@ exports.updateFeeStructure = async (req, res) => {
   }
 };
 
+exports.deleteFeeStructure = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const feeStructure = await FeeStructure.findById(id);
 
+    if (!feeStructure) {
+      return res.status(404).json({ message: 'Fee structure not found' });
+    }
+
+    const invoiceCount = await FeeInvoice.countDocuments({ schoolId: feeStructure.schoolId });
+    if (invoiceCount > 0) {
+      return res.status(400).json({ message: 'Cannot delete fee structure. It is linked to existing invoices.' });
+    }
+
+    feeStructure.isDeleted = true;
+    await feeStructure.save();
+
+    res.status(200).json({ message: 'Fee structure marked as deleted', data: feeStructure });
+  } catch (error) {
+    console.error('Error deleting fee structure:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
 // controllers/feeController.js
 exports.getPaidInvoiceList = async (req, res) => {

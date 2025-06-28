@@ -76,26 +76,34 @@
             </div>
           </fieldset>
 
-
           <!-- Facility Usage -->
           <fieldset class="form-section">
             <legend>Facility Usage</legend>
             <div class="row">
-              
               <div class="col-md-6 col-sm-12">
                 <div class="form-group">
                   <label>Transport:</label>
-                  <select formControlName="usesTransport" class="form-control form-control-sm shadow-sm">
-                    <option value="false" selected>NO</option>
+                  <select formControlName="usesTransport" class="form-control form-control-sm shadow-sm" (ngModelChange)="onTransportChange()">
+                    <option value="false">NO</option>
                     <option value="true">YES</option>
                   </select>
+                </div>
+              </div>
+              <div class="col-md-6 col-sm-12" *ngIf="studentForm.get('usesTransport')?.value === 'true'">
+                <div class="form-group">
+                  <label>Route:</label>
+                  <select formControlName="routeId" class="form-control form-control-sm shadow-sm">
+                    <option value="">Select a Route</option>
+                    <option *ngFor="let route of routes" [value]="route._id">{{ route.name }}</option>
+                  </select>
+                  <small *ngIf="submitted && f['routeId'].errors?.['required']" class="error">Route is required when transportation is enabled.</small>
                 </div>
               </div>
               <div class="col-md-6 col-sm-12">
                 <div class="form-group">
                   <label>Hostel:</label>
                   <select formControlName="usesHostel" class="form-control form-control-sm shadow-sm">
-                    <option value="false" selected>NO</option>
+                    <option value="false">NO</option>
                     <option value="true">YES</option>
                   </select>
                 </div>
@@ -158,8 +166,6 @@
               </div>
             </div>
           </fieldset>
-
-      
 
           <!-- Parents' Details -->
           <fieldset class="form-section">

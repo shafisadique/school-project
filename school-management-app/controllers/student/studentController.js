@@ -9,6 +9,8 @@ const mongoose = require('mongoose'); // Added for getStudentsByClass
 const multer = require('multer');
 const { paginate } = require('../../utils/paginationHelper'); // Adjust path as needed
 const Result = require('../../models/result');
+const Route = require('../../models/route');
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -180,6 +182,87 @@ const validateParent = async (req, res) => {
 };
 
 // Create a new student
+// const createStudent = async (req, res) => {
+//   try {
+//     if (!req.user || (!req.user._id && !req.user.id)) {
+//       return res.status(401).json({ message: 'User not authenticated, ID missing' });
+//     }
+
+//     const userId = req.user._id || req.user.id;
+//     if (!mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({ message: 'Invalid user ID format' });
+//     }
+
+//     const {
+//       name,
+//       email,
+//       phone,
+//       dateOfBirth,
+//       city,
+//       state,
+//       country,
+//       classId,
+//       section,
+//       address,
+//       gender,
+//       usesTransport,
+//       usesHostel,
+//       usesLibrary,
+//       needsDress,
+//       usesLab,
+//       needsExamFee,
+//       parents,
+//       academicYearId
+//     } = req.body;
+
+//     const parsedSection = typeof section === 'string' ? JSON.parse(section) : section;
+//     const parsedParents = typeof parents === 'string' ? JSON.parse(parents) : parents;
+
+//     const schoolId = req.user.schoolId;
+//     const admissionNo = await generateAdmissionNo(schoolId, academicYearId);
+
+//     // Construct feePreferences map
+//     const feePreferences = new Map();
+//     feePreferences.set('usesTransport', usesTransport === 'true');
+//     feePreferences.set('usesHostel', usesHostel === 'true');
+//     feePreferences.set('usesLibrary', usesLibrary === 'true');
+//     feePreferences.set('needsDress', needsDress === 'true');
+//     feePreferences.set('usesLab', usesLab === 'true');
+//     feePreferences.set('needsExamFee', needsExamFee === 'true');
+
+//     const newStudent = new Student({
+//       admissionNo,
+//       name,
+//       email,
+//       phone,
+//       dateOfBirth,
+//       city,
+//       state,
+//       country,
+//       classId,
+//       section: parsedSection,
+//       address,
+//       gender,
+//       schoolId,
+//       academicYearId,
+//       feePreferences,
+//       parents: parsedParents,
+//       createdBy: userId,
+//       profileImage: req.file ? `/uploads/${req.file.filename}` : '',
+//       status: true
+//     });
+
+//     await newStudent.save();
+
+//     res.status(201).json({ message: 'Student created successfully', student: newStudent });
+//   } catch (error) {
+//     console.error('Error creating student:', error);
+//     res.status(400).json({ message: 'Error creating student', error: error.message });
+//   }
+// };
+
+
+
 const createStudent = async (req, res) => {
   try {
     if (!req.user || (!req.user._id && !req.user.id)) {
@@ -210,7 +293,8 @@ const createStudent = async (req, res) => {
       usesLab,
       needsExamFee,
       parents,
-      academicYearId
+      academicYearId,
+      routeId // Add routeId from the request body
     } = req.body;
 
     const parsedSection = typeof section === 'string' ? JSON.parse(section) : section;
@@ -227,6 +311,21 @@ const createStudent = async (req, res) => {
     feePreferences.set('needsDress', needsDress === 'true');
     feePreferences.set('usesLab', usesLab === 'true');
     feePreferences.set('needsExamFee', needsExamFee === 'true');
+
+    // Validate routeId if usesTransport is true
+    let finalRouteId = null;
+    if (usesTransport === 'true' && routeId) {
+      if (!mongoose.Types.ObjectId.isValid(routeId)) {
+        throw new APIError('Invalid route ID format', 400);
+      }
+      const route = await Route.findOne({ _id: routeId, schoolId });
+      if (!route) {
+        throw new APIError('Route not found or does not belong to this school', 404);
+      }
+      finalRouteId = routeId;
+    } else if (usesTransport === 'true' && !routeId) {
+      throw new APIError('A route is required when transportation is enabled', 400);
+    }
 
     const newStudent = new Student({
       admissionNo,
@@ -247,6 +346,7 @@ const createStudent = async (req, res) => {
       parents: parsedParents,
       createdBy: userId,
       profileImage: req.file ? `/uploads/${req.file.filename}` : '',
+      routeId: finalRouteId, // Assign routeId
       status: true
     });
 
@@ -258,6 +358,8 @@ const createStudent = async (req, res) => {
     res.status(400).json({ message: 'Error creating student', error: error.message });
   }
 };
+
+
 
 
 const bulkCreateStudents = async (req, res, next) => {
@@ -435,6 +537,54 @@ const getStudent = async (req, res, next) => {
 
 
 
+// const updateStudent = async (req, res, next) => {
+//   try {
+//     const studentId = req.params.id;
+//     const updateData = req.body;
+
+//     // Validate student ID
+//     if (!mongoose.Types.ObjectId.isValid(studentId)) {
+//       throw new APIError('Invalid student ID format', 400);
+//     }
+
+//     // Ensure the student belongs to the user's school
+//     const student = await Student.findOne({ _id: studentId, schoolId: req.user.schoolId });
+//     if (!student) {
+//       throw new APIError('Student not found or you are not authorized to update this student', 404);
+//     }
+
+//     // Validate status if provided
+//     if (updateData.status !== undefined) {
+//       if (typeof updateData.status !== 'boolean') {
+//         throw new APIError('Status must be a boolean value (true/false)', 400);
+//       }
+//     }
+
+//     // Prevent updating immutable fields (e.g., admissionNo, schoolId, createdBy)
+//     delete updateData.admissionNo;
+//     delete updateData.schoolId;
+//     delete updateData.createdBy;
+
+//     // Update the student
+//     const updatedStudent = await Student.findByIdAndUpdate(
+//       studentId,
+//       { $set: updateData },
+//       { new: true, runValidators: true }
+//     );
+
+//     if (!updatedStudent) {
+//       throw new APIError('Failed to update student', 500);
+//     }
+
+//     res.status(200).json({ success: true, data: updatedStudent });
+//   } catch (error) {
+//     console.error('Error in updateStudent:', error);
+//     next(error);
+//   }
+// };
+
+
+
 const updateStudent = async (req, res, next) => {
   try {
     const studentId = req.params.id;
@@ -451,14 +601,23 @@ const updateStudent = async (req, res, next) => {
       throw new APIError('Student not found or you are not authorized to update this student', 404);
     }
 
-    // Validate status if provided
-    if (updateData.status !== undefined) {
-      if (typeof updateData.status !== 'boolean') {
-        throw new APIError('Status must be a boolean value (true/false)', 400);
+    // Validate and handle routeId
+    if (updateData.usesTransport !== undefined && updateData.usesTransport === 'true') {
+      if (!updateData.routeId) {
+        throw new APIError('A route is required when transportation is enabled', 400);
       }
+      if (!mongoose.Types.ObjectId.isValid(updateData.routeId)) {
+        throw new APIError('Invalid route ID format', 400);
+      }
+      const route = await Route.findOne({ _id: updateData.routeId, schoolId: req.user.schoolId });
+      if (!route) {
+        throw new APIError('Route not found or does not belong to this school', 404);
+      }
+    } else if (updateData.usesTransport !== undefined && updateData.usesTransport === 'false') {
+      updateData.routeId = null; // Clear routeId if transportation is disabled
     }
 
-    // Prevent updating immutable fields (e.g., admissionNo, schoolId, createdBy)
+    // Prevent updating immutable fields
     delete updateData.admissionNo;
     delete updateData.schoolId;
     delete updateData.createdBy;

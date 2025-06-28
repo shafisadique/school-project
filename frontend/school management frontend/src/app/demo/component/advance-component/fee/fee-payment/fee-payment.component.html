@@ -198,7 +198,9 @@
 
           <!-- Payment Confirmation Section -->
           <div *ngIf="paymentSuccess && !isLoading" class="text-center mt-4">
-            <a [href]="invoice.receipt" target="_blank" class="btn btn-success">Download Receipt</a>
+            <button *ngFor="let receipt of receipts" (click)="downloadReceipt(receipt._id)" class="btn btn-outline-primary me-2">
+              Download Receipt {{ receipt.receiptNumber }}
+            </button>
             <button class="btn btn-secondary ms-2" (click)="router.navigate(['/fee/invoice-list'])">Back to Invoice List</button>
           </div>
         </div>

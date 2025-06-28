@@ -62,3 +62,95 @@ File: style.css
             --border-radius: 8px;
             --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+/* Existing styles from student form example */
+.form-section {
+  margin-bottom: 20px;
+  border: 1px solid #e0e0e0;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.form-section legend {
+  background: linear-gradient(90deg, #4a90e2, #50c9c3);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 12px 20px;
+  border-radius: 5px 5px 0 0;
+  margin-bottom: 15px;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+/* Additional styles for consistency with student form */
+.form-control-sm.shadow-sm {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.pickup-points {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.btn-outline-secondary {
+  border-color: #6c757d;
+  color: #6c757d;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* Table and modal styles */
+.table-responsive th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+}
+
+.table-responsive td {
+  vertical-align: middle;
+}
+
+.modal .form-group {
+  margin-bottom: 15px;
+}
+
+
+.form-select{
+  border-radius: 5px;
+}
+
+.custom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(to right, #2c3e50, #3498db); /* gradient */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.custom-btn:hover {
+  background: linear-gradient(to right, #34495e, #2980b9);
+  transform: translateY(-1px);
+}
+
+.custom-btn .material-icons {
+  font-size: 20px;
+  color: white;
+}

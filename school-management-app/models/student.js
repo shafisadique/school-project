@@ -101,11 +101,17 @@ const studentSchema = new mongoose.Schema({
       message: "Only PNG/JPEG images allowed"
     }
   },
+  routeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Route',
+    default: null,
+    index: true
+  },
   feePreferences: { 
     type: Map,
     of: Boolean,
     default: {
-      usesTransport: false,
+      usesTransport: false, // Deprecated: Use routeId instead
       usesHostel: false,
       usesLibrary: false,
       needsDress: false,
@@ -184,6 +190,12 @@ studentSchema.pre('validate', function (next) {
   }
   if (motherNameProvided && (!parents.motherPhone || parents.motherPhone.trim() === '')) {
     this.invalidate('motherPhone', 'Mother\'s phone number is required if mother\'s name is provided');
+  }
+
+  if (this.routeId && this.feePreferences.get('usesTransport') === false) {
+    this.feePreferences.set('usesTransport', true);
+  } else if (!this.routeId && this.feePreferences.get('usesTransport') === true) {
+    this.feePreferences.set('usesTransport', false);
   }
   next();
 });

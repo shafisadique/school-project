@@ -236,7 +236,7 @@ export class BulkInvoiceListComponent implements OnInit {
       error: (err) => {
         console.error('Error downloading PDF:', err);
         const errorMessage = err.error?.message || err.message || 'Failed to download invoice PDF.';
-        this.toastr.error(errorMessage);
+        this.toastr.error(errorMessage) ;
       }
     });
   }

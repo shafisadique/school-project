@@ -1,256 +1,527 @@
-<div class="container">
-  <!-- Fee Structures List -->
-  <div class="row mb-3">
-    <div class="col-12">
-      <button class="btn btn-primary mb-3" (click)="openCreateModal()">Create Fee Structure</button>
-      <div class="card">
-        <div class="card-body">
-          <table class="table table-striped table-bordered" *ngIf="feeStructures.length; else noFeeStructures">
-            <thead>
-              <tr>
-                <th>Class</th>
-                <th>Academic Year</th>
-                <th>Fees</th>
-                <th>Late Fee Rules</th>
-                <th>Discounts</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let structure of feeStructures">
-                <td>{{ structure.classId.name }}</td>
-                <td>{{ structure.academicYearId.name }}</td>
-                <td>
-                  <ul>
-                    <li *ngFor="let fee of structure.fees">
-                      {{ fee.name | titlecase }}: ₹{{ fee.amount }} ({{ fee.type }}, {{ fee.frequency }})
-                    </li>
-                  </ul>
-                </td>
-                <td>
-                  Daily Rate: ₹{{ structure.lateFeeRules.dailyRate }}<br>
-                  Max Late Fee: ₹{{ structure.lateFeeRules.maxLateFee }}
-                </td>
-                <td>
-                  <ul>
-                    <li *ngFor="let discount of structure.discounts">
-                      {{ discount.name }}: {{ discount.amount }}{{ discount.type === 'Percentage' ? '%' : '₹'}} ({{ discount.type }})
-                    </li>
-                    <li *ngIf="!structure.discounts.length">No discounts</li>
-                  </ul>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <ng-template #noFeeStructures>
-            <p>No fee structures available. Create one to get started.</p>
-          </ng-template>
-        </div>
+<div class="container-fluid py-3">
+  <div class="card custom-card">
+    <div class="card-header text-white d-flex justify-content-between align-items-center">
+      <button class="custom-btn" (click)="openCreateModal()">
+        <span class="material-icons">add_circle</span>
+        Create Fee Structure
+      </button>
+    </div>
+
+    <div class="card-body">
+      <div class="table-container">
+        <table class="professional-table table-striped table-sm">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Class</th>
+              <th>Academic Year</th>
+              <th>Fees</th>
+              <th>Late Fee</th>
+              <th>Discounts</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let structure of feeStructures; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>{{ structure.classId?.name || 'N/A' }}</td>
+              <td>{{ structure.academicYearId?.name || 'N/A' }}</td>
+              <td>
+                <ul class="list-unstyled mb-0 fee-list">
+                  <li *ngFor="let fee of structure.fees" class="mb-1">
+                    <strong>{{ fee.name | titlecase }}:</strong>
+                    ₹{{ fee.amount }} ({{ fee.type }}, {{ fee.frequency }})
+                    <div *ngIf="fee.name === 'transportFee' && fee.routeOptions?.length" class="mt-1 small text-muted">
+                      <span>Routes:</span>
+                      <ul class="list-unstyled ms-2">
+                        <li *ngFor="let option of fee.routeOptions" class="xsmall">
+                          {{ getRouteName(option.routeId) }}: ₹{{ option.amount }}
+                        </li>
+                      </ul>
+                    </div>
+                    <div *ngIf="fee.frequency === 'Specific Months' && fee.specificMonths?.length" class="mt-1 small text-muted">
+                      <span>Months:</span>
+                      <div>
+                        <span *ngFor="let month of fee.specificMonths" class="badge bg-secondary me-1">
+                          {{ monthNames[month-1] }}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                </ul>
+              </td>
+              <td>
+                <div *ngIf="structure.lateFeeConfig?.isEnabled; else lateFeeDisabled" class="small">
+                  <span>Type: {{ structure.lateFeeConfig.calculationType | titlecase }}</span><br>
+                  <span>Rate:
+                    <span *ngIf="structure.lateFeeConfig.calculationType === 'daily'">
+                      ₹{{ structure.lateFeeConfig.dailyRate }} per day
+                    </span>
+                    <span *ngIf="structure.lateFeeConfig.calculationType === 'fixed'">
+                      ₹{{ structure.lateFeeConfig.fixedAmount }} fixed
+                    </span>
+                    <span *ngIf="structure.lateFeeConfig.calculationType === 'percentage'">
+                      {{ structure.lateFeeConfig.percentageRate }}%
+                    </span>
+                  </span><br>
+                  <span>Max: ₹{{ structure.lateFeeConfig.maxLateFee }}</span><br>
+                  <span>Grace: {{ structure.lateFeeConfig.gracePeriodDays }} days</span>
+                </div>
+                <ng-template #lateFeeDisabled>
+                  <span class="text-muted small">Disabled</span>
+                </ng-template>
+              </td>
+              <td>
+                <ul class="list-unstyled mb-0">
+                  <li *ngFor="let discount of structure.discounts" class="small">
+                    {{ discount.name }}: {{ discount.amount }}{{ discount.type === 'Percentage' ? '%' : '₹' }}
+                  </li>
+                  <li *ngIf="!structure.discounts.length" class="small text-muted">No discounts</li>
+                </ul>
+              </td>
+              <td>
+                <span class="material-icons" style="cursor: pointer;" (click)="openEditModal(structure._id)">edit</span>
+                <span class="material-icons" style="cursor: pointer; color: red;" (click)="confirmDelete(structure._id)">delete</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <ng-template #noFeeStructures>
+          <div class="alert alert-info text-center py-2" *ngIf="feeStructures.length === 0 && !loading">
+            <i class="fas fa-info-circle me-2"></i>
+            No fee structures found. Click "Create Fee Structure" to add one.
+          </div>
+          <div class="alert alert-info text-center py-2" *ngIf="loading">
+            <i class="fas fa-spinner fa-spin me-2"></i>
+            Loading fee structures...
+          </div>
+        </ng-template>
       </div>
     </div>
   </div>
 
-  <!-- Fee Structure Modal -->
+  <!-- Fee Structure Creation Modal -->
   <ng-template #feeStructureModal let-modal>
-    <div class="modal-header">
-      <h4 class="modal-title">Create Fee Structure - Step {{ currentStep }} of 4</h4>
-      <button type="button" class="btn-close" aria-label="Close" (click)="closeModal()"></button>
+    <div class="modal-header text-white">
+      <h5 class="modal-title" style="font-family: 'Poppins', sans-serif; font-weight: 600;">
+        {{ isEditMode ? 'Edit Fee Structure' : 'Create Fee Structure' }} - Step {{ currentStep }} of 5
+      </h5>
+      <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="closeModal()"></button>
     </div>
+    
     <div class="modal-body">
-      <!-- Step Indicator -->
-      <div class="step-indicator mb-4">
-        <div class="step" [ngClass]="{'active': currentStep === 1}">1. Class & Year</div>
-        <div class="step" [ngClass]="{'active': currentStep === 2}">2. Frequency</div>
-        <div class="step" [ngClass]="{'active': currentStep === 3}">3. Fee Breakdown</div>
-        <div class="step" [ngClass]="{'active': currentStep === 4}">4. Review & Rules</div>
+      <div class="step-progress mb-3">
+        <div class="steps">
+          <div class="step" [class.active]="currentStep === 1" [class.completed]="currentStep > 1">
+            <span>1</span><small>Class & Year</small>
+          </div>
+          <div class="step" [class.active]="currentStep === 2" [class.completed]="currentStep > 2">
+            <span>2</span><small>Frequency</small>
+          </div>
+          <div class="step" [class.active]="currentStep === 3" [class.completed]="currentStep > 3">
+            <span>3</span><small>Fee Setup</small>
+          </div>
+          <div class="step" [class.active]="currentStep === 4" [class.completed]="currentStep > 4">
+            <span>4</span><small>Review</small>
+          </div>
+          <div class="step" [class.active]="currentStep === 5">
+            <span>5</span><small>Submit</small>
+          </div>
+        </div>
       </div>
 
       <form [formGroup]="feeForm" (ngSubmit)="submitFeeStructure()">
-        <!-- Step 1: Select Class and Academic Year -->
-        <div *ngIf="currentStep === 1">
-          <div class="row mb-3">
+        <!-- Step 1: Class and Academic Year -->
+        <div *ngIf="currentStep === 1" class="step-content">
+          <div class="row g-2">
             <div class="col-md-6">
-              <label for="classId" class="form-label">Class:</label>
-              <select id="classId" formControlName="classId" class="form-select">
+              <label class="form-label">Class <span class="text-danger">*</span></label>
+              <select formControlName="classId" class="form-select form-select-sm shadow-sm">
                 <option value="">Select Class</option>
-                <option *ngFor="let classItem of classList" [value]="classItem._id">{{ classItem.name }}</option>
+                <option *ngFor="let class of classList" [value]="class._id">{{ class.name }}</option>
               </select>
-              <small *ngIf="feeForm.get('classId')?.touched && feeForm.get('classId')?.errors?.['required']" class="text-danger">
-                Class is required.
-              </small>
+              <div *ngIf="feeForm.get('classId')?.invalid && feeForm.get('classId')?.touched" class="text-danger small">
+                Please select a class
+              </div>
             </div>
             <div class="col-md-6">
-              <label for="academicYearId" class="form-label">Academic Year:</label>
-              <select id="academicYearId" formControlName="academicYearId" class="form-select">
+              <label class="form-label">Academic Year <span class="text-danger">*</span></label>
+              <select formControlName="academicYearId" class="form-select form-select-sm shadow-sm">
                 <option value="">Select Academic Year</option>
                 <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
               </select>
-              <small *ngIf="feeForm.get('academicYearId')?.touched && feeForm.get('academicYearId')?.errors?.['required']" class="text-danger">
-                Academic year is required.
-              </small>
+              <div *ngIf="feeForm.get('academicYearId')?.invalid && feeForm.get('academicYearId')?.touched" class="text-danger small">
+                Please select an academic year
+              </div>
             </div>
           </div>
         </div>
 
-        <!-- Step 2: Select Frequency -->
-        <div *ngIf="currentStep === 2">
-          <div class="mb-3">
-            <label for="frequency" class="form-label">Fee Frequency:</label>
-            <select id="frequency" formControlName="frequency" class="form-select">
-              <option value="">Select Frequency</option>
+        <!-- Step 2: Frequency -->
+        <div *ngIf="currentStep === 2" class="step-content">
+          <div class="mb-2">
+            <label class="form-label">Frequency <span class="text-danger">*</span></label>
+            <select formControlName="frequency" class="form-select form-select-sm shadow-sm">
               <option *ngFor="let freq of frequencies" [value]="freq">{{ freq }}</option>
             </select>
-            <small *ngIf="feeForm.get('frequency')?.touched && feeForm.get('frequency')?.errors?.['required']" class="text-danger">
-              Frequency is required.
-            </small>
+            <div *ngIf="feeForm.get('frequency')?.invalid && feeForm.get('frequency')?.touched" class="text-danger small">
+              Please select a frequency
+            </div>
           </div>
         </div>
 
-        <!-- Step 3: Define Base Fee and Breakdown -->
-        <div *ngIf="currentStep === 3">
-          <div class="mb-3">
-            <label for="baseFee" class="form-label">Base Fee (Total):</label>
-            <div class="input-group">
+        <!-- Step 3: Fee Setup -->
+        <div *ngIf="currentStep === 3" class="step-content">
+          <div formArrayName="fees" class="fee-items">
+  <div *ngFor="let fee of fees.controls; let i = index" [formGroupName]="i" class="fee-item mb-3 p-2 border rounded">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label">Fee Name</label>
+        <input formControlName="name" class="form-control form-control-sm" [readonly]="i < initialFeeCount">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Type</label>
+        <input formControlName="type" class="form-control form-control-sm" [readonly]="i < initialFeeCount">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Amount <span class="text-danger">*</span></label>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text">₹</span>
+          <input type="number" formControlName="amount" class="form-control">
+        </div>
+        <div *ngIf="fee.get('amount')?.invalid && fee.get('amount')?.touched" class="text-danger small">
+          Enter a valid amount
+        </div>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Frequency <span class="text-danger">*</span></label>
+        <select formControlName="frequency" class="form-select form-select-sm shadow-sm">
+          <option *ngFor="let freq of frequencies" [value]="freq">{{ freq }}</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Specific Months -->
+    <div *ngIf="fee.value.frequency === 'Specific Months'" class="mt-1">
+      <label class="form-label">Select Months</label>
+      <div class="d-flex flex-wrap gap-1">
+        <button type="button" *ngFor="let month of months" class="btn btn-sm month-btn"
+                [class.btn-primary]="isMonthSelected(i, month)"
+                [class.btn-outline-primary]="!isMonthSelected(i, month)"
+                (click)="toggleSpecificMonths(i, month)">
+          {{ monthNames[month-1] }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Route Options for Transport Fee (Only if routes exist) -->
+    <div *ngIf="fee.value.name === 'transportFee' && routes.length" class="mt-2">
+      <h6 class="mb-1">Route Options</h6>
+      <div formArrayName="routeOptions" class="route-options-list">
+        <div *ngFor="let option of getRouteOptions(i).controls; let j = index" [formGroupName]="j"
+             class="d-flex gap-2 mb-1 align-items-end">
+          <div class="flex-grow-1">
+            <label class="form-label">Route</label>
+            <select formControlName="routeId" class="form-select form-select-sm shadow-sm"
+                    (change)="updateRouteAmount(i, j, $event)">
+              <option value="">Select Route</option>
+              <option *ngFor="let route of routes" [value]="route._id">
+                {{ route.name }} (₹{{ route.feeAmount }})
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Amount</label>
+            <div class="input-group input-group-sm">
               <span class="input-group-text">₹</span>
-              <input type="number" id="baseFee" formControlName="baseFee" class="form-control" />
+              <input type="number" formControlName="amount" class="form-control">
             </div>
-            <small *ngIf="feeForm.get('baseFee')?.touched && feeForm.get('baseFee')?.errors?.['required']" class="text-danger">
-              Base fee is required.
-            </small>
-            <small *ngIf="feeForm.get('baseFee')?.touched && feeForm.get('baseFee')?.errors?.['min']" class="text-danger">
-              Base fee must be non-negative.
-            </small>
           </div>
-          <fieldset>
-            <legend>Fee Breakdown</legend>
-            <div formGroupName="fees">
-              <div *ngFor="let fee of feeEntries; let i = index" class="row mb-2">
-                <div class="col-md-4">
-                  <label class="form-label">Fee Name:</label>
-                  <input type="text" class="form-control" [value]="fee.name | titlecase" (change)="updateFeeName(i, $event)" [disabled]="fee.isDefault" />
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label">Amount:</label>
-                  <div class="input-group">
-                    <span class="input-group-text">₹</span>
-                    <input type="number" [formControlName]="fee.name" class="form-control" />
-                  </div>
-                  <small *ngIf="feeForm.get('fees.' + fee.name)?.touched && feeForm.get('fees.' + fee.name)?.errors?.['required']" class="text-danger">
-                    Amount is required.
-                  </small>
-                  <small *ngIf="feeForm.get('fees.' + fee.name)?.touched && feeForm.get('fees.' + fee.name)?.errors?.['min']" class="text-danger">
-                    Amount must be non-negative.
-                  </small>
-                </div>
-                <div class="col-md-4 d-flex align-items-end">
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="removeFee(i)" [disabled]="fee.isDefault">Remove</button>
-                </div>
-              </div>
-            </div>
-            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" (click)="addFee()">Add Fee</button>
-          </fieldset>
+          <div>
+            <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeRouteOption(i, j)">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
         </div>
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-primary mt-1" (click)="addRouteOption(i)">
+        <i class="fas fa-plus"></i> Add Route
+      </button>
+    </div>
+  </div>
+  <button type="button" class="btn btn-sm btn-outline-primary mt-2" (click)="addCustomFee()">
+    <i class="fas fa-plus"></i> Add Fee
+  </button>
+</div>
 
-        <!-- Step 4: Review and Add Late Fee Rules/Discounts -->
-        <div *ngIf="currentStep === 4">
-          <h5 class="text-primary">Review Fee Structure</h5>
-          <div class="mb-3">
-            <p><strong>Class:</strong> {{ getClassName(feeForm.get('classId')?.value) }}</p>
-            <p><strong>Academic Year:</strong> {{ getAcademicYearName(feeForm.get('academicYearId')?.value) }}</p>
-            <p><strong>Frequency:</strong> {{ feeForm.get('frequency')?.value }}</p>
-            <p><strong>Base Fee:</strong> ₹{{ feeForm.get('baseFee')?.value }}</p>
-            <h6>Fee Breakdown:</h6>
-            <ul>
-              <li *ngFor="let entry of formFeeEntries">
-                {{ entry.key | titlecase }}: ₹{{ entry.value }} ({{ entry.type }}, {{ entry.frequency }})
-              </li>
-            </ul>
-          </div>
-
-          <!-- Late Fee Rules -->
-          <fieldset class="mb-3">
-            <legend>Late Fee Rules</legend>
-            <div formGroupName="lateFeeRules" class="row">
-              <div class="col-md-6">
-                <label for="dailyRate" class="form-label">Daily Rate:</label>
-                <div class="input-group">
-                  <span class="input-group-text">₹</span>
-                  <input type="number" id="dailyRate" formControlName="dailyRate" class="form-control" />
-                </div>
-                <small *ngIf="feeForm.get('lateFeeRules.dailyRate')?.touched && feeForm.get('lateFeeRules.dailyRate')?.errors?.['required']" class="text-danger">
-                  Daily rate is required.
-                </small>
-                <small *ngIf="feeForm.get('lateFeeRules.dailyRate')?.touched && feeForm.get('lateFeeRules.dailyRate')?.errors?.['min']" class="text-danger">
-                  Daily rate must be non-negative.
-                </small>
+          <!-- Late Fee Configuration -->
+          <div class="mt-3">
+            <h6 class="border-bottom pb-1 mb-2">Late Fee Configuration</h6>
+            <div formGroupName="lateFeeConfig" class="p-2 border rounded">
+              <div class="form-check form-switch mb-2">
+                <input type="checkbox" formControlName="isEnabled" id="lateFeeSwitch" class="form-check-input">
+                <label for="lateFeeSwitch" class="form-check-label">Enable Late Fees</label>
               </div>
-              <div class="col-md-6">
-                <label for="maxLateFee" class="form-label">Max Late Fee:</label>
-                <div class="input-group">
-                  <span class="input-group-text">₹</span>
-                  <input type="number" id="maxLateFee" formControlName="maxLateFee" class="form-control" />
+              <div *ngIf="feeForm.get('lateFeeConfig.isEnabled')?.value" class="row g-2">
+                <div class="col-md-6">
+                  <label class="form-label">Type</label>
+                  <select formControlName="calculationType" class="form-select form-select-sm shadow-sm">
+                    <option value="daily">Daily Rate</option>
+                    <option value="fixed">Fixed Amount</option>
+                    <option value="percentage">Percentage</option>
+                  </select>
                 </div>
-                <small *ngIf="feeForm.get('lateFeeRules.maxLateFee')?.touched && feeForm.get('lateFeeRules.maxLateFee')?.errors?.['required']" class="text-danger">
-                  Max late fee is required.
-                </small>
-                <small *ngIf="feeForm.get('lateFeeRules.maxLateFee')?.touched && feeForm.get('lateFeeRules.maxLateFee')?.errors?.['min']" class="text-danger">
-                  Max late fee must be non-negative.
-                </small>
+                <div class="col-md-6">
+                  <label class="form-label">Grace Period (days)</label>
+                  <input type="number" formControlName="gracePeriodDays" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-6" *ngIf="feeForm.get('lateFeeConfig.calculationType')?.value === 'daily'">
+                  <label class="form-label">Daily Rate</label>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">₹</span>
+                    <input type="number" formControlName="dailyRate" class="form-control">
+                  </div>
+                </div>
+                <div class="col-md-6" *ngIf="feeForm.get('lateFeeConfig.calculationType')?.value === 'fixed'">
+                  <label class="form-label">Fixed Amount</label>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">₹</span>
+                    <input type="number" formControlName="fixedAmount" class="form-control">
+                  </div>
+                </div>
+                <div class="col-md-6" *ngIf="feeForm.get('lateFeeConfig.calculationType')?.value === 'percentage'">
+                  <label class="form-label">Percentage Rate</label>
+                  <div class="input-group input-group-sm">
+                    <input type="number" formControlName="percentageRate" class="form-control">
+                    <span class="input-group-text">%</span>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Max Late Fee</label>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">₹</span>
+                    <input type="number" formControlName="maxLateFee" class="form-control">
+                  </div>
+                </div>
               </div>
             </div>
-          </fieldset>
+          </div>
 
           <!-- Discounts -->
-          <fieldset class="mb-3">
-            <legend>Discounts</legend>
-            <div formArrayName="discounts">
-              <div *ngFor="let discount of discounts.controls; let i = index" [formGroupName]="i" class="row mb-2">
-                <div class="col-md-3">
-                  <label class="form-label">Discount Name:</label>
-                  <input type="text" formControlName="name" class="form-control" />
-                  <small *ngIf="discounts.controls[i].get('name')?.touched && discounts.controls[i].get('name')?.errors?.['required']" class="text-danger">
-                    Discount name is required.
-                  </small>
+          <div class="mt-3" formArrayName="discounts">
+            <h6 class="border-bottom pb-1 mb-2">Discounts</h6>
+            <div class="discounts-list">
+              <div *ngFor="let discount of discounts.controls; let i = index" [formGroupName]="i"
+                   class="d-flex gap-2 mb-2 align-items-end">
+                <div class="flex-grow-1">
+                  <label class="form-label">Name</label>
+                  <input type="text" formControlName="name" class="form-control form-control-sm">
                 </div>
-                <div class="col-md-3">
-                  <label class="form-label">Type:</label>
-                  <select formControlName="type" class="form-select">
-                    <option value="">Select Type</option>
-                    <option *ngFor="let type of discountTypes" [value]="type">{{ type }}</option>
+                <div>
+                  <label class="form-label">Type</label>
+                  <select formControlName="type" class="form-select form-select-sm shadow-sm">
+                    <option value="Percentage">Percentage</option>
+                    <option value="Fixed">Fixed</option>
                   </select>
-                  <small *ngIf="discounts.controls[i].get('type')?.touched && discounts.controls[i].get('type')?.errors?.['required']" class="text-danger">
-                    Type is required.
-                  </small>
                 </div>
-                <div class="col-md-3">
-                  <label class="form-label">Amount:</label>
-                  <div class="input-group">
-                    <span class="input-group-text">{{ discounts.controls[i].get('type')?.value === 'Percentage' ? '%' : '₹' }}</span>
-                    <input type="number" formControlName="amount" class="form-control" />
+                <div>
+                  <label class="form-label">Amount</label>
+                  <div class="input-group input-group-sm">
+                    <span *ngIf="discount.value.type === 'Percentage'" class="input-group-text">%</span>
+                    <span *ngIf="discount.value.type === 'Fixed'" class="input-group-text">₹</span>
+                    <input type="number" formControlName="amount" class="form-control">
                   </div>
-                  <small *ngIf="discounts.controls[i].get('amount')?.touched && discounts.controls[i].get('amount')?.errors?.['required']" class="text-danger">
-                    Amount is required.
-                  </small>
-                  <small *ngIf="discounts.controls[i].get('amount')?.touched && discounts.controls[i].get('amount')?.errors?.['min']" class="text-danger">
-                    Amount must be non-negative.
-                  </small>
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="removeDiscount(i)">Remove</button>
+                <div>
+                  <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeDiscount(i)">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary mt-1" (click)="addDiscount()">
+                <i class="fas fa-plus"></i> Add Discount
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Review -->
+        <div *ngIf="currentStep === 4" class="step-content">
+          <h5 class="border-bottom pb-2 mb-3">Review Fee Structure</h5>
+          
+          <div class="card mb-2">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">Basic Information</h6>
+            </div>
+            <div class="card-body p-2">
+              <div class="row">
+                <div class="col-md-6">
+                  <p><strong>Class:</strong> {{ getClassName(feeForm.value.classId) }}</p>
+                </div>
+                <div class="col-md-6">
+                  <p><strong>Academic Year:</strong> {{ getAcademicYearName(feeForm.value.academicYearId) }}</p>
+                </div>
+                <div class="col-md-6">
+                  <p><strong>Frequency:</strong> {{ feeForm.value.frequency }}</p>
                 </div>
               </div>
             </div>
-            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" (click)="addDiscount()">Add Discount</button>
-          </fieldset>
+          </div>
+
+          <div class="card mb-2">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">Fees</h6>
+            </div>
+            <div class="card-body p-2">
+              <div class="table-responsive">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Type</th>
+                      <th>Amount</th>
+                      <th>Frequency</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let fee of feeForm.value.fees">
+                      <td>{{ fee.name | titlecase }}</td>
+                      <td>{{ fee.type }}</td>
+                      <td>₹{{ fee.amount }}</td>
+                      <td>{{ fee.frequency }}</td>
+                      <td>
+                        <div *ngIf="fee.name === 'transportFee' && fee.routeOptions?.length">
+                          <small class="text-muted">Routes:</small>
+                          <ul class="list-unstyled mb-0">
+                            <li *ngFor="let option of fee.routeOptions" class="small">
+                              {{ getRouteName(option.routeId) }}: ₹{{ option.amount }}
+                            </li>
+                          </ul>
+                        </div>
+                        <div *ngIf="fee.frequency === 'Specific Months' && fee.specificMonths?.length">
+                          <small class="text-muted">Months:</small>
+                          <div>
+                            <span *ngFor="let month of fee.specificMonths" class="badge bg-secondary me-1">
+                              {{ monthNames[month-1] }}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mb-2">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">Late Fee Configuration</h6>
+            </div>
+            <div class="card-body p-2">
+              <div *ngIf="feeForm.value.lateFeeConfig.isEnabled; else lateFeeDisabled">
+                <div class="row">
+                  <div class="col-md-4">
+                    <p><strong>Type:</strong> {{ feeForm.value.lateFeeConfig.calculationType | titlecase }}</p>
+                  </div>
+                  <div class="col-md-4">
+                    <p *ngIf="feeForm.value.lateFeeConfig.calculationType === 'daily'">
+                      <strong>Daily Rate:</strong> ₹{{ feeForm.value.lateFeeConfig.dailyRate }}
+                    </p>
+                    <p *ngIf="feeForm.value.lateFeeConfig.calculationType === 'fixed'">
+                      <strong>Fixed Amount:</strong> ₹{{ feeForm.value.lateFeeConfig.fixedAmount }}
+                    </p>
+                    <p *ngIf="feeForm.value.lateFeeConfig.calculationType === 'percentage'">
+                      <strong>Percentage:</strong> {{ feeForm.value.lateFeeConfig.percentageRate }}%
+                    </p>
+                  </div>
+                  <div class="col-md-4">
+                    <p><strong>Max Late Fee:</strong> ₹{{ feeForm.value.lateFeeConfig.maxLateFee }}</p>
+                  </div>
+                  <div class="col-md-4">
+                    <p><strong>Grace Period:</strong> {{ feeForm.value.lateFeeConfig.gracePeriodDays }} days</p>
+                  </div>
+                </div>
+              </div>
+              <ng-template #lateFeeDisabled>
+                <p class="text-muted mb-0">Late fees are disabled for this fee structure</p>
+              </ng-template>
+            </div>
+          </div>
+
+          <div class="card mb-2" *ngIf="feeForm.value.discounts.length">
+            <div class="card-header bg-light">
+              <h6 class="mb-0">Discounts</h6>
+            </div>
+            <div class="card-body p-2">
+              <div class="table-responsive">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Type</th>
+                      <th>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let discount of feeForm.value.discounts">
+                      <td>{{ discount.name }}</td>
+                      <td>{{ discount.type }}</td>
+                      <td>{{ discount.amount }}{{ discount.type === 'Percentage' ? '%' : '₹' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Modal Footer with Navigation -->
+        <!-- Step 5: Submit -->
+        <div *ngIf="currentStep === 5" class="step-content">
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            Please review all details carefully. Click "{{ isEditMode ? 'Update' : 'Create' }} Fee Structure" to save or go back to make changes.
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" (click)="prevStep()" [disabled]="currentStep === 1">Previous</button>
-          <button type="button" class="btn btn-primary" (click)="nextStep()" *ngIf="currentStep < 4">Next</button>
-          <button type="submit" class="btn btn-success" *ngIf="currentStep === 4">Create Fee Structure</button>
-          <button type="button" class="btn btn-outline-secondary" (click)="closeModal()">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" 
+                  (click)="prevStep()" 
+                  [disabled]="currentStep === 1">
+            Previous
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" 
+                  (click)="nextStep()" 
+                  *ngIf="currentStep < 5">
+            Next
+          </button>
+          <button type="submit" class="btn btn-success btn-sm" 
+                  *ngIf="currentStep === 5">
+            {{ isEditMode ? 'Update' : 'Create' }} Fee Structure
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" 
+                  (click)="closeModal()">
+            Cancel
+          </button>
         </div>
       </form>
+    </div>
+  </ng-template>
+
+  <ng-template #confirmDeleteModal let-modal>
+    <div class="modal-header bg-danger text-white">
+      <h5 class="modal-title">Confirm Deletion</h5>
+      <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="modal.dismiss('cancel')"></button>
+    </div>
+    <div class="modal-body">
+      Are you sure you want to delete this fee structure? This action cannot be undone.
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="modal.dismiss('cancel')">Cancel</button>
+      <button type="button" class="btn btn-danger btn-sm" (click)="deleteFeeStructure(selectedStructureId); modal.close('confirm')">Delete</button>
     </div>
   </ng-template>
 </div>

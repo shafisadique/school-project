@@ -1,16 +1,19 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { StudentService } from '../student.service';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from 'src/app/theme/shared/components/card/card.component';
 import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
+import { RouteService } from '../../../route/route.service';
+
 interface ParentDetails {
   fatherName?: string;
   motherName?: string;
   fatherPhone?: string;
   motherPhone?: string;
 }
+
 @Component({
   selector: 'app-student-create',
   templateUrl: './student-create.component.html',
@@ -18,7 +21,7 @@ interface ParentDetails {
   standalone: true,
   styleUrl: './student-create.component.scss'
 })
-export class StudentCreateComponent {
+export class StudentCreateComponent implements OnInit {
   studentForm!: FormGroup;
   submitted = false;
   classList: any[] = [];
@@ -29,11 +32,13 @@ export class StudentCreateComponent {
   serverErrors: any = {};
   sessionList = ['2023-2024', '2024-2025', '2025-2026'];
   schoolId = localStorage.getItem('schoolId');
+  routes: any[] = []; // Store available routes
 
   constructor(
     private fb: FormBuilder,
     private classSubjectService: ClassSubjectService,
     private studentService: StudentService,
+    private routeService: RouteService, // Inject RouteService
     private toastr: ToastrService
   ) {}
 
@@ -42,24 +47,27 @@ export class StudentCreateComponent {
       name: ['', [Validators.required, Validators.minLength(3)]],
       email: [''],
       phone: ['', [Validators.required, Validators.pattern('^(?:\\+91)?[0-9]{10}$')]],
-      dateOfBirth: ['', Validators.required], // Added Date of Birth
-      city: ['', Validators.required], // Added City
-      state: ['', Validators.required], // Added State
-      country: ['', Validators.required], // Added Country
+      dateOfBirth: ['', Validators.required],
+      city: ['', Validators.required],
+      state: ['', Validators.required],
+      country: ['', Validators.required],
       classId: ['', Validators.required],
       section: ['', Validators.required],
       address: ['', Validators.required],
       gender: ['', Validators.required],
       usesTransport: [false, [Validators.required]],
       usesHostel: [false, [Validators.required]],
-      fatherName: ['', Validators.minLength(2)], // Made optional
-      motherName: ['', Validators.minLength(2)], // Made optional
-      fatherPhone: ['', Validators.pattern('^(?:\\+91)?[0-9]{10}$')], // Made optional
-      motherPhone: ['', Validators.pattern('^(?:\\+91)?[0-9]{10}$')] // Made optional
+      routeId: [''], // Add routeId, initially empty
+      fatherName: ['', Validators.minLength(2)],
+      motherName: ['', Validators.minLength(2)],
+      fatherPhone: ['', Validators.pattern('^(?:\\+91)?[0-9]{10}$')],
+      motherPhone: ['', Validators.pattern('^(?:\\+91)?[0-9]{10}$')]
     }, { 
-      validators: this.atLeastOneParentValidator // Custom validator for parents
+      validators: this.atLeastOneParentValidator
     });
+
     this.loadClasses();
+    this.loadRoutes(); // Load routes on init
   }
 
   // Custom validator to ensure at least one parent's details are provided
@@ -78,6 +86,12 @@ export class StudentCreateComponent {
     if (motherName && !motherPhone) {
       formGroup.get('motherPhone')?.setErrors({ requiredIfMother: true });
     }
+
+    // Validate routeId when usesTransport is true
+    if (formGroup.get('usesTransport')?.value === 'true' && !formGroup.get('routeId')?.value) {
+      formGroup.get('routeId')?.setErrors({ required: true });
+    }
+
     return null;
   }
 
@@ -89,9 +103,17 @@ export class StudentCreateComponent {
     this.classSubjectService.getClassesBySchool(this.schoolId).subscribe({
       next: (classes) => {
         this.classList = classes;
-        console.log(classes);
       },
       error: (err) => console.error('Error fetching classes:', err)
+    });
+  }
+
+  loadRoutes() {
+    this.routeService.getRoutes().subscribe({
+      next: (data:any) => {
+        this.routes = data.data || []; // Adjust based on your API response structure
+      },
+      error: (err) => this.toastr.error('Error fetching routes', 'Error')
     });
   }
 
@@ -121,17 +143,27 @@ export class StudentCreateComponent {
     }
   }
 
+  onTransportChange() {
+    if (this.studentForm.get('usesTransport')?.value === 'false') {
+      this.studentForm.get('routeId')?.setValue('');
+      this.studentForm.get('routeId')?.clearValidators();
+    } else {
+      this.studentForm.get('routeId')?.setValidators([Validators.required]);
+    }
+    this.studentForm.get('routeId')?.updateValueAndValidity();
+  }
+
   onSubmit() {
     this.submitted = true;
-  
+
     console.log('Form Valid:', this.studentForm.valid);
     console.log('Form Values:', this.studentForm.value);
-  
+
     if (this.studentForm.invalid || !this.selectedFile) {
       this.fileError = !this.selectedFile ? 'Profile picture is required.' : null;
       return;
     }
-  
+
     const schoolId = localStorage.getItem('schoolId');
     const formData = new FormData();
     formData.append('name', this.studentForm.value.name || '');
@@ -148,7 +180,7 @@ export class StudentCreateComponent {
     formData.append('usesTransport', this.studentForm.value.usesTransport.toString());
     formData.append('usesHostel', this.studentForm.value.usesHostel.toString());
     formData.append('section', JSON.stringify([this.studentForm.value.section]));
-  
+
     // Define parents with the ParentDetails interface
     const parents: ParentDetails = {};
     if (this.studentForm.value.fatherName?.trim()) {
@@ -166,11 +198,16 @@ export class StudentCreateComponent {
     if (Object.keys(parents).length > 0) {
       formData.append('parents', JSON.stringify(parents));
     }
-  
+
+    // Add routeId if transportation is enabled
+    if (this.studentForm.value.usesTransport === 'true') {
+      formData.append('routeId', this.studentForm.value.routeId || '');
+    }
+
     this.studentService.getActiveAcademicYear(schoolId).subscribe({
       next: (activeYear) => {
         formData.append('academicYearId', activeYear._id);
-  
+
         this.studentService.createStudent(formData).subscribe({
           next: (res) => {
             this.toastr.success('Student added successfully!', 'Success');
@@ -187,6 +224,8 @@ export class StudentCreateComponent {
               errorMessage = 'Father\'s phone number is required if father\'s name is provided.';
             } else if (err.error.message.includes('Mother\'s phone number')) {
               errorMessage = 'Mother\'s phone number is required if mother\'s name is provided.';
+            } else if (err.error.message.includes('A route is required')) {
+              errorMessage = 'A route is required when transportation is enabled.';
             }
             this.serverErrors = { message: errorMessage };
             this.toastr.error(errorMessage, 'Error');

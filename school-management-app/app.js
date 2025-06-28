@@ -6,7 +6,6 @@ const path = require('path');
 const helmet = require('helmet');
 
 dotenv.config();
-
 const app = express();
 
 // ✅ Configure Helmet (disable contentSecurityPolicy to avoid blocking images)
@@ -16,24 +15,11 @@ app.use(helmet({
 
 // ✅ Configure CORS (remove duplicate and ensure correct origins)
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4300'];
-console.log('Allowed Origins:', allowedOrigins); // Debug log
-// app.use(cors({
-//   origin: allowedOrigins, // e.g., ['http://localhost:4200']
-//   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-//   allowedHeaders: ['Content-Type', 'Authorization']
-// }));
+
 app.use(cors({
-  origin: function (origin, callback) {
-    console.log('Request Origin:', origin); // Debug the incoming origin
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error(`Not allowed by CORS. Origin: ${origin}, Allowed: ${allowedOrigins}`));
-    }
-  },
+  origin: allowedOrigins, // e.g., ['http://localhost:4200']
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true, // Allow cookies/auth credentials if needed
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // ✅ Middlewares
@@ -66,12 +52,13 @@ const teacherAbsenceRoutes = require('./routes/teacherAbsenceRoutes');
 const exam = require('./routes/examRouter');
 const resultRoutes = require('./routes/resultRouter');
 const academicYearRoute = require('./routes/academicYearRoutes');
+const transporatationRoute = require('./routes/routeRouter');
 
 // ✅ Middleware
 const authMiddleware = require('./middleware/authMiddleware');
 
 // ✅ API Endpoints
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes); 
 app.use('/api/schools', authMiddleware, schoolRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/teachers', authMiddleware, teacherRoutes);
@@ -85,6 +72,8 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/teacher-absences', teacherAbsenceRoutes);
 app.use('/api/exams', exam);
 app.use('/api/results', resultRoutes);
+app.use('/api/routes',transporatationRoute);
+
 
 // ✅ Start Server
 const PORT = process.env.PORT || 5000;

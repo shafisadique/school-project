@@ -1,143 +1,178 @@
-.container {
-  margin: 0 auto;
-}
-
-h3.text-primary {
-  color: #007bff;
-  font-weight: 600;
-}
-
-.card {
-  border-radius: 10px;
-  border: none;
-}
-
-.table {
-  font-size: 0.95rem;
-}
-
-.table-striped tbody tr:nth-of-type(odd) {
-  background-color: #f8f9fa;
-}
-
-.btn-primary {
-  background-color: #007bff;
-  border: none;
-  border-radius: 5px;
-  padding: 0.5rem 1rem;
-}
-
-.btn-primary:hover {
-  background-color: #0056b3;
-}
-
-/* Step Indicator */
-.step-indicator {
+.steps {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  margin-bottom: 20px;
+
+  .step {
+    text-align: center;
+    flex: 1;
+    position: relative;
+
+    span {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      line-height: 30px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      color: #333;
+      margin-bottom: 5px;
+    }
+
+    &.active span {
+      background: #007bff;
+      color: white;
+    }
+
+    &.completed span {
+      background: #28a745;
+      color: white;
+    }
+
+    small {
+      display: block;
+      font-size: 12px;
+    }
+
+    &:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      top: 15px;
+      right: -50%;
+      width: 100%;
+      height: 2px;
+      background: #e0e0e0;
+      z-index: -1;
+    }
+
+    &.active:not(:last-child)::after,
+    &.completed:not(:last-child)::after {
+      background: #007bff;
+    }
+  }
 }
 
-.step {
-  flex: 1;
-  text-align: center;
-  padding: 0.5rem;
-  background-color: #e9ecef;
-  color: #6c757d;
-  font-weight: 500;
-  border-right: 1px solid #dee2e6;
+.fee-item {
+  background: #f8f9fa;
 }
 
-.step:last-child {
-  border-right: none;
+.route-options-list {
+  max-height: 300px;
+  overflow-y: auto;
 }
-
-.step.active {
-  background-color: #007bff;
+.modal-header{
+      background: linear-gradient(90deg, #2C3E50, #3498DB);
+}
+.modal-header h5{
   color: white;
 }
 
-/* Form Styles */
-.form-label {
-  font-size: 0.9rem;
-  color: #333;
+
+.month-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+
+  .month-btn {
+    min-width: 80px;
+  }
 }
 
-.form-select,
-.form-control {
-  border-radius: 5px;
-  border: 1px solid #ced4da;
-  padding: 0.5rem;
-}
-
-.form-select:focus,
-.form-control:focus {
-  border-color: #007bff;
-  box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);
-}
-
-.input-group-text {
-  background-color: #f8f9fa;
-  border-radius: 5px 0 0 5px;
-}
-
-fieldset {
-  border: 1px solid #e9ecef;
-  padding: 15px;
-  border-radius: 5px;
-}
-
-legend {
-  font-size: 1rem;
-  color: #007bff;
-  width: auto;
-  padding: 0 10px;
-}
-
-/* Buttons */
-.btn-outline-secondary {
-  border-radius: 5px;
-}
-
-.btn-success {
-  background-color: #28a745;
-  border: none;
-  border-radius: 5px;
-}
-
-.btn-success:hover {
-  background-color: #218838;
-}
-
-/* Additional Styles */
-.fee-structure-container {
-  padding: 20px;
-}
-
-h5.text-primary {
-  color: #007bff;
-}
-
-.modal-body {
-  max-height: 70vh;
+.table-responsive {
+  max-height: 400px;
   overflow-y: auto;
 }
 
-.modal-footer {
-  border-top: none;
-  padding-top: 10px;
-}
 
-.modal-footer .btn {
-  margin-left: 10px;
-}
+.container-fluid {
+  font-family: 'Poppins', sans-serif;
 
-.text-danger {
-  display: block;
-  font-size: 0.9em;
-}
+  .custom-card {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 
-ul {
-  padding-left: 15px;
-  margin-bottom: 0;
-}
+    .card-header {
+      border-radius: 8px 8px 0 0;
+      padding: 10px 15px;
+
+      h3 {
+        margin: 0;
+        font-size: 18px;
+      }
+
+      .btn-sm {
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 4px;
+      }
+    }
+
+    .card-body {
+      padding: 15px;
+
+      .table-container {
+        .professional-table {
+          width: 100%;
+          border-collapse: collapse;
+          border-radius: 6px;
+          overflow: hidden;
+          font-size: 13px;
+
+          thead {
+            background-color: #2C3E50;
+            color: white;
+
+            th {
+              padding: 8px;
+              text-align: left;
+              font-weight: 600;
+              font-size: 13px;
+            }
+          }
+
+          tbody {
+            tr {
+              border-bottom: 1px solid #ECF0F1;
+              transition: background-color 0.2s;
+
+              &:nth-child(even) {
+                background-color: #F9FBFC;
+              }
+
+              &:hover {
+                background-color: #F0F4F8;
+              }
+
+              td {
+                padding: 8px;
+                vertical-align: middle;
+                font-size: 12px;
+                color: #34495E;
+
+                .fee-list {
+                  list-style: none;
+                  padding: 0;
+                  margin: 0;
+
+                  li {
+                    margin-bottom: 4px;
+                  }
+                }
+
+                .xsmall {
+                  font-size: 11px;
+                }
+              }
+            }
+          }
+        }
+
+        .alert-info {
+          font-size: 13px;
+          padding: 10px;
+          margin: 0;
+        }
+      }
+    }
+  }}

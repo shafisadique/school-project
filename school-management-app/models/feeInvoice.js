@@ -2,9 +2,9 @@ const mongoose = require('mongoose');
 
 const invoiceSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
-  schoolId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   feeStructureId: { type: mongoose.Schema.Types.ObjectId, ref: 'FeeStructure', required: true },
-  academicYear: { type: mongoose.Schema.Types.ObjectId, required: true },
+  academicYear: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear', required: true }, // Added ref: 'AcademicYear'
   month: { type: String, required: true },
   dueDate: { type: Date, required: true },
   baseAmount: { type: Number, required: true },
@@ -18,7 +18,7 @@ const invoiceSchema = new mongoose.Schema({
     }
   ],
   totalAmount: { type: Number, required: true },
-  paidAmount: { type: Number, default: 0 }, // Add paidAmount with default 0
+  paidAmount: { type: Number, default: 0 },
   remainingDue: { type: Number, required: true },
   discountsApplied: [{ type: String }],
   status: {
@@ -35,12 +35,12 @@ const invoiceSchema = new mongoose.Schema({
       date: { type: Date, required: true },
       transactionId: { type: String },
       chequeNumber: { type: String },
-      processedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } // Include processedBy for audit trail
+      processedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
     }
   ],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
-invoiceSchema.index({ schoolId: 1, studentId: 1, month: 1 }, { unique: true }); // Composite index for frequent queries
-module.exports = mongoose.model('Invoice', invoiceSchema);
+invoiceSchema.index({ schoolId: 1, studentId: 1, month: 1 }, { unique: true });
+module.exports = mongoose.model('FeeInvoice', invoiceSchema);

@@ -229,5 +229,21 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'user'
       },
     ]
+  },
+  {
+    id: 'fee',
+    title: 'Transporatation',
+    type: 'group', // Changed to collapse
+    icon: 'team',
+    children: [
+      {
+        id: 'transporatation',
+        title: 'Transporatation Details',
+        type: 'item',
+        url: '/route/route-transportation',
+        icon: 'user'
+      },
+    ]
   }
+  
 ];

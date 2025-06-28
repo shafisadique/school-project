@@ -32,6 +32,7 @@ export class FeePaymentComponent implements OnInit {
   totalDue: number = 0;
   paymentSuccess: boolean = false; // Flag for payment confirmation
   paymentHistoryText: string = ''; // Property to hold transformed payment history
+  receipts: any[] = [];
 
   constructor(
     private route: ActivatedRoute,
@@ -53,7 +54,6 @@ export class FeePaymentComponent implements OnInit {
 
   ngOnInit(): void {
     this.userRole = this.authService.getUserRole();
-    console.log('User Role:', this.userRole);
     if (!this.userRole || !['admin', 'accountant'].includes(this.userRole.toLowerCase())) {
       this.errorMessage = 'Unauthorized role for payment processing.';
       this.isLoading = false;
@@ -146,6 +146,20 @@ loadInvoice(): void {
   });
 }
 
+downloadReceipt(receiptId: string): void {
+  this.feeService.downloadReceiptPDF(receiptId).subscribe({
+    next: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `receipt_${receiptId}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      this.toastr.success('Receipt downloaded successfully');
+    },
+    error: (err) => this.toastr.error('Failed to download receipt')
+  });
+}
   private getInvoiceMonth(dueDate: string): string {
     const date = new Date(dueDate);
     return date.toLocaleString('default', { month: 'long', year: 'numeric' });

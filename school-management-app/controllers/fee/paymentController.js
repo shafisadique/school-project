@@ -1,15 +1,88 @@
 const mongoose = require('mongoose');
 const moment = require('moment');
-const PDFDocument = require('pdfkit');
+const PDFDocument = require('pdfkit-table');
 const fs = require('fs');
 const AdmZip = require('adm-zip');
-const FeeStructure = require('../../models/feeStructure');
 const Student = require('../../models/student');
 const FeeInvoice = require('../../models/feeInvoice');
-const AcademicYear = require('../../models/academicyear');
 const School = require('../../models/school');
+const Receipt = require('../../models/receipt')
+const Payment = require('../../models/Payment');
 
+// exports.processPayment = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   try {
+//     session.startTransaction();
+//     const { studentId } = req.params;
+//     const { amount, paymentMethod, date, chequeNumber, transactionId } = req.body;
+//     const { schoolId, id: userId } = req.user;
 
+//     // Validate inputs
+//     if (!studentId) throw new Error('Student ID is required');
+//     if (typeof amount !== 'number' || amount <= 0) throw new Error('Invalid amount');
+
+//     // Get ALL unpaid invoices sorted by due date (oldest first)
+//     const invoices = await FeeInvoice.find({
+//       studentId,
+//       schoolId,
+//       status: { $in: ['Pending', 'Partial', 'Overdue'] }
+//     }).sort({ dueDate: 1 }).session(session);
+
+//     if (invoices.length === 0) {
+//       throw new Error('No outstanding invoices found');
+//     }
+
+//     let remainingAmount = amount;
+//     const updatedInvoices = [];
+
+//     // Apply payment to invoices chronologically
+//     for (const invoice of invoices) {
+//       if (remainingAmount <= 0) break;
+
+//       const amountToApply = Math.min(remainingAmount, invoice.remainingDue);
+//       if (amountToApply <= 0) continue;
+
+//       // Add payment record
+//       invoice.paymentHistory.push({
+//         date: date || new Date(),
+//         amount: amountToApply,
+//         paymentMethod,
+//         processedBy: userId,
+//         ...(paymentMethod === 'Cheque' && { chequeNumber }),
+//         ...(paymentMethod === 'Online' && { transactionId }),
+//       });
+
+//       // Update invoice
+//       invoice.paidAmount += amountToApply;
+//       invoice.remainingDue = invoice.totalAmount - invoice.paidAmount;
+//       invoice.status = invoice.remainingDue > 0 ? 'Partial' : 'Paid';
+
+//       remainingAmount -= amountToApply;
+//       updatedInvoices.push(await invoice.save({ session }));
+//     }
+
+//     // Update student's overall fee status
+//     const totalPaid = amount - remainingAmount;
+//     await Student.findByIdAndUpdate(
+//       studentId,
+//       { $inc: { totalPaid, totalDue: -totalPaid } },
+//       { session }
+//     );
+
+//     await session.commitTransaction();
+
+//     res.json({
+//       success: true,
+//       message: 'Payment processed across invoices',
+//       data: updatedInvoices
+//     });
+//   } catch (err) {
+//     await session.abortTransaction();
+//     res.status(400).json({ error: err.message });
+//   } finally {
+//     session.endSession();
+//   }
+// };
 
 exports.processPayment = async (req, res) => {
   const session = await mongoose.startSession();
@@ -19,11 +92,9 @@ exports.processPayment = async (req, res) => {
     const { amount, paymentMethod, date, chequeNumber, transactionId } = req.body;
     const { schoolId, id: userId } = req.user;
 
-    // Validate inputs
     if (!studentId) throw new Error('Student ID is required');
     if (typeof amount !== 'number' || amount <= 0) throw new Error('Invalid amount');
 
-    // Get ALL unpaid invoices sorted by due date (oldest first)
     const invoices = await FeeInvoice.find({
       studentId,
       schoolId,
@@ -36,34 +107,47 @@ exports.processPayment = async (req, res) => {
 
     let remainingAmount = amount;
     const updatedInvoices = [];
+    const receipts = [];
 
-    // Apply payment to invoices chronologically
     for (const invoice of invoices) {
       if (remainingAmount <= 0) break;
 
       const amountToApply = Math.min(remainingAmount, invoice.remainingDue);
       if (amountToApply <= 0) continue;
 
-      // Add payment record
-      invoice.paymentHistory.push({
+      const payment = new Payment({
+        studentId,
+        invoiceId: invoice._id,
+        amount: amountToApply,
         date: date || new Date(),
+        paymentMethod,
+        chequeNumber,
+        transactionId,
+        schoolId,
+        processedBy: userId
+      });
+      await payment.save({ session });
+
+      invoice.paymentHistory.push({
         amount: amountToApply,
         paymentMethod,
-        processedBy: userId,
-        ...(paymentMethod === 'Cheque' && { chequeNumber }),
-        ...(paymentMethod === 'Online' && { transactionId }),
+        date: payment.date,
+        transactionId: payment.transactionId,
+        chequeNumber: payment.chequeNumber,
+        processedBy: userId
       });
 
-      // Update invoice
       invoice.paidAmount += amountToApply;
       invoice.remainingDue = invoice.totalAmount - invoice.paidAmount;
       invoice.status = invoice.remainingDue > 0 ? 'Partial' : 'Paid';
 
       remainingAmount -= amountToApply;
       updatedInvoices.push(await invoice.save({ session }));
+
+      const receipt = await generateReceipt(payment);
+      receipts.push(receipt);
     }
 
-    // Update student's overall fee status
     const totalPaid = amount - remainingAmount;
     await Student.findByIdAndUpdate(
       studentId,
@@ -76,7 +160,7 @@ exports.processPayment = async (req, res) => {
     res.json({
       success: true,
       message: 'Payment processed across invoices',
-      data: updatedInvoices
+      data: { invoices: updatedInvoices, receipts }
     });
   } catch (err) {
     await session.abortTransaction();
@@ -131,7 +215,7 @@ exports.generateAdvanceInvoices = async (req, res) => {
   }
 };
 
-const generatePaymentReceipt = async (invoice, amount, paymentMethod) => {
+exports.generatePaymentReceipt = async (invoice, amount, paymentMethod) => {
   const doc = new PDFDocument();
   const filePath = `./temp/receipt_${invoice._id}_${Date.now()}.pdf`;
   
@@ -246,12 +330,13 @@ exports.generateInvoicePDF = async (req, res) => {
   try {
     const { id } = req.params;
     const schoolId = req.user.schoolId;
+    
 
     const invoice = await FeeInvoice.findOne({ _id: id, schoolId })
       .populate('studentId', 'name admissionNo className')
       .populate('academicYear', 'name')
       .populate('schoolId', 'name address');
-
+    
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice not found' });
     }
@@ -519,7 +604,6 @@ exports.generateClassReceipts = async (req, res) => {
   }
 };
 
-
 exports.getFeeCollectionDetailsReport = async (req, res) => {
   try {
     const { startDate, endDate, classId, section, method } = req.query;
@@ -645,5 +729,199 @@ exports.getFeeCollectionDetailsReport = async (req, res) => {
       message: 'Failed to generate report',
       error: err.message 
     });
+  }
+};
+
+
+// In your payment controller
+// exports.generateReceipt = async (payment) => {
+//   const receipt = new Receipt({
+//     paymentId: payment._id,
+//     studentId: payment.studentId,
+//     invoiceId: payment.invoiceId,
+//     amount: payment.amount,
+//     paymentMethod: payment.method,
+//     receiptNumber: `RC-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+//     schoolDetails: await getSchoolDetails(payment.schoolId)
+//   });
+//   return await receipt.save();
+// };
+
+const generateReceipt = async (payment) => {
+  const receipt = new Receipt({
+    paymentId: payment._id,
+    studentId: payment.studentId,
+    invoiceId: payment.invoiceId,
+    amount: payment.amount,
+    date: payment.date,
+    paymentMethod: payment.paymentMethod,
+    schoolId: payment.schoolId,
+    receiptNumber: `REC-${Date.now()}-${payment._id.toString().slice(-6)}`, // Example receipt number generation
+    processedBy: payment.processedBy,
+    generatedBy: payment.processedBy // Add this line to satisfy the required field
+  });
+  await receipt.save();
+  return receipt;
+};
+
+exports.generateReceiptPDF = async (req, res) => {
+  try {
+    const { receiptId } = req.params;
+    const receipt = await Receipt.findById(receiptId)
+      .populate('paymentId')
+      .populate('studentId', 'name admissionNo className')
+      .populate('invoiceId')
+      .populate('schoolId', 'name address');
+    if (!receipt) {
+      return res.status(404).json({ error: 'Receipt not found' });
+    }
+
+    console.log('Populated studentId:', receipt.studentId); // Check the populated student data
+
+    const doc = new PDFDocument();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=receipt_${receipt.receiptNumber}.pdf`);
+    doc.pipe(res);
+
+    const schoolName = receipt.schoolId?.name || 'Unknown School';
+    const schoolAddress = receipt.schoolId?.address
+      ? `${receipt.schoolId.address.street || ''}, ${receipt.schoolId.address.city || ''}, ${receipt.schoolId.address.state || ''}, ${receipt.schoolId.address.country || ''}, ${receipt.schoolId.address.postalCode || ''}`
+          .replace(/, ,/g, ',')
+          .replace(/^,|,$/g, '')
+          .trim() || 'No Address'
+      : 'No Address';
+
+    doc.fontSize(18).text(schoolName, { align: 'center' });
+    doc.fontSize(12).text(schoolAddress, { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(14).text('Payment Receipt', { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(12).text(`Receipt Number: ${receipt.receiptNumber || 'N/A'}`);
+    doc.text(`Date: ${moment(receipt.date).format('DD/MM/YYYY') || 'N/A'}`);
+    doc.text(`Student Name: ${receipt.studentId?.name || 'Unknown Student'}`);
+    doc.text(`Admission No: ${receipt.studentId?.admissionNo || 'N/A'}`);
+    doc.text(`Class: ${receipt.studentId?.className || 'N/A'}`);
+    doc.text(`Invoice Month: ${receipt.invoiceId?.month || 'N/A'}`);
+    doc.text(`Amount Paid: ₹${receipt.amount || 0}`);
+    doc.text(`Payment Method: ${receipt.paymentMethod || 'N/A'}`);
+
+    doc.end();
+  } catch (err) {
+    console.error('Error generating receipt PDF:', err);
+    res.status(500).json({ error: 'Failed to generate receipt PDF: ' + err.message });
+  }
+};
+
+exports.generateInvoicePDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const schoolId = req.user.schoolId;
+
+    const invoice = await FeeInvoice.findOne({ _id: id, schoolId })
+      .populate('studentId', 'name admissionNo classId')
+      .populate({
+        path: 'studentId.classId',
+        model: 'Class', // Verify this matches your Class model name
+        select: 'name'
+      })
+      .populate('academicYear', 'name')
+      .populate('schoolId', 'name address');
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    // Debug logs
+    console.log('Populated studentId:', JSON.stringify(invoice.studentId, null, 2));
+    console.log('Class Name:', invoice.studentId?.classId?.name);
+    console.log('Academic Year:', invoice.academicYear?.name);
+
+    const doc = new PDFDocument();
+    const filePath = `./temp/invoice_${id}.pdf`;
+    const tempDir = './temp';
+
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    doc.pipe(fs.createWriteStream(filePath));
+
+    const schoolName = invoice.schoolId?.name || 'Unknown School';
+    const schoolAddress = invoice.schoolId?.address
+      ? `${invoice.schoolId.address.street || ''}, ${invoice.schoolId.address.city || ''}, ${invoice.schoolId.address.state || ''}, ${invoice.schoolId.address.country || ''}, ${invoice.schoolId.address.postalCode || ''}`
+          .replace(/, ,/g, ',')
+          .replace(/^,|,$/g, '')
+          .trim() || 'No Address'
+      : 'No Address';
+
+    doc.fontSize(18).text(schoolName, { align: 'center' });
+    doc.fontSize(12).text(schoolAddress, { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(14).text('Fee Invoice', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(`Invoice Date: ${moment(invoice.createdAt).format('DD/MM/YYYY') || 'N/A'}`);
+    doc.text(`Due Date: ${moment(invoice.dueDate).format('DD/MM/YYYY') || 'N/A'}`);
+    doc.text(`Student Name: ${invoice.studentId?.name || 'Unknown Student'}`);
+    doc.text(`Admission No: ${invoice.studentId?.admissionNo || 'N/A'}`);
+    doc.text(`Class: ${invoice.studentId?.classId?.name || 'N/A'}`);
+    doc.text(`Month: ${invoice.month || 'N/A'}`);
+    doc.text(`Academic Year: ${invoice.academicYear?.name || 'N/A'}`);
+
+    doc.moveDown();
+    const feeTable = {
+      headers: ['Description', 'Amount (₹)'],
+      rows: []
+    };
+
+    for (const [key, value] of Object.entries(invoice.invoiceDetails || {})) {
+      if (value > 0) {
+        feeTable.rows.push([key.charAt(0).toUpperCase() + key.slice(1), value]);
+      }
+    }
+
+    feeTable.rows.push(['Previous Due', invoice.previousDue || 0]);
+    feeTable.rows.push(['Late Fee', invoice.lateFee || 0]);
+
+    if (invoice.discountsApplied && invoice.discountsApplied.length > 0) {
+      invoice.discountsApplied.forEach(discount => {
+        feeTable.rows.push([discount.name || 'Discount', `-${discount.amount || 0}`]);
+      });
+    }
+
+    feeTable.rows.push(['Total', invoice.totalAmount || 0]);
+
+    doc.table(feeTable, {
+      prepareHeader: () => doc.font('Helvetica-Bold'),
+      padding: 5
+    });
+
+    doc.moveDown();
+    doc.text(`Paid Amount: ₹${invoice.paidAmount || 0}`);
+    doc.text(`Remaining Due: ₹${invoice.remainingDue || 0}`);
+    doc.text(`Status: ${invoice.status || 'N/A'}`);
+
+    doc.end();
+
+    res.download(filePath, `invoice_${invoice.studentId.admissionNo || 'unknown'}_${invoice.month || 'unknown'}.pdf`, (err) => {
+      if (err) {
+        console.error('Download error:', err);
+        return res.status(500).json({ error: 'Failed to download invoice PDF' });
+      }
+      setTimeout(() => {
+        fs.unlink(filePath, (err) => {
+          if (err) {
+            console.error('Failed to delete temp file:', err);
+          } else {
+            console.log('Temp file deleted:', filePath);
+          }
+        });
+      }, 1000);
+    });
+  } catch (err) {
+    console.error('Error generating invoice PDF:', err);
+    res.status(500).json({ error: 'Failed to generate invoice PDF: ' + err.message });
   }
 };
