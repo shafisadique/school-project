@@ -70,7 +70,7 @@ app.use('/api/timetable', timetableRoutes);
 app.use('/api/academicyear', academicYearRoute);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/teacher-absences', teacherAbsenceRoutes);
-app.use('/api/exams', exam);
+app.use('/api/exams',authMiddleware, exam);
 app.use('/api/results', resultRoutes);
 app.use('/api/routes',transporatationRoute);
 

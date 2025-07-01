@@ -15,7 +15,10 @@ export class ResultService {
   createResult(result: Partial<Result>): Observable<Result> {
     return this.http.post<Result>(`${this.apiUrl}/create`, result);
   }
-
+  
+  getExamsByTeacher(): Observable<any> {
+    return this.http.get(`http://localhost:5000/api/exams/teacher`);
+  }
   getResultsByExam(examId: string): Observable<Result[]> {
     return this.http.get<Result[]>(`${this.apiUrl}/exam/${examId}`);
   }

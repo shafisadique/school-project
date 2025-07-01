@@ -129,70 +129,87 @@ export class AttendanceComponent implements OnInit {
     }
   }
 
-  loadStudents() {
-    if (!this.selectedClassId) {
-      this.students = [];
-      this.attendanceForm.patchValue({ attendanceRecords: [] });
-      return;
-    }
-    this.loading = true;
-    this.attendanceService.getStudentsByClass(this.selectedClassId).subscribe({
-      next: (students) => {
-        this.students = students;
-        this.loading = false;
-        if (students.length === 0) {
-          this.toastr.warning('No students found in this class.', 'Warning');
-        }
-        this.attendanceForm.patchValue({
-          attendanceRecords: students.map(s => ({ studentId: s._id, status: 'Present' }))
-        });
-      },
-      error: (err) => {
-        this.loading = false;
-        this.toastr.error(err.error?.message || 'Error fetching students', 'Error');
-        if (err.status === 401) {
-          this.router.navigate(['/login']);
-        }
-      }
-    });
+loadStudents() {
+  if (!this.selectedClassId) {
+    this.students = [];
+    return;
   }
+
+  this.loading = true;
+  this.attendanceService.getStudentsByClass(this.selectedClassId).subscribe({
+    next: (response: any) => {
+      console.log('Students API Response:', response); // Debug log
+      
+      // Handle both array and paginated response formats
+      this.students = Array.isArray(response) ? response : response?.students || response?.data || [];
+      
+      console.log('Processed Students:', this.students); // Debug log
+      
+      if (this.students.length === 0) {
+        this.toastr.warning('No students found in this class.', 'Warning');
+      }
+
+      // Initialize attendance records
+      this.attendanceForm.patchValue({
+        attendanceRecords: this.students.map(s => ({ 
+          studentId: s._id, 
+          status: 'Present' 
+        }))
+      });
+      
+      this.loading = false;
+    },
+    error: (err) => {
+      this.loading = false;
+      console.error('Error loading students:', err);
+      this.toastr.error(err.error?.message || 'Error fetching students', 'Error');
+    }
+  });
+}
 
   loadAttendanceHistory() {
-    if (!this.selectedClassId || !this.selectedAcademicYearId) {
-      this.attendanceHistory = [];
-      return;
-    }
-    this.loading = true;
-    this.attendanceService.getAttendanceHistory(this.selectedClassId, this.selectedAcademicYearId).subscribe({
-      next: (history) => {
-        this.attendanceHistory = history;
-        this.loading = false;
-      },
-      error: (err) => {
-        this.loading = false;
-        this.toastr.error(err.error?.message || 'Error fetching attendance history', 'Error');
-        if (err.status === 401) {
-          this.router.navigate(['/login']);
-        }
+  if (!this.selectedClassId || !this.selectedAcademicYearId) {
+    this.attendanceHistory = [];
+    return;
+  }
+  this.loading = true;
+  this.attendanceService.getAttendanceHistory(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+    next: (history) => {
+      console.log('Attendance History Response:', history); // Debug log
+      this.attendanceHistory = Array.isArray(history) ? history : [];
+      this.loading = false;
+      if (this.attendanceHistory.length === 0) {
+        this.toastr.info('No attendance records found for this class and academic year.', 'Info');
       }
-    });
-  }
+    },
+    error: (err) => {
+      this.loading = false;
+      console.error('Error fetching attendance history:', err); // Detailed error log
+      this.toastr.error(err.error?.message || 'Error fetching attendance history', 'Error');
+      if (err.status === 401) {
+        this.router.navigate(['/login']);
+      }
+    }
+  });
+}
 
-  getAttendanceStatus(studentId: string): string {
-    const records = this.attendanceForm.value.attendanceRecords || [];
-    const record = records.find(r => r.studentId === studentId);
-    return record ? record.status : 'Present';
-  }
+ getAttendanceStatus(studentId: string): string {
+  const records = this.attendanceForm.get('attendanceRecords')?.value || [];
+  const record = records.find((r: any) => r.studentId === studentId);
+  return record?.status || 'Present'; // Default to Present
+}
 
-  updateAttendanceStatus(studentId: string, event: Event) {
-    const target = event.target as HTMLSelectElement;
-    const status = target.value;
-    const records = this.attendanceForm.value.attendanceRecords;
-    const updatedRecords = records.map(record =>
-      record.studentId === studentId ? { ...record, status } : record
-    );
-    this.attendanceForm.patchValue({ attendanceRecords: updatedRecords });
-  }
+updateAttendanceStatus(studentId: string, event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const status = target.value;
+  
+  const records = this.attendanceForm.get('attendanceRecords')?.value || [];
+  const updatedRecords = records.map((record: any) => 
+    record.studentId === studentId ? { ...record, status } : record
+  );
+  
+  this.attendanceForm.patchValue({ attendanceRecords: updatedRecords });
+}
 
   onSubmit() {
     console.log('Form value:', this.attendanceForm.value);
@@ -254,5 +271,19 @@ export class AttendanceComponent implements OnInit {
 
   goToDashboard() {
     this.router.navigate(['/dashboard/default']);
+  }
+  
+  goToMonthlyAttendance() {
+    if (!this.selectedClassId || !this.attendanceForm.value.subjectId) {
+      this.toastr.error('Please select a class and subject first.', 'Error');
+      return;
+    }
+    this.router.navigate(['/attendance/monthly'], {
+      queryParams: {
+        classId: this.selectedClassId,
+        subjectId: this.attendanceForm.value.subjectId,
+        academicYearId: this.selectedAcademicYearId
+      }
+    });
   }
 }

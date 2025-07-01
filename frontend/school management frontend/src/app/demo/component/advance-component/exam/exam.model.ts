@@ -21,7 +21,7 @@ export interface AcademicYear {
 }
 
 export interface ExamPaper {
-  subjectId: string;
+  subjectId: any;
   subjectType: 'Written' | 'Practical' | 'Oral';
   maxMarks: number;
   minMarks: number;

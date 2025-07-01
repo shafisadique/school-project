@@ -65,9 +65,9 @@ export class ExamListComponent implements OnInit {
     }
   }
 
-  editExam(examId: string): void {
-    this.router.navigate(['/edit-exam', examId]);
-  }
+ editExam(examId: string): void {
+  this.router.navigate(['/exams-&-progress/edit-exam', examId]);
+}
 
   formatDate(date: string): string {
     return new Date(date).toLocaleString('en-US', {
@@ -75,4 +75,5 @@ export class ExamListComponent implements OnInit {
       timeStyle: 'short'
     });
   }
+  
 }

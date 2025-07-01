@@ -14,14 +14,28 @@ const isSuperAdmin = (req, res, next) => {
     }
   };
   
-  const isTeacher = (req, res, next) => {
-    if (req.user.role === 'teacher') {
-      next();
-    } else {
-      res.status(403).json({ message: 'Access denied: Teacher only' });
+  // middleware/roleMiddleware.js
+   const isTeacher = (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required"
+      });
     }
-  };
-  
+    console.log('isTeacher check - User role:', req.user.role); // Log role at this point
+    if (req.user.role !== 'teacher') {
+      return res.status(403).json({
+        success: false,
+        message: "Teacher access required"
+      });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
   const isStudent = (req, res, next) => {
     if (req.user.role === 'student') {
       next();

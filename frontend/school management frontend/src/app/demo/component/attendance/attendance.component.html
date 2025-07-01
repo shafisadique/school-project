@@ -7,10 +7,15 @@
     </div>
   
     <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2 class="text-primary fw-bold">📚 Mark Attendance</h2>
-      <button class="btn btn-outline-secondary" (click)="goToDashboard()">Back to Dashboard</button>
-    </div>
+    <!-- Inside the card-body of the Attendance Form Card -->
+<div class="d-flex justify-content-end mb-3">
+  <button type="button" class="btn btn-secondary me-2" (click)="goToMonthlyAttendance()" [disabled]="!selectedClassId || !attendanceForm.value.subjectId">
+    View Monthly Attendance
+  </button>
+  <button type="submit" class="btn btn-primary" [disabled]="attendanceForm.invalid || loading || !canMarkAttendance">
+    <span class="me-2">✅</span> {{ loading ? 'Marking...' : 'Mark Attendance' }}
+  </button>
+</div>
   
     <!-- Attendance Form Card -->
     <div class="card shadow-sm mb-5">

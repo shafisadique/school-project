@@ -33,7 +33,9 @@ const getStudentsByClass = async (req, res, next) => {
     if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
       throw new APIError('Valid Class ID is required', 400);
     }
-
+    if (!req.user || !req.user.id) {
+      throw new APIError('Authentication required', 401);
+    }
     // Validate academicYearId if provided
     let academicYearFilter;
     if (academicYearId) {

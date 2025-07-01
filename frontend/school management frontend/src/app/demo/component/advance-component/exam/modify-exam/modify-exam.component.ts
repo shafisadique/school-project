@@ -1,8 +1,7 @@
-// create-exam.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
 import { AcademicYear, Class, Exam, ExamPaper, Subject } from '../exam.model';
@@ -11,13 +10,13 @@ import { ClassSubjectService } from '../../class-subject-management/class-subjec
 import { ExamService } from '../exam.service';
 
 @Component({
-  selector: 'app-create-exam',
+  selector: 'app-modify-exam',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './create-exam.component.html',
-  styleUrls: ['./create-exam.component.scss']
+  templateUrl: './modify-exam.component.html',
+  styleUrls: ['./modify-exam.component.scss']
 })
-export class CreateExamComponent implements OnInit {
+export class ModifyExamComponent implements OnInit {
   academicYears: AcademicYear[] = [];
   classes: Class[] = [];
   subjects: Subject[] = [];
@@ -34,16 +33,17 @@ export class CreateExamComponent implements OnInit {
   };
 
   constructor(
+    private route: ActivatedRoute,
     private academicYearService: AcademicYearService,
     private classSubjectService: ClassSubjectService,
     private examService: ExamService,
     private authService: AuthService,
     private toastr: ToastrService,
-    private router: Router
+    public router: Router
   ) {
     const role = this.authService.getUserRole();
     if (role !== 'admin') {
-      this.toastr.error('You do not have permission to create exams.', 'Authorization Error');
+      this.toastr.error('You do not have permission to edit exams.', 'Authorization Error');
       this.router.navigate(['/dashboard/default']);
     }
   }
@@ -54,6 +54,12 @@ export class CreateExamComponent implements OnInit {
       this.toastr.error('School ID is missing. Please log in again.', 'Error');
       this.router.navigate(['/auth/login']);
       return;
+    }
+
+    const examId = this.route.snapshot.paramMap.get('examId');
+    console.log('Exam ID:', examId);
+    if (examId) {
+      this.loadExam(examId);
     }
 
     this.academicYearService.getAllAcademicYears(this.schoolId).subscribe({
@@ -75,6 +81,31 @@ export class CreateExamComponent implements OnInit {
       }
     });
   }
+
+  loadExam(examId: string): void {
+  this.examService.getExamById(examId).subscribe({
+    next: (exam) => {
+      console.log('Loaded exam:', exam);
+      this.exam = { 
+        ...exam, 
+        startDate: new Date(exam.startDate).toISOString().slice(0, 16), 
+        endDate: new Date(exam.endDate).toISOString().slice(0, 16) 
+      };
+      this.selectedAcademicYearId = exam.academicYearId;
+      this.selectedClassId = exam.classId;
+      this.exam.examPapers = exam.examPapers.map(paper => ({
+        ...paper,
+        subjectId: paper.subjectId._id, // Extract _id from the populated subject object
+        paperStartDateTime: new Date(paper.paperStartDateTime).toISOString().slice(0, 16),
+        paperEndDateTime: new Date(paper.paperEndDateTime).toISOString().slice(0, 16)
+      }));
+    },
+    error: (err) => {
+      this.toastr.error('Failed to load exam details. ' + (err.error?.message || ''), 'Error');
+      console.error('Load exam error:', err);
+    }
+  });
+}
 
   loadClasses(): void {
     this.classSubjectService.getClassesBySchool(this.schoolId!).subscribe({
@@ -125,7 +156,7 @@ export class CreateExamComponent implements OnInit {
     this.exam.examPapers?.splice(index, 1);
   }
 
-  createExam(): void {
+  updateExam(): void {
     if (!this.selectedClassId || !this.selectedAcademicYearId || !this.exam.examTitle || !this.exam.examCenter || 
         !this.exam.startDate || !this.exam.endDate || !this.exam.examStatus || !this.exam.examPapers?.length) {
       this.toastr.error('Please fill in all required fields and add at least one exam paper.', 'Validation Error');
@@ -156,6 +187,12 @@ export class CreateExamComponent implements OnInit {
       }
     }
 
+    const examId = this.route.snapshot.paramMap.get('examId');
+    if (!examId) {
+      this.toastr.error('Exam ID is missing.', 'Error');
+      return;
+    }
+
     const examData: Partial<Exam> = {
       schoolId: this.schoolId!,
       classId: this.selectedClassId,
@@ -172,27 +209,19 @@ export class CreateExamComponent implements OnInit {
       }))
     };
 
-    this.examService.createExam(examData).subscribe({
-      next: (response) => {
-        this.toastr.success('Exam created successfully!', 'Success');
-        this.exam = {
-          examTitle: '',
-          examCenter: '',
-          startDate: '',
-          endDate: '',
-          examStatus: 'Scheduled',
-          examPapers: []
-        };
-        this.selectedClassId = this.classes[0]?._id || '';
+    this.examService.updateExam(examId, examData).subscribe({
+      next: () => {
+        this.toastr.success('Exam updated successfully!', 'Success');
         this.router.navigate(['/exams-&-progress/exam-list']);
       },
       error: (err) => {
-        this.toastr.error(err.error?.message || 'Failed to create exam. Please try again.', 'Error');
+        this.toastr.error(err.error?.message || 'Failed to update exam. Please try again.', 'Error');
+        console.error('Update exam error:', err);
       }
     });
   }
 
   updatePaperCode(data: any) {
-    // Implement logic to update paper code if needed (currently a placeholder)
+    // Placeholder method, can be implemented as needed
   }
 }

@@ -15,9 +15,13 @@ export class AttendanceService {
     return this.http.post(`${this.apiUrl}/api/attendance/mark`, attendanceData);
   }
 
-  getAttendanceHistory(classId: string, academicYearId: string): Observable<any> {
-    // Include classId in the URL path
-    return this.http.get(`${this.apiUrl}/api/attendance/history/${classId}?academicYearId=${academicYearId}`);
+ getAttendanceHistory(classId: string, academicYearId: string, dateRange?: { startDate: string; endDate: string }): Observable<any[]> {
+    let url = `${this.apiUrl}/api/attendance/history/${classId}?academicYearId=${academicYearId}`;
+    if (dateRange) {
+      url += `&startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`;
+    }
+    console.log('Attendance History URL:', url); // Debug
+    return this.http.get<any[]>(url);
   }
 
   getStudentsByClass(classId: string): Observable<any> {

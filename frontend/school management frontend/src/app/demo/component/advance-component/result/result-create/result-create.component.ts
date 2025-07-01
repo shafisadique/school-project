@@ -1,3 +1,4 @@
+// result-create.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -20,15 +21,16 @@ import { ClassSubjectService } from '../../class-subject-management/class-subjec
   templateUrl: './result-create.component.html',
   styleUrls: ['./result-create.component.scss']
 })
+// result-create.component.ts
 export class ResultCreateComponent implements OnInit {
-  exams: any[] = [];
+  exams: Exam[] = [];
   students: any[] = [];
   classes: any[] = [];
   academicYears: AcademicYear[] = [];
+  selectedAcademicYearId: string = '';
+  selectedClassId: string = '';
   selectedExamId: string = '';
   selectedStudentId: string = '';
-  selectedClassId: string = '';
-  selectedAcademicYearId: string = '';
   schoolId: string | null = null;
   subjects: SubjectResult[] = [];
   selectedExam: Exam | null = null;
@@ -49,220 +51,145 @@ export class ResultCreateComponent implements OnInit {
   ngOnInit(): void {
     this.schoolId = this.authService.getSchoolId();
     if (!this.schoolId) {
-      this.toastr.error('School ID is missing. Please log in again.', 'Error');
+      this.toastr.error('School ID is missing.', 'Error');
       this.router.navigate(['/auth/login']);
       return;
     }
-
-    const user = this.authService.getUser();
-    if (user?.role !== 'admin') {
-      this.toastr.error('You do not have permission to access this page.', 'Authorization Error');
-      this.router.navigate(['/dashboard']);
-      return;
-    }
-
-    this.route.queryParams.subscribe(params => {
-      this.selectedExamId = params['examId'] || '';
-    });
 
     this.isLoading = true;
     this.loadClasses();
     this.academicYearService.getAllAcademicYears(this.schoolId).subscribe({
       next: (years) => {
         this.academicYears = years;
-        if (years.length === 0) {
-          this.toastr.warning('No academic years found. Please create one first.', 'Warning');
+        if (years.length > 0) {
+          this.academicYearService.getActiveAcademicYear(this.schoolId!).subscribe({
+            next: (activeYear) => {
+              this.selectedAcademicYearId = activeYear._id;
+              this.loadExams(); // Load exams after setting academic year
+            },
+            error: (err) => this.handleError('active academic year', err),
+            complete: () => (this.isLoading = false)
+          });
+        } else {
+          this.toastr.warning('No academic years found.', 'Warning');
           this.isLoading = false;
-          return;
         }
-        this.academicYearService.getActiveAcademicYear(this.schoolId!).subscribe({
-          next: (activeYear) => {
-            this.selectedAcademicYearId = activeYear._id;
-            localStorage.setItem('activeAcademicYearId', this.selectedAcademicYearId);
-            this.loadExams();
-            if (this.selectedExamId) {
-              this.onExamChange();
-            }
-          },
-          error: (err) => {
-            console.error('Error fetching active academic year:', err);
-            this.toastr.error('Failed to load active academic year. Please select one manually.', 'Error');
-            this.isLoading = false;
-          },
-          complete: () => {
-            this.isLoading = false;
-          }
-        });
       },
-      error: (err) => {
-        console.error('Error fetching academic years:', err);
-        this.toastr.error('Failed to load academic years. Please try again.', 'Error');
-        this.isLoading = false;
-      }
+      error: (err) => this.handleError('academic years', err)
     });
   }
 
   loadClasses(): void {
     if (!this.schoolId) return;
-
     this.classSubjectService.getClassesBySchool(this.schoolId).subscribe({
       next: (classes) => {
-        console.log(classes)
         this.classes = classes;
-        if (classes.length === 0) {
-          this.toastr.info('No classes found for this school.', 'Info');
-        }
+        if (classes.length === 0) this.toastr.info('No classes found.', 'Info');
       },
-      error: (err) => {
-        console.error('Error fetching classes:', err);
-        this.toastr.error('Failed to load classes. Please try again.', 'Error');
-        this.classes = [];
-      }
+      error: (err) => this.handleError('classes', err)
     });
   }
 
   loadExams(): void {
-    if (!this.selectedAcademicYearId) {
+    if (!this.selectedAcademicYearId || !this.selectedClassId) {
       this.exams = [];
+      this.selectedExamId = '';
+      this.subjects = [];
       return;
     }
-
-    this.examService.getExamsBySchool(this.schoolId!, this.selectedAcademicYearId).subscribe({
+    this.isLoading = true;
+    this.examService.getExamsByTeacher(this.selectedClassId, this.selectedAcademicYearId).subscribe({
       next: (exams) => {
         this.exams = exams;
+        this.selectedExamId = ''; // Reset exam selection
+        this.subjects = [];
         if (exams.length === 0) {
-          this.toastr.info('No exams found for the selected academic year.', 'Info');
+          this.toastr.info('No exams found for the selected class.', 'Info');
+        } else {
+          this.onExamChange(); // Auto-select the first exam if available
         }
       },
-      error: (err) => {
-        console.error('Error fetching exams:', err);
-        this.toastr.error('Failed to load exams. Please try again.', 'Error');
-        this.exams = [];
-      }
+      error: (err) => this.handleError('exams', err),
+      complete: () => (this.isLoading = false)
     });
   }
 
   onAcademicYearChange(): void {
-    this.selectedExamId = '';
     this.selectedClassId = '';
+    this.selectedExamId = '';
     this.selectedStudentId = '';
     this.subjects = [];
+    this.exams = [];
     this.selectedExam = null;
     this.students = [];
     this.loadExams();
   }
 
+  onClassChange(): void {
+    this.selectedExamId = '';
+    this.selectedStudentId = '';
+    this.subjects = [];
+    this.exams = [];
+    this.selectedExam = null;
+    this.students = [];
+    if (!this.selectedClassId || !this.selectedAcademicYearId) {
+      console.log('No class or academic year selected.');
+      return;
+    }
+    this.loadExams(); // Load exams for the selected class
+    this.loadStudents();
+  }
+
+  loadStudents(): void {
+    if (!this.selectedClassId || !this.selectedAcademicYearId) return;
+    this.isLoading = true;
+    this.classSubjectService.getStudentsByClass(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+      next: (response) => {
+        this.students = response.students || response;
+        if (this.students.length === 0) this.toastr.info('No students found.', 'Info');
+      },
+      error: (err) => this.handleError('students', err),
+      complete: () => (this.isLoading = false)
+    });
+  }
+
   onExamChange(): void {
-    this.selectedClassId = '';
     this.selectedStudentId = '';
     this.subjects = [];
     this.students = [];
     this.selectedExam = this.exams.find(exam => exam._id === this.selectedExamId) || null;
     if (this.selectedExam) {
-      this.classes = this.classes.filter(
-        classItem => classItem._id === this.selectedExam!.classId._id
-      );
-      if (this.classes.length === 0) {
-        this.toastr.info('No classes found for this exam.', 'Info');
-      }
+      this.selectedClassId = this.selectedExam.classId._id; // Ensure class matches exam
       this.subjects = this.selectedExam.examPapers.map((paper: ExamPaper) => ({
         subjectId: { _id: paper.subjectId._id, name: paper.subjectId.name },
         marksObtained: 0,
         maxMarks: paper.maxMarks
       }));
+      this.loadStudents(); // Reload students for the exam's class
     }
   }
-
-onClassChange(): void {
-  this.selectedStudentId = '';
-  this.students = [];
-  if (!this.selectedClassId || !this.selectedAcademicYearId) {
-    console.log('No class or academic year selected, skipping student fetch.', {
-      classId: this.selectedClassId,
-      academicYearId: this.selectedAcademicYearId
-    });
-    return;
-  }
-
-  console.log('Fetching students for class ID:', this.selectedClassId, 'and academicYearId:', this.selectedAcademicYearId);
-
-  this.isLoading = true;
-  this.classSubjectService.getStudentsByClass(this.selectedClassId, this.selectedAcademicYearId).subscribe({
-    next: (response) => {
-      console.log('Raw response from getStudentsByClass:', response);
-      // Adjust based on the actual response structure
-      this.students = response.students || (Array.isArray(response) ? response : []);
-      console.log('Updated students array:', this.students);
-      if (this.students.length === 0) {
-        this.toastr.info('No students found for this class.', 'Info');
-      }
-    },
-    error: (err) => {
-      console.error('Error fetching students:', err);
-      this.toastr.error('Failed to load students for this class. Please try again.', 'Error');
-      this.students = [];
-    },
-    complete: () => {
-      this.isLoading = false;
-    }
-  });
-}
 
   createResult(): void {
     if (!this.selectedStudentId || !this.selectedExamId || !this.selectedClassId || !this.subjects.length) {
-      this.toastr.error('Please fill in all required fields.', 'Validation Error');
+      this.toastr.error('Please fill all required fields.', 'Validation Error');
       return;
     }
-  
-    for (const subject of this.subjects) {
-      if (subject.marksObtained < 0 || subject.marksObtained > subject.maxMarks) {
-        this.toastr.error(
-          `Marks for ${subject.subjectId.name} must be between 0 and ${subject.maxMarks}.`,
-          'Validation Error'
-        );
-        return;
-      }
-    }
-  
-    const resultData: Partial<any> = {
+    const resultData:any = {
       studentId: this.selectedStudentId,
       examId: this.selectedExamId,
       classId: this.selectedClassId,
-      subjects: this.subjects.map(subject => ({
-        subjectId: (subject.subjectId as { _id: string; name: string })._id,
-        marksObtained: subject.marksObtained,
-        maxMarks: subject.maxMarks
-      })),
-      totalMarksObtained: 0,
-      totalMaxMarks: 0,
-      percentage: 0,
-      grade: '',
-      status: ''
+      subjects: this.subjects,
+      academicYearId: this.selectedAcademicYearId
     };
-  
     this.isLoading = true;
     this.resultService.createResult(resultData).subscribe({
-      next: (result) => {
+      next: () => {
         this.toastr.success('Result created successfully!', 'Success');
         this.resetForm();
-        this.router.navigate(['/result-list']);
+        this.router.navigate(['/result/result-list']);
       },
-      error: (err) => {
-        console.error('Error creating result:', err);
-        if (err.status === 400) {
-          this.toastr.error(err.error?.message || 'Invalid result data. Please check your inputs.', 'Error');
-        } else if (err.status === 403) {
-          this.toastr.error('You do not have permission to create this result.', 'Error');
-        } else if (err.status === 409) {
-          this.toastr.error('Already created result for this student', 'Error');
-        } else {
-          this.toastr.error('Failed to create result. Please try again later.', 'Error');
-          this.isLoading = false
-        }
-      },
-      complete: () => {
-        this.isLoading = false;
-      }
+      error: (err) => this.handleError('creating result', err),
+      complete: () => (this.isLoading = false)
     });
   }
 
@@ -271,8 +198,16 @@ onClassChange(): void {
     this.selectedClassId = '';
     this.selectedStudentId = '';
     this.subjects = [];
+    this.exams = [];
     this.selectedExam = null;
     this.students = [];
     this.loadClasses();
+  }
+
+  private handleError(type: string, err: any): void {
+    console.error(`Error fetching ${type}:`, err);
+    this.toastr.error(`Failed to load ${type}. Please try again.`, 'Error');
+    if (type === 'exams') this.exams = [];
+    this.isLoading = false;
   }
 }

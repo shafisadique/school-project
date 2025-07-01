@@ -6,12 +6,17 @@ const APIError = require('../../utils/apiError');
 const mongoose = require('mongoose');
 const AcademicYear = require('../../models/academicyear');
 
-// Create an exam
+// Create an exam (Super Admin or Admin only)
 const createExam = async (req, res, next) => {
   try {
     console.log('createExam called with:', { body: req.body, user: req.user });
     const { classId, academicYearId: academicYearIdFromBody, examTitle, examCenter, startDate, endDate, examStatus, examPapers } = req.body;
     const schoolId = req.user.schoolId;
+
+    // Restrict to superadmin or admin
+    if (!['superadmin', 'admin'].includes(req.user.role)) {
+      throw new APIError('Only Super Admins or Admins can create exams', 403);
+    }
 
     // Validate inputs
     if (!classId || !examTitle || !examCenter || !startDate || !endDate || !examStatus || !examPapers?.length) {
@@ -103,9 +108,102 @@ const createExam = async (req, res, next) => {
     next(error);
   }
 };
+const updateExam = async (req, res, next) => {
+  try {
+    const examId = req.params.examId;
+    const updateData = req.body;
 
-// Fetch exam history for a class (unchanged)
-const getExamHistory = async (req, res) => {
+    // Validate examId
+    if (!mongoose.Types.ObjectId.isValid(examId)) {
+      throw new APIError('Invalid exam ID', 400);
+    }
+
+    // Ensure required fields are present
+    if (!updateData.examTitle || !updateData.examCenter || !updateData.startDate || !updateData.endDate || !updateData.examStatus) {
+      throw new APIError('Missing required fields', 400);
+    }
+
+    // Update the exam
+    const updatedExam = await Exam.findByIdAndUpdate(
+      examId,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).populate('classId examPapers.subjectId');
+
+    if (!updatedExam) {
+      throw new APIError('Exam not found', 404);
+    }
+
+    res.status(200).json(updatedExam);
+  } catch (error) {
+    console.log('Error in updateExam:', error.message);
+    next(error);
+  }
+};
+
+const getExamById = async (req, res, next) => {
+  try {
+    const examId = req.params.examId;
+
+    if (!mongoose.Types.ObjectId.isValid(examId)) {
+      throw new APIError('Invalid exam ID', 400);
+    }
+
+    const exam = await Exam.findById(examId).populate('classId examPapers.subjectId');
+
+    if (!exam) {
+      throw new APIError('Exam not found', 404);
+    }
+
+    res.status(200).json(exam);
+  } catch (error) {
+    console.log('Error in getExamById:', error.message);
+    next(error);
+  }
+};
+
+const getExamsByTeacher = async (req, res, next) => {
+  try {
+    const teacherId = req.user.id;
+    const schoolId = req.user.schoolId;
+    const academicYearId = req.query.academicYearId || req.user.activeAcademicYear;
+    const classId = req.query.classId;
+
+    if (!classId) {
+      throw new APIError('Class ID is required', 400);
+    }
+
+    // Verify teacher is assigned to the class
+    const subjects = await Subject.find({
+      schoolId,
+      $or: [
+        { 'teacherAssignments.teacherId': teacherId },
+        { teachers: teacherId }
+      ]
+    }).populate('classes');
+
+    const classIds = subjects.flatMap(s => s.classes.map(c => c._id.toString()));
+    if (!classIds.includes(classId)) {
+      throw new APIError('Not authorized for this class', 403);
+    }
+
+    // Fetch exams for the specific class and academic year
+    const exams = await Exam.find({
+      classId,
+      schoolId,
+      academicYearId
+    }).populate('classId examPapers.subjectId');
+
+    console.log('Exams found for class:', classId, exams);
+    res.status(200).json(exams);
+  } catch (error) {
+    console.log('Error in getExamsByTeacher:', error.message);
+    next(new APIError('Error fetching exams: ' + error.message, 500));
+  }
+};
+
+// Fetch exam history for a class (Teacher with class access)
+const getExamHistory = async (req, res, next) => {
   try {
     const { classId } = req.params;
     const { academicYearId } = req.query;
@@ -114,30 +212,43 @@ const getExamHistory = async (req, res) => {
       return res.status(400).json({ message: 'Class ID and Academic Year ID are required' });
     }
 
-    const academicYear = await AcademicYear.findById(academicYearId);
-    if (!academicYear) {
-      return res.status(404).json({ message: 'Academic Year not found' });
-    }
+    // Use externalRoleMiddleware to allow teachers with class authorization
+    await require('../middleware/roleMiddleware').externalRoleMiddleware('teacher')(req, res, () => {
+      const Teacher = require('../../models/teacher');
+      const Subject = require('../../models/subject');
+      return new Promise(async (resolve, reject) => {
+        const teacher = await Teacher.findOne({ userId: req.user.id });
+        if (!teacher) return reject(new APIError('Teacher profile not found', 404));
+
+        const subjects = await Subject.find({
+          schoolId: req.user.schoolId,
+          'teacherAssignments.teacherId': teacher._id,
+          'teacherAssignments.academicYearId': academicYearId,
+        }).populate('classes');
+
+        const classIds = subjects.flatMap(subject => subject.classes.map(cls => cls._id.toString()));
+        if (!classIds.includes(classId)) {
+          return reject(new APIError('Not authorized for this class', 403));
+        }
+        resolve();
+      });
+    });
 
     const exams = await Exam.find({
       classId,
       academicYearId,
     })
       .populate('classId')
-      .populate('subjects.subjectId');
+      .populate('examPapers.subjectId');
 
-    if (!exams || exams.length === 0) {
-      return res.status(404).json({ message: 'No exams found' });
-    }
-
-    res.status(200).json(exams);
+    res.status(200).json(exams || []);
   } catch (error) {
     console.error('Error fetching exam history:', error);
-    res.status(500).json({ message: 'Server error' });
+    next(error);
   }
 };
 
-// Fetch all exams for a school
+// Fetch all exams for a school (Super Admin or Admin only)
 const getExamsBySchool = async (req, res, next) => {
   try {
     const { schoolId } = req.params;
@@ -151,6 +262,10 @@ const getExamsBySchool = async (req, res, next) => {
     // Ensure the user has access to this school
     if (schoolId !== req.user.schoolId) {
       throw new APIError('Not authorized to access this school’s exams', 403);
+    }
+
+    if (!['superadmin', 'admin'].includes(req.user.role)) {
+      throw new APIError('Only Super Admins or Admins can view all school exams', 403);
     }
 
     // Build query
@@ -184,11 +299,13 @@ const getExamsBySchool = async (req, res, next) => {
   }
 };
 
-// Export the new method
-
-// Aggregate exam summary (unchanged)
+// Aggregate exam summary (Super Admin or Admin only)
 const getExamSummary = async (req, res, next) => {
   try {
+    if (!['superadmin', 'admin'].includes(req.user.role)) {
+      throw new APIError('Only Super Admins or Admins can view exam summary', 403);
+    }
+
     const { academicYearId, startDate, endDate } = req.query;
     const schoolId = req.user.schoolId;
 
@@ -248,4 +365,4 @@ const getExamSummary = async (req, res, next) => {
   }
 };
 
-module.exports = { createExam, getExamHistory, getExamSummary, getExamsBySchool };
+module.exports = { createExam, getExamHistory, getExamSummary, getExamsBySchool, getExamsByTeacher,updateExam,getExamById };

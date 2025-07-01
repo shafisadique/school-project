@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons-angular/icons';
 import { NgScrollbarModule } from 'ngx-scrollbar';
 import { NavCollapseComponent } from "./nav-collapse/nav-collapse.component";
+import { AuthService } from 'src/app/theme/shared/service/auth.service';
 
 @Component({
   selector: 'app-nav-content',
@@ -49,7 +50,7 @@ export class NavContentComponent implements OnInit {
   windowWidth = window.innerWidth;
 
   // Constructor
-  constructor() {
+  constructor(private authService:AuthService) {
     this.iconService.addIcon(
       ...[
         DashboardOutline,
@@ -64,6 +65,7 @@ export class NavContentComponent implements OnInit {
       ]
     );
     this.navigations = NavigationItems;
+    this.updateNavigations();
   }
 
   // Life cycle events
@@ -101,6 +103,69 @@ export class NavContentComponent implements OnInit {
   navMob() {
     if (this.windowWidth < 1025 && document.querySelector('app-navigation.coded-navbar').classList.contains('mob-open')) {
       this.NavCollapsedMob.emit();
+    }
+  }
+
+  private updateNavigations() {
+    const role = this.authService.getUserRole();
+   
+    if (role === 'teacher') {
+      
+      // For teachers, show only Dashboard and Attendance
+      this.navigations = [
+         {
+        id: 'dashboard',
+        title: 'Dashboard',
+        type: 'group',
+        icon: 'dashboard',
+        children: [
+          {
+            id: 'default-dash',
+            title: 'Default',
+            type: 'item',
+            url: '/dashboard/default',
+            icon: 'dashboard'
+          }
+        ]
+      },
+        {
+          id: 'attendance',
+          title: 'Attendance',
+          type: 'group',
+          icon: 'team',
+          children: [
+            {
+              id: 'attendance-details',
+              title: 'Attendance',
+              type: 'item',
+              url: '/attendance', // Adjust to match your route
+              icon: 'user'
+            }
+          ]
+        },
+         {
+          id: 'Exam',
+          title: 'Exam',
+          type: 'group',
+          icon: 'team',
+          children: [
+            { id: 'exam-history', title: 'Exam History', type: 'item', url: '/exams-&-progress/exam-list', icon: 'user' }
+          ]
+        },
+        {
+          id: 'result',
+          title: 'Result',
+          type: 'group',
+          icon: 'team',
+          children: [
+            { id: 'result-list', title: 'Result List', type: 'item', url: '/result/result-list', icon: 'user' },
+            { id: 'result-create', title: 'Result Create', type: 'item', url: '/result/create-result', icon: 'user' }
+          ]
+        }
+      ];
+    } else {
+      // For other roles (e.g., admin), show all items
+      this.navigations = NavigationItems;
     }
   }
 }

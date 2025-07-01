@@ -81,14 +81,16 @@ export class ResultListComponent implements OnInit {
     });
   }
 
-  loadExams(): void {
-    if (!this.selectedAcademicYearId) {
-      this.exams = [];
-      this.results = [];
-      return;
-    }
+ loadExams(): void {
+  if (!this.selectedAcademicYearId) {
+    this.exams = [];
+    this.results = [];
+    return;
+  }
 
-    this.isLoadingExams = true;
+  this.isLoadingExams = true;
+  const role = this.authService.getUserRole();
+  if (role === 'admin') {
     this.examService.getExamsBySchool(this.schoolId!, this.selectedAcademicYearId).subscribe({
       next: (exams) => {
         this.exams = exams;
@@ -101,8 +103,30 @@ export class ResultListComponent implements OnInit {
         }
       },
       error: (err) => {
-        console.error('Error fetching exams:', err);
-        this.toastr.error('Failed to load exams. Please try again.', 'Error');
+        console.error('Error fetching exams (admin):', err);
+        this.toastr.error('Failed to load exams. Please try again. Details: ' + (err.error?.message || err.message), 'Error');
+        this.exams = [];
+        this.results = [];
+      },
+      complete: () => {
+        this.isLoadingExams = false;
+      }
+    });
+  } else if (role === 'teacher') {
+    this.resultService.getExamsByTeacher().subscribe({
+      next: (exams) => {
+        this.exams = exams.filter(exam => exam.academicYearId === this.selectedAcademicYearId);
+        if (exams.length > 0) {
+          this.selectedExamId = exams[0]?._id || '';
+          this.loadResults();
+        } else {
+          this.results = [];
+          this.toastr.info('No exams found for the selected academic year.', 'Info');
+        }
+      },
+      error: (err) => {
+        console.error('Error fetching exams (teacher):', err);
+        this.toastr.error('Failed to load exams. Please try again. Details: ' + (err.error?.message || err.message), 'Error');
         this.exams = [];
         this.results = [];
       },
@@ -111,6 +135,7 @@ export class ResultListComponent implements OnInit {
       }
     });
   }
+}
 
   loadResults(): void {
     if (!this.selectedExamId) {

@@ -165,38 +165,49 @@ const getClassesBySchool = async (req, res, next) => {
   try {
     let classes;
     if (req.user.role === 'admin') {
-      // Admins can see all classes in their school
+      console.log('Fetching all classes for admin');
       classes = await Class.find({ schoolId: req.user.schoolId })
         .populate('subjects')
-        .populate('attendanceTeacher', 'name') // Populate attendanceTeacher with name
-        .populate('substituteAttendanceTeachers', 'name'); // Populate substituteAttendanceTeachers with name
+        .populate('attendanceTeacher', 'name')
+        .populate('substituteAttendanceTeachers', 'name');
     } else if (req.user.role === 'teacher') {
-      console.log(req.user.id)
-      // Teachers can only see classes they are assigned to via subjects
+      console.log('Fetching classes for teacher with ID:', req.user.id);
+      // Check both teacherAssignments and teachers array
       const subjects = await Subject.find({
         schoolId: req.user.schoolId,
-        'teacherAssignments.teacherId': req.user.id
+        $or: [
+          { 'teacherAssignments.teacherId': req.user.id },
+          { teachers: req.user.id }
+        ]
       }).populate('classes');
-      console.log(subjects)
-      // Extract unique class IDs from the subjects
+      console.log('Found subjects:', subjects);
+
+      if (!subjects || subjects.length === 0) {
+        console.log('No subjects found for teacher, returning empty classes');
+        return res.status(200).json([]);
+      }
+
       const classIds = [...new Set(subjects.flatMap(subject => subject.classes.map(classObj => classObj._id)))];
+      console.log('Extracted class IDs:', classIds);
+
       classes = await Class.find({
         _id: { $in: classIds },
         schoolId: req.user.schoolId
       })
         .populate('subjects')
-        .populate('attendanceTeacher', 'name') // Populate attendanceTeacher with name
-        .populate('substituteAttendanceTeachers', 'name'); // Populate substituteAttendanceTeachers with name
+        .populate('attendanceTeacher', 'name')
+        .populate('substituteAttendanceTeachers', 'name');
     } else {
       throw new APIError('Access denied', 403);
     }
 
+    console.log('Classes found:', classes);
     res.status(200).json(classes);
   } catch (err) {
+    console.error('Error fetching classes:', err.message);
     next(new APIError('Error fetching classes: ' + err.message, 500));
   }
 };
-
 /**
  * @desc    Get students by class
  * @route   GET /api/students/list?className=<className>

@@ -104,10 +104,17 @@
     .coded-inner-navbar {
       flex-direction: column;
 
-      app-nav-item > li.active:after {
+      app-nav-item > li.active {
         top: 0 !important;
         height: 100% !important;
-      }
+       background-color: #e0f7fa; // Example: Light blue background
+        color: #007bff; // Optional: Change text color for contrast
+        border-radius: 5px; // Match the existing border-radius for consistency
+
+        &:after {
+          // Ensure the active indicator (if any) is visible
+          background-color: #007bff; // Example: Match text color
+        }}
 
       li {
         &.coded-hasmenu {

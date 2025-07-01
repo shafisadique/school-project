@@ -1,0 +1,43 @@
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.card {
+  border-radius: 15px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.table th {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table-hover tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.form-select-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  border-radius: 0.2rem;
+}
+
+.sunday {
+  background-color: #e9ecef;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.badge {
+  display: block;
+  text-align: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.2rem;
+}

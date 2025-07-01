@@ -16,7 +16,16 @@
               </select>
             </div>
           </div>
-  
+          <div class="grid-column">
+            <div class="form-group">
+              <label for="class">Class</label>
+              <select id="class" [(ngModel)]="selectedClassId" (ngModelChange)="onClassChange()" [disabled]="!selectedAcademicYearId" name="class" required>
+                <option value="">Select Class</option>
+                <option *ngFor="let class of classes" [value]="class._id">{{ class.name }}</option>
+              </select>
+            </div>
+          </div>
+          
           <div class="grid-column">
             <div class="form-group">
               <label for="exam">Exam</label>
@@ -27,16 +36,7 @@
             </div>
           </div>
   
-          <div class="grid-column">
-            <div class="form-group">
-              <label for="class">Class</label>
-              <select id="class" [(ngModel)]="selectedClassId" (ngModelChange)="onClassChange()" [disabled]="!selectedExamId" name="class" required>
-                <option value="">Select Class</option>
-                <option *ngFor="let class of classes" [value]="class._id">{{ class.name }}</option>
-              </select>
-            </div>
-          </div>
-  
+            
           <div class="grid-column">
             <div class="form-group">
               <label for="student">Student</label>

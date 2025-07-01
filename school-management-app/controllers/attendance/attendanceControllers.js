@@ -151,45 +151,67 @@
       next(error);
     }
   };
-  const getAttendanceHistory = async (req, res, next) => {
-    try {
-      const { classId } = req.params;
-      const { academicYearId, date } = req.query;
-      if (!classId || !academicYearId) {
-        throw new APIError('Class ID and Academic Year ID are required', 400);
-      }
-      if (req.user.role === 'teacher') {
-        // Fetch the Teacher document to get the Teacher model's _id
-        const teacher = await Teacher.findOne({ userId: req.user.id });
-        if (!teacher) {
-          throw new APIError('Teacher profile not found', 404);
-        }
-        const teacherId = teacher._id.toString();
+// attendanceControllers.js
+const getAttendanceHistory = async (req, res, next) => {
+  try {
+    const { classId } = req.params;
+    const { academicYearId, startDate, endDate } = req.query;
 
-        const subjects = await Subject.find({
-          schoolId: req.user.schoolId,
-          'teacherAssignments.teacherId': teacherId, // Use teacherId instead of req.user.id
-          'teacherAssignments.academicYearId': academicYearId,
-        }).populate('classes');
-        const classIds = subjects.flatMap(subject => subject.classes.map(cls => cls._id.toString()));
-        if (!classIds.includes(classId)) {
-          throw new APIError('You are not authorized to view attendance history for this class', 403);
-        }
-      }
-      const query = {
-        schoolId: req.user.schoolId,
-        classId,
-        academicYearId,
-      };
-      if (date) query.date = new Date(date);
-      const attendanceRecords = await Attendance.find(query)
-        .populate('studentId', 'name rollNo')
-        .populate('classId', 'name')
-        .populate('subjectId', 'name');
-      res.status(200).json(attendanceRecords);
-    } catch (error) {
-      next(error);
+    if (!classId || !academicYearId) {
+      throw new APIError('Class ID and Academic Year ID are required', 400);
     }
-  };
+
+    if (req.user.role === 'teacher') {
+      const teacher = await Teacher.findOne({ userId: req.user.id });
+      if (!teacher) {
+        throw new APIError('Teacher profile not found', 404);
+      }
+      const teacherId = teacher._id.toString();
+
+      const subjects = await Subject.find({
+        schoolId: req.user.schoolId,
+        'teacherAssignments.teacherId': teacherId,
+        'teacherAssignments.academicYearId': academicYearId,
+      }).populate('classes');
+      const classIds = subjects.flatMap(subject => subject.classes.map(cls => cls._id.toString()));
+      console.log('Authorized Class IDs:', classIds);
+      if (!classIds.includes(classId)) {
+        throw new APIError('You are not authorized to view attendance history for this class', 403);
+      }
+    }
+
+    const query = {
+      schoolId: req.user.schoolId,
+      classId: new mongoose.Types.ObjectId(classId),
+      academicYearId: new mongoose.Types.ObjectId(academicYearId),
+    };
+    if (startDate && endDate) {
+      query.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+      console.log('Date Range Query:', query.date); // Debug date range
+    }
+
+    const attendanceRecords = await Attendance.find(query)
+      .populate({
+        path: 'students.studentId',
+        select: 'name rollNo',
+        model: 'Student'
+      })
+      .populate('classId', 'name')
+      .populate('subjectId', 'name');
+    console.log('Fetched Attendance Records:', attendanceRecords); // Debug records
+
+    if (!attendanceRecords.length) {
+      console.log('No records found for the given criteria');
+    }
+
+    res.status(200).json(attendanceRecords);
+  } catch (error) {
+    console.error('Error in getAttendanceHistory:', error.message, error.stack);
+    next(error);
+  }
+};
 
   module.exports = { markAttendance, getAttendanceHistory };
