@@ -1,15 +1,28 @@
 const express = require('express');
 const router = express.Router();
-const { createResult, getResultsByExam, getStudentResults, getResultsByClassAndAcademicYear } = require('../controllers/result/resultController');
+const {
+  createResult, getResultsByExam, getStudentResults,
+  getResultsByClassAndAcademicYear, createPartialResult,
+  compileResult, getPartialResults,
+  getAllResultsForClass
+} = require('../controllers/result/resultController');
 const authMiddleware = require('../middleware/authMiddleware');
-const { isTeacher, externalRoleMiddleware } = require('../middleware/roleMiddleware');
+const { isTeacher, externalRoleMiddleware, isAdmin } = require('../middleware/roleMiddleware');
 
 router.use(authMiddleware);
 
-// Teacher-only routes
-router.post('/create', [isTeacher, externalRoleMiddleware(['teacher'])], createResult); // Create a result (Teacher with subject/class access)
-router.get('/exam/:examId', [isTeacher, externalRoleMiddleware(['teacher'])], getResultsByExam); // Get results for an exam (Teacher with class access)
-router.get('/student/:studentId', [isTeacher, externalRoleMiddleware(['teacher'])], getStudentResults); // Get results for a student (Teacher with class access)
-router.get('/class/:classId', [isTeacher, externalRoleMiddleware(['teacher'])], getResultsByClassAndAcademicYear); // Get results for a class and academic year (Teacher with class access)
+// Creation Routes
+router.post('/create', [isTeacher, externalRoleMiddleware(['teacher'])], createResult); // Create compiled result
+router.post('/partial', [isTeacher], createPartialResult); // Create partial result
+
+// Retrieval Routes
+router.get('/partial', [isTeacher], getPartialResults); // Get partial results
+router.get('/exam/:examId', [isTeacher, externalRoleMiddleware(['teacher'])], getResultsByExam); // Get results by exam
+router.get('/student/:studentId', [isTeacher, externalRoleMiddleware(['teacher'])], getStudentResults); // Get student results
+router.get('/class/:classId', [authMiddleware, externalRoleMiddleware(['teacher', 'admin', 'superadmin'])], getResultsByClassAndAcademicYear);
+router.get('/admin/class/:classId', [isAdmin], getAllResultsForClass);
+
+// Compilation Route
+router.post('/compile', [isAdmin], compileResult); // Compile partial results
 
 module.exports = router;

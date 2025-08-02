@@ -19,11 +19,11 @@ import { Exam } from '../models/exam.model';
   styleUrls: ['./result-list.component.scss']
 })
 export class ResultListComponent implements OnInit {
-  exams: any[] = [];
+  exams: Exam[] = [];
   academicYears: AcademicYear[] = [];
   selectedExamId: string = '';
   selectedAcademicYearId: string = '';
-  results: Result[] = [];
+  results: any[] = [];
   schoolId: string | null = null;
   expandedRows: { [key: string]: boolean } = {};
   isLoadingAcademicYears: boolean = false;
@@ -42,100 +42,69 @@ export class ResultListComponent implements OnInit {
   ngOnInit(): void {
     this.schoolId = this.authService.getSchoolId();
     if (!this.schoolId) {
-      this.toastr.error('School ID is missing. Please log in again.', 'Authentication Error');
+      this.toastr.error('School ID missing. Log in again.', 'Error');
       this.router.navigate(['/auth/login']);
       return;
     }
 
-    // Fetch academic years
     this.isLoadingAcademicYears = true;
     this.academicYearService.getAllAcademicYears(this.schoolId).subscribe({
       next: (years) => {
         this.academicYears = years;
         if (years.length === 0) {
-          this.toastr.warning('No academic years found. Please create one first.', 'Warning');
+          this.toastr.warning('No academic years found.', 'Warning');
           this.isLoadingAcademicYears = false;
           return;
         }
         this.academicYearService.getActiveAcademicYear(this.schoolId!).subscribe({
           next: (activeYear) => {
             this.selectedAcademicYearId = activeYear._id;
-            localStorage.setItem('activeAcademicYearId', this.selectedAcademicYearId);
             this.loadExams();
           },
           error: (err) => {
-            console.error('Error fetching active academic year:', err);
-            this.toastr.error('Failed to load active academic year. Please select one manually.', 'Error');
+            console.error('Active year error:', err);
+            this.toastr.error('Failed to load active year.', 'Error');
             this.isLoadingAcademicYears = false;
           },
-          complete: () => {
-            this.isLoadingAcademicYears = false;
-          }
+          complete: () => this.isLoadingAcademicYears = false
         });
       },
       error: (err) => {
-        console.error('Error fetching academic years:', err);
-        this.toastr.error('Failed to load academic years. Please try again.', 'Error');
+        console.error('Years error:', err);
+        this.toastr.error('Failed to load years.', 'Error');
         this.isLoadingAcademicYears = false;
       }
     });
   }
 
- loadExams(): void {
-  if (!this.selectedAcademicYearId) {
-    this.exams = [];
-    this.results = [];
-    return;
-  }
+  loadExams(): void {
+    if (!this.selectedAcademicYearId) {
+      this.exams = [];
+      this.results = [];
+      return;
+    }
 
-  this.isLoadingExams = true;
-  const role = this.authService.getUserRole();
-  if (role === 'admin') {
-    this.examService.getExamsBySchool(this.schoolId!, this.selectedAcademicYearId).subscribe({
-      next: (exams) => {
-        this.exams = exams;
-        if (exams.length > 0) {
-          this.selectedExamId = exams[0]._id;
-          this.loadResults();
-        } else {
-          this.results = [];
-          this.toastr.info('No exams found for the selected academic year.', 'Info');
-        }
-      },
-      error: (err) => {
-        console.error('Error fetching exams (admin):', err);
-        this.toastr.error('Failed to load exams. Please try again. Details: ' + (err.error?.message || err.message), 'Error');
-        this.exams = [];
-        this.results = [];
-      },
-      complete: () => {
-        this.isLoadingExams = false;
-      }
-    });
-  } else if (role === 'teacher') {
-    this.resultService.getExamsByTeacher().subscribe({
-      next: (exams) => {
-        this.exams = exams.filter(exam => exam.academicYearId === this.selectedAcademicYearId);
-        if (exams.length > 0) {
-          this.selectedExamId = exams[0]?._id || '';
-          this.loadResults();
-        } else {
-          this.results = [];
-          this.toastr.info('No exams found for the selected academic year.', 'Info');
-        }
-      },
-      error: (err) => {
-        console.error('Error fetching exams (teacher):', err);
-        this.toastr.error('Failed to load exams. Please try again. Details: ' + (err.error?.message || err.message), 'Error');
-        this.exams = [];
-        this.results = [];
-      },
-      complete: () => {
-        this.isLoadingExams = false;
-      }
-    });
+    this.isLoadingExams = true;
+    const role = this.authService.getUserRole();
+    if (role === 'admin') {
+      this.examService.getExamsBySchool(this.schoolId!, this.selectedAcademicYearId).subscribe({
+        next: (exams) => { this.exams = exams; this.selectedExamId = exams.length > 0 ? exams[0]._id : ''; this.loadResults(); },
+        error: (err) => { console.error(err); this.toastr.error('Failed to load exams.', 'Error'); this.exams = []; },
+        complete: () => this.isLoadingExams = false
+      });
+    } else if (role === 'teacher') {
+      this.resultService.getExamsByTeacher().subscribe({
+        next: (exams) => { 
+          console.log('Teacher exams:', exams); 
+          this.exams = exams; 
+          this.selectedExamId = exams.length > 0 ? exams[0]._id : ''; 
+          this.loadResults(); 
+        },
+        error: (err) => { console.error(err); this.toastr.error('Failed to load exams.', 'Error'); this.exams = []; },
+        complete: () => this.isLoadingExams = false
+      });
+    }
   }
-}
 
   loadResults(): void {
     if (!this.selectedExamId) {
@@ -146,30 +115,49 @@ export class ResultListComponent implements OnInit {
     this.isLoadingResults = true;
     this.resultService.getResultsByExam(this.selectedExamId).subscribe({
       next: (results) => {
-        this.results = results;
-        if (results.length === 0) {
-          this.toastr.info('No results found for the selected exam.', 'Info');
-        }
+        console.log('Results fetched:', results); // Debug log
+        this.results = results.map(r => {
+          if (r.subjects.length === 0 && r.marksObtained && r.subjectId) {
+            // Handle partial results using subjectId
+            return {
+              ...r,
+              subjects: [{ subjectId: r.subjectId, marksObtained: r.marksObtained, maxMarks: 100 }],
+              totalMarksObtained: r.marksObtained,
+              totalMaxMarks: 100,
+              percentage: (r.marksObtained / 100) * 100,
+              grade: r.marksObtained >= 40 ? 'Pass' : 'Fail',
+              status: r.marksObtained >= 40 ? 'Pass' : 'Fail'
+            };
+          }
+          // Handle compiled results
+          const totalMarksObtained = r.subjects.reduce((sum, s) => sum + (s.marksObtained || 0), 0);
+          const totalMaxMarks = r.subjects.reduce((sum, s) => sum + (s.maxMarks || 0), 0);
+          const percentage = totalMaxMarks > 0 ? (totalMarksObtained / totalMaxMarks) * 100 : 0;
+          return {
+            ...r,
+            totalMarksObtained,
+            totalMaxMarks,
+            percentage,
+            grade: percentage >= 40 ? 'Pass' : 'Fail',
+            status: percentage >= 40 ? 'Pass' : 'Fail'
+          };
+        }); // Removed the filter to keep all transformed results
+        if (this.results.length === 0) this.toastr.info('No results found.', 'Info');
       },
       error: (err) => {
-        console.error('Error fetching results:', err);
-        this.toastr.error('Failed to load results. Please try again.', 'Error');
+        console.error('Results error:', err);
+        this.toastr.error('Failed to load results.', 'Error');
         this.results = [];
       },
-      complete: () => {
-        this.isLoadingResults = false;
-      }
+      complete: () => this.isLoadingResults = false
     });
   }
 
-  // New method to format the exam display name with class name
   getExamDisplayName(exam: any): string {
-    const className = exam.classId?.name || 'Unknown Class';
-    return `${exam.examTitle} - ${className}`;
+    return `${exam.examTitle} - ${exam.classId?.name || 'Unknown Class'}`;
   }
 
   onAcademicYearChange(): void {
-    localStorage.setItem('activeAcademicYearId', this.selectedAcademicYearId);
     this.selectedExamId = '';
     this.loadExams();
   }
@@ -186,14 +174,11 @@ export class ResultListComponent implements OnInit {
     if (this.selectedExamId) {
       this.router.navigate(['/create-result'], { queryParams: { examId: this.selectedExamId } });
     } else {
-      this.router.navigate(['/create-result']);
+      this.toastr.warning('Select an exam first.', 'Warning');
     }
   }
 
   formatDate(date: string): string {
-    return new Date(date).toLocaleString('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    });
+    return new Date(date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
   }
 }

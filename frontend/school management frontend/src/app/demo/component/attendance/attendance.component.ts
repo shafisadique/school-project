@@ -37,7 +37,6 @@ export class AttendanceComponent implements OnInit {
     this.selectedSchoolId = localStorage.getItem('schoolId') || '';
     this.selectedAcademicYearId = localStorage.getItem('activeAcademicYearId') || '';
     const teacherId = localStorage.getItem('teacherId') || '';
-    console.log('LocalStorage values:', { schoolId: this.selectedSchoolId, academicYearId: this.selectedAcademicYearId, teacherId });
     this.validateSession();
     this.initForm();
     this.loadTeacherAssignments();

@@ -16,6 +16,7 @@ import { ExamService } from '../exam.service';
 export class ExamListComponent implements OnInit {
   exams: Exam[] = [];
   schoolId: string | null = null;
+  activeAcademicYearId: string | null = null; // New field
   expandedRows: { [key: string]: boolean } = {};
 
   constructor(
@@ -27,8 +28,9 @@ export class ExamListComponent implements OnInit {
 
   ngOnInit(): void {
     this.schoolId = this.authService.getSchoolId();
-    if (!this.schoolId) {
-      this.toastr.error('School ID is missing. Please log in again.', 'Error');
+    this.activeAcademicYearId = this.authService.getActiveAcademicYearId(); // Assuming this method exists
+    if (!this.schoolId || !this.activeAcademicYearId) {
+      this.toastr.error('School ID or Active Academic Year is missing. Please log in again.', 'Error');
       this.router.navigate(['/auth/login']);
       return;
     }
@@ -37,7 +39,7 @@ export class ExamListComponent implements OnInit {
   }
 
   loadExams(): void {
-    this.examService.getExamsBySchool(this.schoolId!).subscribe({
+    this.examService.getExamsBySchool(this.schoolId!, this.activeAcademicYearId!).subscribe({
       next: (exams) => {
         this.exams = exams;
       },
@@ -65,9 +67,9 @@ export class ExamListComponent implements OnInit {
     }
   }
 
- editExam(examId: string): void {
-  this.router.navigate(['/exams-&-progress/edit-exam', examId]);
-}
+  editExam(examId: string): void {
+    this.router.navigate(['/exams-&-progress/edit-exam', examId]);
+  }
 
   formatDate(date: string): string {
     return new Date(date).toLocaleString('en-US', {
@@ -75,5 +77,4 @@ export class ExamListComponent implements OnInit {
       timeStyle: 'short'
     });
   }
-  
 }

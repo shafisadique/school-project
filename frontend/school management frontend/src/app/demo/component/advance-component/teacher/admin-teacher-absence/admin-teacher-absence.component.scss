@@ -1,0 +1,230 @@
+/* src/app/admin-teacher-absence/admin-teacher-absence.component.css */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.header h2 {
+  font-weight: 600;
+  font-size: 24px;
+  color: #2c3e50;
+}
+
+.filter-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+//   background-color: #ffffff;
+//   padding: 15px;
+  border-radius: 8px;
+//   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filters select,
+.filters input {
+  padding: 8px;
+  border: 1px solid #ecf0f1;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.filters select {
+  width: 150px;
+}
+
+.filters input {
+  width: 250px;
+}
+
+.search-btn {
+  padding: 8px 15px;
+  background-color: #3498db;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+}
+
+.search-btn:hover {
+  background-color: #2980b9;
+}
+
+.table-container {
+  padding-top: 10px;
+}
+
+.professional-table {
+  width: 100%;
+  border-collapse: collapse;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.professional-table thead tr {
+  background-color: #2c3e50;
+  color: #ffffff;
+}
+
+.professional-table thead th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.professional-table tbody tr {
+  border-bottom: 1px solid #ecf0f1;
+  transition: background-color 0.2s;
+}
+
+.professional-table tbody tr:nth-child(even) {
+  background-color: #f4faff;
+}
+
+.professional-table tbody tr:hover {
+  background-color: #eaf6ff;
+}
+
+.professional-table tbody td {
+  padding: 12px;
+  color: #34495e;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+.profile-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #ddd;
+}
+
+.avatar-placeholder {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #2c3e50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 500;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.teacher-name {
+  font-weight: 500;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.actions button {
+  padding: 6px 12px;
+  margin-right: 5px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+}
+
+.actions .approve-btn {
+  background-color: #2ecc71;
+  color: #ffffff;
+}
+
+.actions .approve-btn:hover {
+  background-color: #27ae60;
+}
+
+.actions .reject-btn {
+  background-color: #e74c3c;
+  color: #ffffff;
+}
+
+.actions .reject-btn:hover {
+  background-color: #c0392b;
+}
+
+.no-absences {
+  text-align: center;
+  color: #7f8c8d;
+  font-weight: 600;
+  padding: 20px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.loading {
+  text-align: center;
+  margin: 20px 0;
+  color: #7f8c8d;
+}
+
+.loading .spinner {
+  display: inline-block;
+  width: 40px;
+  height: 40px;
+  border: 4px solid #ecf0f1;
+  border-top: 4px solid #2c3e50;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.error-message {
+  padding: 15px;
+  margin-bottom: 20px;
+  background-color: #fef2f2;
+  color: #c0392b;
+  border-radius: 6px;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(231, 76, 60, 0.1);
+}
+
+@media (max-width: 640px) {
+  .filter-section {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .filters select,
+  .filters input {
+    width: 100%;
+  }
+}

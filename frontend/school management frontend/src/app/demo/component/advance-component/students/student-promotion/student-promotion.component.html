@@ -1,75 +1,122 @@
-<div class="container-fluid">
+<div class="container-fluid py-6 bg-gray-100 min-h-screen">
   <div class="row justify-content-center">
-    <div class="col-md-12">
-      <div class="card shadow-lg border-0">
-        
-        <div class="card-body p-4">
-          <!-- Class and Academic Year Selection -->
-          <div class="row mb-4">
-            <div class="col-md-4 mb-3">
-              <label for="classSelect" class="form-label fw-bold">Select Class</label>
-              <select id="classSelect" class="form-select" [(ngModel)]="selectedClassId" (change)="onClassChange()">
-                <option value="" disabled selected>Select a class</option>
-                <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
-              </select>
+    <div class="col-12 col-lg-12">
+      <div class="card bg-white shadow-lg rounded-xl overflow-hidden">
+        <div class="card-header bg-gradient-to-r from-blue-600 to-blue-800 text-white p-2">
+          <h2 class="text-xl font-semibold" style="color: whitesmoke;">Student Promotion Manager</h2>
+        </div>
+        <div class="card-body p-6">
+          <!-- Selection Panel -->
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div>
+              <label for="classSelect" class="block text-sm font-medium text-gray-700 mb-1">Class</label>
+              <div class="custom-select-wrapper">
+                <select id="classSelect" class="custom-select" [(ngModel)]="selectedClassId" (change)="onClassChange()">
+                  <option value="" disabled selected>Select a class</option>
+                  <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
+                </select>
+              </div>
             </div>
-            <div class="col-md-4 mb-3">
-              <label class="form-label fw-bold">Active Academic Year</label>
-              <input type="text" class="form-control" [value]="academicYear?.name || 'Loading...'" disabled>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Active Academic Year</label>
+              <div class="custom-select-wrapper">
+                <input type="text" class="custom-select" [value]="academicYear?.name || 'Loading...'" disabled>
+              </div>
             </div>
-            <div class="col-md-4 mb-3">
-              <label for="nextAcademicYearSelect" class="form-label fw-bold">Next Academic Year</label>
-              <select id="nextAcademicYearSelect" class="form-select" [(ngModel)]="selectedNextAcademicYearId">
-                <option value="" disabled selected>Select the next academic year</option>
-                <option *ngFor="let year of availableAcademicYears" [value]="year._id">{{ year.name }}</option>
-              </select>
+            <div>
+              <label for="nextAcademicYearSelect" class="block text-sm font-medium text-gray-700 mb-1">Next Academic Year</label>
+              <div class="custom-select-wrapper">
+                <select id="nextAcademicYearSelect" class="custom-select" [(ngModel)]="selectedNextAcademicYearId">
+                  <option value="" disabled selected>Select next year</option>
+                  <option *ngFor="let year of availableAcademicYears" [value]="year._id">{{ year.name }}</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label for="nextClassSelect" class="block text-sm font-medium text-gray-700 mb-1">Next Class</label>
+              <div class="custom-select-wrapper">
+                <select id="nextClassSelect" class="custom-select" [(ngModel)]="nextClassId">
+                  <option value="" disabled selected>Select next class</option>
+                  <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
+                </select>
+              </div>
             </div>
           </div>
 
+          <!-- Promotion Checkbox -->
+          <div class="flex items-center mb-6">
+            <input type="checkbox" id="promoteCheckbox" class="custom-checkbox" [(ngModel)]="isPromotedManually">
+            <label for="promoteCheckbox" class="ml-2 text-sm font-medium text-gray-700">Promote Manually</label>
+          </div>
+
           <!-- Students Table -->
-          <div *ngIf="students.length > 0; else noStudents">
-            <div class="table-responsive">
-              <table class="table table-hover table-bordered">
-                <thead class="table-light">
-                  <tr>
-                    <th>Roll No</th>
-                    <th>Name</th>
-                    <th>Result Status</th>
-                    <th>Manual Promotion</th>
+          <div *ngIf="students.length > 0; else noStudents" class="relative" [@slideInOut]>
+            <div class="data-grid-wrapper overflow-x-auto">
+              <table class="data-grid w-full">
+                <thead class="bg-blue-50 sticky top-0 z-10">
+                  <tr   style="background-color: #2C3E50 !important; color: white;">
+                    <th class="text-center p-2">
+                      <input type="checkbox" class="custom-checkbox" [(ngModel)]="selectAll" (change)="toggleSelectAll()">
+                      <span class="ml-2">Select All</span>
+                    </th>
+                    <th class="p-2">Roll No</th>
+                    <th class="p-2">Name</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let student of students">
-                    <td>{{ student.rollNo || '-' }}</td>
-                    <td>{{ student.name}}</td>
-                    <td>
-                      <span class="badge" [ngClass]="getStudentStatus(student._id) === 'Pass' ? 'bg-success' : 'bg-danger'">{{ getStudentStatus(student._id) }}</span>
+                  <tr *ngFor="let student of students" class="hover:bg-gray-50 transition-colors">
+                    <td class="text-center p-2">
+                      <input type="checkbox" class="custom-checkbox" [(ngModel)]="student.isSelected" (change)="updateSelectAll()">
                     </td>
-                    <td>
-                      <div class="form-check d-flex justify-content-center">
-                        <input type="checkbox" class="form-check-input"
-                               [disabled]="getStudentStatus(student._id) === 'Pass'"
-                               [checked]="isSelectedForManualPromotion(student._id)"
-                               (change)="toggleManualPromotion(student._id)">
-                      </div>
-                    </td>
+                    <td class="p-2">{{ student.rollNo || '-' }}</td>
+                    <td class="p-2">{{ student.name }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
-
-            <!-- Promote Button -->
-            <div class="text-center mt-4">
-              <button class="btn btn-primary btn-lg" (click)="promoteStudents()">Promote Students</button>
+            <div class="text-center mt-6">
+              <button class="btn-promote" [disabled]="isLoading || !selectedClassId || !nextClassId || !selectedNextAcademicYearId || selectedStudentsCount === 0" (click)="openConfirmDialog()">
+                <span *ngIf="isLoading" class="spinner"></span>
+                Promote {{ selectedStudentsCount }} Student(s)
+              </button>
             </div>
           </div>
 
+          <!-- No Students Message -->
           <ng-template #noStudents>
-            <div class="alert alert-info text-center">
+            <div class="text-center py-6 text-gray-500">
+              <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
               <p *ngIf="selectedClassId">No students found for the selected class.</p>
               <p *ngIf="!selectedClassId">Please select a class to view students.</p>
             </div>
           </ng-template>
+
+          <!-- Loading Overlay -->
+          <div *ngIf="isLoading" class="loading-overlay">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div class="modal fade" id="confirmPromotionModal" tabindex="-1" aria-labelledby="confirmPromotionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-lg shadow-lg">
+        <div class="modal-header bg-blue-600 text-white">
+          <h5 class="modal-title font-semibold" id="confirmPromotionModalLabel">Confirm Promotion</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-gray-700">
+          Are you sure you want to promote {{ selectedStudentsCount }} student(s) to <strong>{{ nextClassName }}</strong> for the academic year <strong>{{ nextAcademicYearName }}</strong>?
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn-confirm" [disabled]="isLoading" (click)="promoteStudents()">
+            <span *ngIf="isLoading" class="spinner"></span>
+            Confirm
+          </button>
         </div>
       </div>
     </div>

@@ -10,6 +10,8 @@ const multer = require('multer');
 const { paginate } = require('../../utils/paginationHelper'); // Adjust path as needed
 const Result = require('../../models/result');
 const Route = require('../../models/route');
+const exam = require('../../models/exam');
+const { getAllResultsForClass } = require('../../controllers/result/resultController');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -28,7 +30,6 @@ const getStudentsByClass = async (req, res, next) => {
   try {
     const { classId } = req.params;
     const { academicYearId } = req.query;
-    console.log(classId,academicYearId)
     // Validate classId
     if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
       throw new APIError('Valid Class ID is required', 400);
@@ -817,130 +818,161 @@ const getActiveAcademicYearId = async (schoolId) => {
   }
   return academicYear._id;
 };
+// older code
+// const promoteStudents = async (req, res, next) => {
+//   try {
+//     const { classId, academicYearId, nextAcademicYearId, nextClassId, isPromotedManually = false } = req.body;
+//     const schoolId = req.user.schoolId;
 
+//     const currentClass = await Class.findOne({ _id: classId, schoolId });
+//     if (!currentClass) {
+//       throw new APIError('Class not found', 404);
+//     }
+
+//     if (!nextClassId) {
+//       throw new APIError('Next class is required', 400);
+//     }
+
+//     const targetClass = await Class.findOne({ _id: nextClassId, schoolId });
+//     if (!targetClass) {
+//       throw new APIError('Target class not found', 404);
+//     }
+
+//     const students = await Student.find({ classId, academicYearId, schoolId });
+//     const promotedStudents = [];
+//     const failedStudents = [];
+
+//     for (const student of students) {
+//       const studentIdStr = student._id.toString();
+//       if (isPromotedManually) {
+//         await Student.findByIdAndUpdate(student._id, {
+//           classId: nextClassId,
+//           academicYearId: nextAcademicYearId,
+//           rollNo: '',
+//         }, { new: true });
+//         promotedStudents.push({ studentId: student._id, name: student.name });
+//         console.log(`Promoted ${student.name} to ${targetClass.name}`);
+//       } else {
+//         failedStudents.push({ studentId: student._id, name: student.name });
+//       }
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       data: { promotedStudents, failedStudents, nextClass: targetClass.name, nextAcademicYear: nextAcademicYearId },
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+// new code
 const promoteStudents = async (req, res, next) => {
   try {
-    const { classId, academicYearId, nextAcademicYearId, manualPromotions = [] } = req.body;
+    const { classId, academicYearId, nextAcademicYearId, nextClassId, studentIds, isPromotedManually = false } = req.body;
     const schoolId = req.user.schoolId;
 
-    // Validate inputs
-    if (!classId || !academicYearId || !nextAcademicYearId) {
-      throw new APIError('Class ID, Current Academic Year ID, and Next Academic Year ID are required', 400);
+    // Validate required inputs
+    if (!classId || !academicYearId || !nextAcademicYearId || !nextClassId) {
+      throw new APIError('Class ID, academic year ID, next academic year ID, and next class ID are required', 400);
+    }
+    if (!mongoose.Types.ObjectId.isValid(classId) || !mongoose.Types.ObjectId.isValid(nextClassId) ||
+        !mongoose.Types.ObjectId.isValid(academicYearId) || !mongoose.Types.ObjectId.isValid(nextAcademicYearId)) {
+      throw new APIError('Invalid ID format for class or academic year', 400);
     }
 
-    if (!mongoose.Types.ObjectId.isValid(classId)) {
-      throw new APIError('Invalid Class ID format', 400);
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
-      throw new APIError('Invalid Current Academic Year ID format', 400);
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(nextAcademicYearId)) {
-      throw new APIError('Invalid Next Academic Year ID format', 400);
-    }
-
-    // Validate manualPromotions array
-    if (!Array.isArray(manualPromotions)) {
-      throw new APIError('manualPromotions must be an array of student IDs', 400);
-    }
-
-    for (const studentId of manualPromotions) {
-      if (!mongoose.Types.ObjectId.isValid(studentId)) {
-        throw new APIError(`Invalid student ID in manualPromotions: ${studentId}`, 400);
+    // Validate studentIds if provided
+    if (studentIds) {
+      if (!Array.isArray(studentIds) || studentIds.length === 0) {
+        throw new APIError('Student IDs must be a non-empty array', 400);
+      }
+      if (!studentIds.every(id => mongoose.Types.ObjectId.isValid(id))) {
+        throw new APIError('All student IDs must be valid ObjectIds', 400);
       }
     }
 
-    // Fetch the current class and its next class
-    const currentClass = await Class.findOne({ _id: classId, schoolId }).populate('nextClass');
+    // Validate class and academic years
+    const currentClass = await Class.findOne({ _id: classId, schoolId });
     if (!currentClass) {
-      throw new APIError('Class not found in this school', 404);
+      throw new APIError('Current class not found or does not belong to this school', 404);
     }
 
-    // Check if there's a next class to promote to
-    if (!currentClass.nextClass) {
-      throw new APIError(`No next class defined for ${currentClass.name}. Cannot promote students.`, 400);
+    const nextClass = await Class.findOne({ _id: nextClassId, schoolId });
+    if (!nextClass) {
+      throw new APIError('Next class not found or does not belong to this school', 404);
     }
 
-    // Verify the current academic year exists and belongs to the school
     const currentAcademicYear = await AcademicYear.findOne({ _id: academicYearId, schoolId });
     if (!currentAcademicYear) {
       throw new APIError('Current academic year not found or does not belong to this school', 404);
     }
 
-    // Verify the next academic year exists and belongs to the school
     const nextAcademicYear = await AcademicYear.findOne({ _id: nextAcademicYearId, schoolId });
     if (!nextAcademicYear) {
       throw new APIError('Next academic year not found or does not belong to this school', 404);
     }
 
-    // Validate that the next academic year is chronologically after the current one
-    if (new Date(nextAcademicYear.startDate) <= new Date(currentAcademicYear.startDate)) {
-      throw new APIError('Next academic year must be after the current academic year', 400);
+    // Build query for students
+    const query = {
+      classId,
+      academicYearId,
+      schoolId,
+      status: true
+    };
+    if (studentIds) {
+      query._id = { $in: studentIds };
     }
 
-    // Fetch students in the class for the current academic year
-    const students = await Student.find({ classId, schoolId, academicYearId });
-    if (!students || students.length === 0) {
-      throw new APIError('No students found in this class for the specified academic year', 404);
+    // Find students to promote
+    const students = await Student.find(query);
+    if (studentIds && students.length !== studentIds.length) {
+      const foundIds = new Set(students.map(student => student._id.toString()));
+      const invalidIds = studentIds.filter(id => !foundIds.has(id));
+      throw new APIError(`Some student IDs are invalid or do not belong to the specified class/academic year: ${invalidIds.join(', ')}`, 400);
     }
-
-    // Fetch results for the academic year
-    const results = await Result.find({ classId, academicYearId, schoolId });
-    const studentResults = new Map(results.map(r => [r.studentId.toString(), r]));
-
-    // Track promotion outcomes
-    const promotedStudents = [];
-    const failedStudents = [];
-    const manuallyPromotedStudents = [];
+    if (students.length === 0) {
+      throw new APIError('No students found to promote', 404);
+    }
 
     // Promote students
-    const promotionPromises = students.map(async (student) => {
-      const studentIdStr = student._id.toString();
-      const result = studentResults.get(studentIdStr);
-      const shouldPromote = (result && result.status === 'Pass') || manualPromotions.includes(studentIdStr);
+    const promotedStudents = [];
+    const failedStudents = [];
 
-      if (shouldPromote) {
-        // Update student to the next class and academic year
-        await Student.findByIdAndUpdate(
-          student._id,
+    const updatePromises = students.map(async (student) => {
+      try {
+        await Student.updateOne(
+          { _id: student._id },
           {
             $set: {
-              classId: currentClass.nextClass._id,
-              academicYearId: nextAcademicYear._id,
-              rollNo: '', // Reset roll number for the new class
-            },
-          },
-          { new: true }
+              classId: nextClassId,
+              academicYearId: nextAcademicYearId,
+              rollNo: '', // Clear roll number
+              isPromotedManually
+            }
+          }
         );
-
-        // Track the promotion
-        if (result && result.status === 'Pass') {
-          promotedStudents.push({ studentId: student._id, name: student.name });
-        } else {
-          manuallyPromotedStudents.push({ studentId: student._id, name: student.name });
-        }
-      } else {
-        // Student failed and wasn't manually promoted
-        failedStudents.push({ studentId: student._id, name: student.name });
+        promotedStudents.push({ studentId: student._id, name: student.name });
+        console.log(`Promoted ${student.name} to ${nextClass.name}`);
+      } catch (error) {
+        failedStudents.push({ studentId: student._id, name: student.name, error: error.message });
       }
     });
 
-    await Promise.all(promotionPromises);
+    await Promise.all(updatePromises);
+
+    if (failedStudents.length > 0) {
+      throw new APIError(`Some students failed to promote: ${JSON.stringify(failedStudents)}`, 500);
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Student promotion process completed successfully',
       data: {
         promotedStudents,
         failedStudents,
-        manuallyPromotedStudents,
-        nextClass: currentClass.nextClass.name,
-        nextAcademicYear: nextAcademicYear.name,
-      },
+        nextClass: nextClass.name,
+        nextAcademicYear: nextAcademicYear.name
+      }
     });
   } catch (error) {
-    console.log('Error in promoteStudents:', error.message);
     next(error);
   }
 };

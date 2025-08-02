@@ -26,4 +26,20 @@ export class ResultService {
   getResultsByStudent(studentId: string): Observable<Result[]> {
     return this.http.get<Result[]>(`${this.apiUrl}/student/${studentId}`);
   }
+
+  getAllResultsForClass(classId: string, academicYearId: string, examId?: string): Observable<Result[]> {
+    let url = `${this.apiUrl}/admin/class/${classId}?academicYearId=${academicYearId}`;
+    if (examId) {
+      url += `&examId=${examId}`;
+    }
+    return this.http.get<Result[]>(url);
+  }
+
+  createPartialResult(result: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/partial`, result);
+  }
+  
+  getPartialResults(studentId: string, examId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/partial?studentId=${studentId}&examId=${examId}`);
+  }
 }

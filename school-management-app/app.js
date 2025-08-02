@@ -4,14 +4,25 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
 const helmet = require('helmet');
-
+const rateLimit = require('express-rate-limit');
+const fs = require('fs');
+// const cluster = require("cluster");
+// const os = require('os');
+// const totalCpu  = os.cpus().length
 dotenv.config();
 const app = express();
 
-// ✅ Configure Helmet (disable contentSecurityPolicy to avoid blocking images)
-app.use(helmet({
-  contentSecurityPolicy: false, // Disable CSP to allow image loading (or configure it properly)
-}));
+require('./utils/attendanceCron');
+const uploadsDir = path.join(__dirname, 'Uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit to 100 requests per window
+  message: 'Too many requests from this IP, please try again later.'
+});
 
 // ✅ Configure CORS (remove duplicate and ensure correct origins)
 const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4300'];
@@ -19,8 +30,32 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS
 app.use(cors({
   origin: allowedOrigins, // e.g., ['http://localhost:4200']
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
+
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', ...allowedOrigins],
+      scriptSrc: ["'self'", 'https://*.razorpay.com'],
+      styleSrc: ["'self'"],
+      connectSrc: ["'self'", ...allowedOrigins, 'https://api.razorpay.com']
+    }
+  }
+}));
+app.set('trust proxy', 1); // Trust proxy for x-forwarded-proto
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    if (req.header('x-forwarded-proto') !== 'https') {
+      return res.redirect(`https://${req.header('host')}${req.url}`);
+    }
+    next();
+  });
+}
+
+app.use('/api/auth', authLimiter);
 
 // ✅ Middlewares
 app.use(express.json());
@@ -47,32 +82,41 @@ const feeRoutes = require('./routes/feeRoutes');
 const classAndSubjectRoutes = require('./routes/classSubjectRoutes');
 const holidayRoutes = require('./routes/holidaysRoutes');
 const timetableRoutes = require('./routes/timetableRoutes');
-const attendanceRoutes = require('./routes/attendanceRoutes');
+const StudentAttendanceRoutes = require('./routes/attendanceRoutes');
 const teacherAbsenceRoutes = require('./routes/teacherAbsenceRoutes');
 const exam = require('./routes/examRouter');
 const resultRoutes = require('./routes/resultRouter');
 const academicYearRoute = require('./routes/academicYearRoutes');
 const transporatationRoute = require('./routes/routeRouter');
+const teacherAttendanceRoutes = require('./routes/teacherAttendanceRouters');
 
 // ✅ Middleware
 const authMiddleware = require('./middleware/authMiddleware');
-
+const studentDashboard = require('./routes/admin-dashboard/student-dashboard.routes')
 // ✅ API Endpoints
 app.use('/api/auth', authRoutes); 
 app.use('/api/schools', authMiddleware, schoolRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
-app.use('/api/teachers', authMiddleware, teacherRoutes);
 app.use('/api/students', authMiddleware, studentRoutes);
 app.use('/api/fees', authMiddleware, feeRoutes);
 app.use('/api/class-subject-management', authMiddleware, classAndSubjectRoutes);
 app.use('/api/holidays', holidayRoutes);
 app.use('/api/timetable', timetableRoutes);
 app.use('/api/academicyear', academicYearRoute);
-app.use('/api/attendance', attendanceRoutes);
+app.use('/api/teachers', authMiddleware, teacherRoutes);
+app.use('/api/attendance', StudentAttendanceRoutes);
 app.use('/api/teacher-absences', teacherAbsenceRoutes);
+app.use('/api/teacher-attendance',teacherAttendanceRoutes);
 app.use('/api/exams',authMiddleware, exam);
 app.use('/api/results', resultRoutes);
 app.use('/api/routes',transporatationRoute);
+app.use('/api/admin', studentDashboard);
+
+// After all routes
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ message: 'Internal server error', error: err.message });
+});
 
 
 // ✅ Start Server

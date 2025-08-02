@@ -91,7 +91,21 @@ export const NavigationItems: NavigationItem[] = [
         type: 'item',
         url: '/teacher/teacher-create',
         icon: 'user'
-      }
+      },
+      {
+        id: 'teacher-create',
+        title: 'Approve/Reject Leaves',
+        type: 'item',
+        url: '/teacher/approve-leaves',
+        icon: 'user'
+      },
+            {
+        id: 'Pending Teacher Absence Request',
+        title: 'Pending Teacher Absence/Reject',
+        type: 'item',
+        url: '/teacher/admin/teacher-absences',
+        icon: 'user'
+      },
     ]
   },
 
@@ -166,14 +180,7 @@ export const NavigationItems: NavigationItem[] = [
         id: 'result-list',
         title: 'Result List',
         type: 'item',
-        url: '/result/result-list',
-        icon: 'user'
-      },
-       {
-        id: 'result-create',
-        title: 'Result Create',
-        type: 'item',
-        url: '/result/create-result',
+        url: '/result/admin-results',
         icon: 'user'
       },
     ]},

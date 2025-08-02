@@ -1,5 +1,5 @@
-// academic-year.component.ts
-import { Component } from '@angular/core';
+// src/app/demo/component/advance-component/academic-year/academic-year/academic-year.component.ts
+import { Component, OnInit, inject } from '@angular/core';
 import { AcademicYearService } from '../academic-year.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,11 +7,15 @@ import { AuthService } from 'src/app/theme/shared/service/auth.service';
 
 @Component({
   selector: 'app-academic-year',
+  standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './academic-year.component.html',
   styleUrl: './academic-year.component.scss'
 })
-export class AcademicYearComponent {
+export class AcademicYearComponent implements OnInit {
+  private academicYearService = inject(AcademicYearService);
+  private authService = inject(AuthService);
+
   newAcademicYear = {
     name: '',
     startDate: '',
@@ -22,13 +26,8 @@ export class AcademicYearComponent {
   currentAcademicYear: any;
   schoolId: string | null = null;
 
-  constructor(
-    private academicYearService: AcademicYearService,
-    private authService: AuthService
-  ) {}
-
   ngOnInit(): void {
-    this.schoolId = this.authService.currentSchoolId;
+    this.schoolId = this.authService.currentSchoolId(); // Access signal value with ()
     if (!this.schoolId) {
       this.showError('School ID not found.');
       return;
@@ -40,12 +39,18 @@ export class AcademicYearComponent {
     if (!this.schoolId) return;
 
     this.academicYearService.getActiveAcademicYear(this.schoolId).subscribe({
-      next: (data) => {this.currentAcademicYear = data;console.log(data)},
+      next: (data) => {
+        this.currentAcademicYear = data;
+        console.log('Active Academic Year:', data);
+      },
       error: () => this.showError('Failed to load active session')
     });
 
     this.academicYearService.getAllAcademicYears(this.schoolId).subscribe({
-      next: (data) => {this.availableYears = data;console.log(data)},
+      next: (data) => {
+        this.availableYears = data;
+        console.log('All Academic Years:', data);
+      },
       error: () => this.showError('Failed to load sessions')
     });
   }
@@ -76,12 +81,14 @@ export class AcademicYearComponent {
     });
   }
 
-  activateYear(yearId: string) {
-  this.academicYearService.activateAcademicYear(yearId,this.schoolId).subscribe({
-    next: () => this.loadAcademicYears(),
-    error: (err) => console.error('Activation failed:', err)
-  });
-}
+  activateYear(yearId: string): void {
+    if (!this.schoolId) return;
+
+    this.academicYearService.activateAcademicYear(yearId, this.schoolId).subscribe({
+      next: () => this.loadAcademicYears(),
+      error: (err) => console.error('Activation failed:', err)
+    });
+  }
 
   setActiveYear(yearId: string): void {
     if (!this.schoolId) return;

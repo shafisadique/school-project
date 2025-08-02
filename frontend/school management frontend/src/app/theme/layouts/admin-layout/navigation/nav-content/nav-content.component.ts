@@ -136,22 +136,29 @@ export class NavContentComponent implements OnInit {
           children: [
             {
               id: 'attendance-details',
-              title: 'Attendance',
+              title: 'Teacher Attendance',
+              type: 'item',
+              url: '/teacher/attendance', // Adjust to match your route
+              icon: 'user'
+            },
+            {
+              id: 'attendance-details',
+              title: 'Student Attendance',
               type: 'item',
               url: '/attendance', // Adjust to match your route
               icon: 'user'
-            }
+            },
           ]
         },
-         {
-          id: 'Exam',
-          title: 'Exam',
-          type: 'group',
-          icon: 'team',
-          children: [
-            { id: 'exam-history', title: 'Exam History', type: 'item', url: '/exams-&-progress/exam-list', icon: 'user' }
-          ]
-        },
+        //  {
+        //   id: 'Exam',
+        //   title: 'Exam',
+        //   type: 'group',
+        //   icon: 'team',
+        //   children: [
+        //     { id: 'exam-history', title: 'Exam History', type: 'item', url: '/exams-&-progress/exam-list', icon: 'user' }
+        //   ]
+        // },
         {
           id: 'result',
           title: 'Result',
@@ -160,6 +167,15 @@ export class NavContentComponent implements OnInit {
           children: [
             { id: 'result-list', title: 'Result List', type: 'item', url: '/result/result-list', icon: 'user' },
             { id: 'result-create', title: 'Result Create', type: 'item', url: '/result/create-result', icon: 'user' }
+          ]
+        },
+        {
+          id: 'Teacher',
+          title: 'Teacher ',
+          type: 'group',
+          icon: 'team',
+          children: [
+            { id: '', title: 'Apply for Leave', type: 'item', url: '/teacher/apply-leave', icon: 'user' },
           ]
         }
       ];

@@ -1,0 +1,64 @@
+<div class="container">
+  <div class="filter-section">
+    <div class="filters">
+      <select [(ngModel)]="selectedStartDate" (ngModelChange)="loadPendingAbsences()" class="form-control">
+        <option value="">Start Date</option>
+        <!-- Populate with dynamic dates if needed -->
+      </select>
+      <select [(ngModel)]="selectedEndDate" (ngModelChange)="loadPendingAbsences()" class="form-control">
+        <option value="">End Date</option>
+        <!-- Populate with dynamic dates if needed -->
+      </select>
+      <input type="text" [(ngModel)]="teacherIdFilter" (ngModelChange)="loadPendingAbsences()" placeholder="Teacher ID/Name" class="form-control">
+      <button class="search-btn" (click)="loadPendingAbsences()">Search</button>
+    </div>
+  </div>
+
+  <!-- Absence Table -->
+  <div class="table-container">
+    <table class="professional-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Teacher</th>
+          <th>Date</th>
+          <th>Reason</th>
+          <th>Submitted</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let absence of absences; let i = index">
+          <td>{{ i + 1 }}</td>
+          <td class="profile-cell">
+            <div class="profile-wrapper">
+              <!-- <div *ngIf="!absence.teacherImage" class="avatar-placeholder">{{ absence.teacherId.toString().charAt(0) }}</div> -->
+              <span class="teacher-name">{{ absence.teacherId }}</span>
+            </div>
+          </td>
+          <td>{{ absence.date | date:'mediumDate' }}</td>
+          <td>{{ absence.reason }}</td>
+          <td>{{ absence.createdAt | date:'short' }}</td>
+          <td class="actions">
+            <button class="approve-btn" (click)="updateAbsence(absence._id, 'Approved')" title="Approve this teacher's absence request">Approve</button>
+            <button class="reject-btn" (click)="updateAbsence(absence._id, 'Rejected')" title="Reject this teacher's absence request">Reject</button>
+          </td>
+        </tr>
+        <tr *ngIf="absences.length === 0 && !loading">
+          <td colspan="6" class="no-absences">No pending absence requests at this time.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading absence requests...</p>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="errorMessage" class="error-message">
+    {{ errorMessage }}
+  </div>
+</div>

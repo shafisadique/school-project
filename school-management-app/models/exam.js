@@ -50,7 +50,7 @@ examSchema.pre('validate', function (next) {
 
 // Indexes for faster queries
 examSchema.index({ schoolId: 1, academicYearId: 1 });
-examSchema.index({ classId: 1, examTitle: 1, academicYearId: 1 }, { unique: true });
+examSchema.index({ classId: 1, academicYearId: 1 })
 examSchema.index({ startDate: 1, endDate: 1 });
 
 module.exports = mongoose.model('Exam', examSchema);

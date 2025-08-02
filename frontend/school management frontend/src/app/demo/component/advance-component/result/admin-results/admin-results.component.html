@@ -1,0 +1,151 @@
+<div class="container-fluid">
+  <header class="header">
+    <h2>All Results (Admin View)</h2>
+  </header>
+
+  <div class="filters">
+    <div class="filter-group">
+      <label for="class">Class</label>
+      <select id="class" [(ngModel)]="selectedClassId" (change)="onClassChange()" [disabled]="isLoading">
+        <option value="">Select Class</option>
+        <option *ngFor="let cls of classes" [value]="cls._id">{{ cls.name }}</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="academicYear">Academic Year</label>
+      <select id="academicYear" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()" [disabled]="isLoading">
+        <option value="">Select Academic Year</option>
+        <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="exam">Exam</label>
+      <select id="exam" [(ngModel)]="selectedExamId" (change)="onExamChange()" [disabled]="isLoading || !selectedClassId || !selectedAcademicYearId">
+        <option value="">Select Exam</option>
+        <option *ngFor="let exam of exams" [value]="exam._id">{{ exam.examTitle }}</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="result-table" *ngIf="!isLoading; else loading">
+    <table *ngIf="sortedResults.length > 0">
+      <thead>
+        <tr>
+          <th (click)="sort('studentId.name')">Student <span *ngIf="sortKey === 'studentId.name'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span></th>
+          <th (click)="sort('studentId.rollNo')">Roll No <span *ngIf="sortKey === 'studentId.rollNo'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span></th>
+          <th>Exam</th>
+          <th (click)="sort('totalMaxMarks')">T/M</th>
+          <th>P/M</th>
+          <th (click)="sort('totalMarksObtained')">Marks</th>
+          <th (click)="sort('percentage')">Percentage <span *ngIf="sortKey === 'percentage'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span></th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let result of sortedResults" class="result-row">
+          <td>{{ result.studentId.name || 'N/A' }}</td>
+          <td>{{ result.studentId.rollNo || 'N/A' }}</td>
+          <td>{{ result.examId.examTitle || 'N/A' }}</td>
+          <td>{{ result.totalMaxMarks || 0 }}</td>
+          <td>{{ (result.totalMaxMarks * 0.4) | number:'1.0-0' }}</td>
+          <td>{{ result.totalMarksObtained || 0 }}</td>
+          <td>{{ result.percentage || 0 }}%</td>
+          <td>
+            <span class="status-badge" [ngClass]="{
+              'status-pass': result.percentage >= 40,
+              'status-fail': result.percentage < 40
+            }">
+              {{ result.percentage >= 40 ? 'Pass' : 'Fail' }}
+            </span>
+          </td>
+          <td>
+            <button class="action-button view" (click)="openProgressCard(result)">View Progress Card</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="no-data" *ngIf="sortedResults.length === 0 && !isLoading">
+      No results found for the selected criteria.
+    </div>
+  </div>
+
+  <ng-template #loading>
+    <div class="loading-overlay">
+      <span>Loading results...</span>
+    </div>
+  </ng-template>
+
+  <!-- Progress Card Modal -->
+  <div class="modal" *ngIf="selectedResult" (click)="closeProgressCard()">
+    <div class="progress-card" (click)="stopPropagation($event)">
+      <div class="card-header">
+        <img [src]="schoolDetails?.logo || 'assets/school-logo.png'" alt="School Logo" class="school-logo">
+        <h3>{{ schoolDetails?.name || 'Rainbow Public School' }}</h3>
+        <p>{{ (schoolDetails?.address?.street || '') + ', ' + (schoolDetails?.address?.city || '') + ', ' + (schoolDetails?.address?.state || '') + ' - ' + (schoolDetails?.address?.postalCode || '') }}</p>
+        <p>Email: {{ schoolDetails?.contactEmail || 'Not provided' }} | Contact: {{ schoolDetails?.contactPhone || 'Not provided' }}</p>
+      </div>
+      <div class="card-body">
+        <div class="student-info">
+          <img src="assets/student-placeholder.png" alt="Student Photo" class="student-photo">
+          <div class="info-details">
+            <p><strong>Student Name:</strong> {{ selectedResult.studentId.name || 'N/A' }}</p>
+            <p><strong>Father's Name:</strong> {{ selectedResult.studentId.fatherName || '[Not Available]' }}</p>
+            <p><strong>Class & Sec:</strong> {{ selectedResult.classId?.name || '[Not Available]' }}</p>
+            <p><strong>Gender:</strong> {{ selectedResult.studentId.gender || '[Not Available]' }}</p>
+            <p><strong>Session:</strong> {{ selectedResult.academicYearId?.name || '[Not Available]' }}</p>
+            <p><strong>Adm No:</strong> {{ selectedResult.studentId._id || 'N/A' }}</p>
+          </div>
+        </div>
+        <h4>Progress Report of {{ selectedResult.examId.examTitle || 'N/A' }}</h4>
+        <table class="progress-table" *ngIf="selectedResult.subjects?.length">
+          <thead>
+            <tr>
+              <th>Sno</th>
+              <th>Subject Name</th>
+              <th>Max. Mark</th>
+              <th>Min. Mark</th>
+              <th>Mark Obt.</th>
+              <th>Copy Mark</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let subject of selectedResult.subjects; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>{{ subject.subjectId.name || 'N/A' }}</td>
+              <td>{{ subject.maxMarks || 0 }}</td>
+              <td>{{ subject.passingMarks || (subject.maxMarks * 0.4 | number:'1.0-0') || 'N/A' }}</td>
+              <td>{{ subject.marksObtained || 0 }}</td>
+              <td>{{ subject.marksObtained || 0 }}</td>
+            </tr>
+            <tr class="total-row">
+              <td colspan="2"><strong>TOTAL</strong></td>
+              <td>{{ selectedResult.totalMaxMarks || 0 }}</td>
+              <td>{{ getTotalPassingMarks(selectedResult) | number:'1.0-0' }}</td>
+              <td>{{ selectedResult.totalMarksObtained || 0 }}</td>
+              <td>{{ selectedResult.totalMarksObtained || 0 }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="summary" *ngIf="selectedResult.subjects?.length">
+          <p><strong>PER(%):</strong> {{ selectedResult.percentage || 0 }}%</p>
+          <p><strong>GRADE:</strong> {{ getGrade(selectedResult.percentage || 0) }}</p>
+          <p><strong>ATTENDANCE:</strong> {{ selectedResult.attendance || '[Not Available]' }}%</p>
+          <p><strong>REMARKS:</strong> {{ (selectedResult.percentage || 0) >= 40 ? 'GOOD' : 'NEEDS IMPROVEMENT' }}</p>
+        </div>
+        <div *ngIf="!selectedResult.subjects?.length" class="no-data">
+          No subject details available.
+        </div>
+      </div>
+      <div class="card-footer">
+        <p>{{ selectedResult.studentId.teacherName || '[Class Teacher]' }}</p>
+        <div class="signatures">
+          <div><img src="assets/school-seal.png" alt="School Seal" class="seal"><span>School Seal</span></div>
+          <div><span>PRINCIPAL</span></div>
+        </div>
+        <p class="grading-note">*Grading A: 90 to 100%, B: 75 to 89%, C: 60 to 74%, D: 35 to 59%, E: below 35%</p>
+      </div>
+      <button class="close-button" (click)="closeProgressCard()">×</button>
+    </div>
+  </div>
+</div>

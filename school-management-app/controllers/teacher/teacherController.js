@@ -5,7 +5,7 @@ const User = require('../../models/user');
 const School = require('../../models/school');
 const { createUploadMiddleware } = require('../../utils/fileUploader');
 const APIError = require('../../utils/apiError');
-
+const nodemailer = require('nodemailer');
 // Constants
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_FILE_TYPES = ['image/png', 'image/jpg', 'image/jpeg'];
@@ -13,38 +13,40 @@ const ALLOWED_FILE_TYPES = ['image/png', 'image/jpg', 'image/jpeg'];
 // File Upload Configuration
 exports.upload = createUploadMiddleware(
   'teachers',
-  MAX_FILE_SIZE,
+  MAX_FILE_SIZE,  
   ALLOWED_FILE_TYPES
 );
 
 // Helper Functions
 async function validateTeacherInput(reqBody, isUpdate = false) {
   const { subjects, ...rest } = reqBody;
-  
   const data = {
     ...rest,
     subjects: Array.isArray(subjects) ? subjects : JSON.parse(subjects || '[]')
   };
-
   if (!isUpdate && (!data.email || !data.name || !data.username || !data.password)) {
     throw new APIError('Name, username, email, and password are required', 400);
   }
-
   return data;
 }
 
 async function getActiveAcademicYearId(schoolId) {
-  const school = await School.findById(schoolId)
-    .select('activeAcademicYear')
-    .lean()
-    .orFail(new APIError('School not found', 404));
-
-  if (!school.activeAcademicYear) {
-    throw new APIError('No active academic year set', 400);
-  }
-
+  const school = await School.findById(schoolId).select('activeAcademicYear').lean().orFail(new APIError('School not found', 404));
+  if (!school.activeAcademicYear) throw new APIError('No active academic year set', 400);
   return school.activeAcademicYear;
 }
+
+// Configure nodemailer transporter (generic setup, will use school email)
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // Can be adjusted based on school's email provider
+  auth: {
+    user: 'default-email@gmail.com', // Fallback email for authentication
+    pass: 'default-email-password' // Fallback password or app-specific password
+  }
+});
+
+
+
 
 /**
  * @desc    Create a new teacher
@@ -53,21 +55,16 @@ async function getActiveAcademicYearId(schoolId) {
  */
 exports.addTeacher = async (req, res, next) => {
   const session = await mongoose.startSession();
-
   try {
     await session.withTransaction(async () => {
       const { schoolId } = req.user;
       const teacherData = await validateTeacherInput(req.body);
 
-      // Check if a user with this email or username already exists
       const existingUser = await User.findOne({
         $or: [{ email: teacherData.email }, { username: teacherData.username }]
       }).session(session);
-      if (existingUser) {
-        throw new APIError('User with this email or username already exists', 409);
-      }
+      if (existingUser) throw new APIError('User with this email or username already exists', 409);
 
-      // Create a new user with role 'teacher'
       const hashedPassword = bcrypt.hashSync(teacherData.password, 10);
       const newUser = new User({
         name: teacherData.name,
@@ -79,7 +76,6 @@ exports.addTeacher = async (req, res, next) => {
       });
       await newUser.save({ session });
 
-      // Create the teacher entry
       const teacher = await Teacher.create([{
         userId: newUser._id,
         name: teacherData.name,
@@ -94,9 +90,28 @@ exports.addTeacher = async (req, res, next) => {
         profileImage: req.file?.path.replace(/\\/g, '/').split('uploads/')[1] || ''
       }], { session });
 
+      // Fetch school's email
+      const school = await School.findById(schoolId).select('email').lean().orFail(new APIError('School not found', 404));
+      const schoolEmail = school.email;
+
+      // Send welcome email using school's email
+      const mailOptions = {
+        from: schoolEmail, // Use school's email as the sender
+        to: teacherData.email,
+        subject: 'Welcome to Our School!',
+        html: `
+          <h1>Welcome, ${teacherData.name}!</h1>
+          <p>You have been successfully added as a teacher at our school. We are thrilled to have you on board!</p>
+          <p>Your password is: <strong>${teacherData.password}</strong> (Please change it after logging in for security.)</p>
+          <p>Best regards,<br>The ${schoolEmail} Team</p>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+
       res.status(201).json({
         success: true,
-        message: 'Teacher added successfully',
+        message: 'Teacher added successfully and email sent',
         data: teacher[0],
         userId: newUser._id
       });
@@ -221,5 +236,56 @@ exports.softDeleteTeacher = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+
+exports.updateTeacher = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const { schoolId } = req.user;
+      const teacherData = await validateTeacherInput(req.body, true);
+
+      const teacher = await Teacher.findOneAndUpdate(
+        { _id: req.params.id, schoolId },
+        { ...teacherData, profileImage: req.file?.path.replace(/\\/g, '/').split('uploads/')[1] || teacherData.profileImage },
+        { new: true, runValidators: true, session }
+      ).orFail(new APIError('Teacher not found', 404));
+
+      res.json({
+        success: true,
+        message: 'Teacher updated successfully',
+        data: teacher
+      });
+    });
+  } catch (error) {
+    next(error);
+  } finally {
+    await session.endSession();
+  }
+};
+
+// Soft Delete Teacher (Set status to false)
+exports.softDeleteTeacher = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const teacher = await Teacher.findOneAndUpdate(
+        { _id: req.params.id, schoolId: req.user.schoolId },
+        { status: false },
+        { new: true, session }
+      ).orFail(new APIError('Teacher not found', 404));
+
+      res.json({
+        success: true,
+        message: 'Teacher soft deleted successfully',
+        data: teacher
+      });
+    });
+  } catch (error) {
+    next(error);
+  } finally {
+    await session.endSession();
   }
 };

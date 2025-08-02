@@ -6,11 +6,11 @@ import { CommonModule } from '@angular/common';
   selector: 'app-teacher-details',
   imports: [CommonModule],
   templateUrl: './teacher-details.component.html',
-  styleUrl: './teacher-details.component.scss'
+  styleUrls: ['./teacher-details.component.scss']
 })
-export class TeacherDetailsComponent implements OnInit{
+export class TeacherDetailsComponent implements OnInit {
   teachers: any[] = [];
-  backendUrl = 'http://localhost:5000'; // ✅ Ensure correct backend URL
+  backendUrl = 'http://localhost:5000';
 
   constructor(private teacherService: TeacherService) {}
 
@@ -21,8 +21,7 @@ export class TeacherDetailsComponent implements OnInit{
   loadTeachers() {
     this.teacherService.getTeachersBySchool().subscribe({
       next: (teachers: any) => {
-        console.log(teachers);
-        this.teachers = teachers.data;
+        this.teachers = teachers.data.filter((t: any) => t.status); // Show only active teachers
       },
       error: (err) => {
         console.error('Error loading teachers:', err);
@@ -30,20 +29,12 @@ export class TeacherDetailsComponent implements OnInit{
     });
   }
 
-  // ✅ Ensure correct image URL
   getImageUrl(profileImage: string): string {
-    if (!profileImage) return 'assets/default-avatar.png'; // ✅ Default avatar if missing
-    const cleanPath = profileImage.replace(/^.*uploads\//, '');
-  console.log(`${this.backendUrl}/uploads/${cleanPath}`)
-  return `${this.backendUrl}/uploads/${cleanPath}`;
+    return profileImage ? `${this.backendUrl}/uploads/${profileImage}` : 'assets/default-avatar.png';
   }
 
   getInitials(name: string): string {
-    return name.split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
+    return name.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
   }
 
   handleImageError(event: Event) {
@@ -55,4 +46,22 @@ export class TeacherDetailsComponent implements OnInit{
     }
   }
 
+  editTeacher(teacherId: string) {
+    // Navigate to teacher-create component with teacherId as param
+    // Example: this.router.navigate(['/teacher-create', teacherId]);
+    console.log('Edit teacher:', teacherId);
+  }
+
+  
+
+  deleteTeacher(teacherId: string) {
+    if (confirm('Are you sure you want to soft delete this teacher?')) {
+      this.teacherService.deleteTeacher(teacherId).subscribe({
+        next: () => {
+          this.loadTeachers();
+        },
+        error: (err) => console.error('Error deleting teacher:', err)
+      });
+    }
+  }
 }

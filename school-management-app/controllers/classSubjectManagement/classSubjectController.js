@@ -111,6 +111,7 @@ const createClass = async (req, res, next) => {
 
 // controllers/classSubjectController.js (or wherever getCombinedAssignments is defined)
 // controllers/classSubjectController.js
+
 const getCombinedAssignments = async (req, res) => {
   try {
     const { schoolId } = req.params;
@@ -300,7 +301,7 @@ const getAssignmentsByTeacher = async (req, res) => {
         for (const classId of subject.classes) {
           // Populate attendanceTeacher and substituteAttendanceTeachers
           const classData = await Class.findById(classId)
-            .populate('attendanceTeacher', '_id')
+            .populate('attendanceTeacher', '_id') 
             .populate('substituteAttendanceTeachers', '_id');
 
           if (!classData) continue;

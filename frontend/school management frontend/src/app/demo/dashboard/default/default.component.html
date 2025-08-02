@@ -1,4 +1,40 @@
 <div class="row">
+    <div class="col-md-12 col-xl-6">
+  <app-card blockClass="dashboard-card" [backgroundColor]="'#073980'">
+  <div class="row">
+    <div class="col-sm-5 col-lg-5" style="display: flex; flex-direction: column; justify-content: center;font-family: 'Poppins',sans-serif; color: white !important;">
+      <div class="mb-3">
+        <h4 class="mb-3" style="color: white;">
+          <p><strong>Total Students:</strong> {{ totalStudents }}</p>
+        </h4>
+        <p><strong>Total Present:</strong> {{ totalPresent }}</p>
+        <p><strong>Total Absent:</strong> {{ totalAbsent }}</p>
+      </div>
+      <select (change)="onClassChange($event)" class="form-control form-control-sm">
+        <option value="">All Classes</option>
+        @for (class of classes; track class._id) {
+          <option [value]="class._id">{{ class.name }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-7 col-sm-7">
+      <div class="chart-container" style="overflow: hidden; width: 100%; height: 100%;">
+        <apx-chart
+          #chart
+          [series]="chartOptions?.series || [0, 0, 0]"
+          [chart]="chartOptions?.chart"
+          [labels]="chartOptions?.labels"
+          [colors]="chartOptions?.colors"
+          [legend]="chartOptions?.legend"
+          [responsive]="chartOptions?.responsive"
+        ></apx-chart>
+        <div *ngIf="!chartOptions?.series?.length" class="text-center text-muted" style="color: white !important;">No attendance data available</div>
+      </div>
+    </div>
+  </div>
+</app-card>
+  </div>
+    <div class="col-md-12 col-xl-6"></div>
   @for (analytic of AnalyticEcommerce; track analytic) {
     <div class="col-md-6 col-xl-3">
       <app-card [showHeader]="false" blockClass="dashboard-card">
@@ -18,6 +54,9 @@
       </app-card>
     </div>
   }
+
+
+
   <div class="col-md-12 col-xl-8">
     <app-monthly-bar-chart />
   </div>
@@ -114,5 +153,4 @@
       </div>
     </div>
   </div>
-  <!-- [ sample-page ] end -->
 </div>

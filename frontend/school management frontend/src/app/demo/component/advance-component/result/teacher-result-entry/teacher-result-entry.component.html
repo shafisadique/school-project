@@ -1,0 +1,83 @@
+<div class="container-fluid">
+  <header class="header">
+    <h2>Enter Marks</h2>
+  </header>
+  <div class="result-form" *ngIf="!isLoading; else loadingSpinner">
+    <!-- Basic Information Section -->
+    <div class="form-section">
+      <h3>Basic Information</h3>
+      <div class="grid-container">
+        <div class="grid-column">
+          <div class="form-group">
+            <label for="exam">Exam</label>
+            <select id="exam" [(ngModel)]="selectedExamId" (ngModelChange)="onExamChange()" name="exam" required>
+              <option value="">Select Exam</option>
+              <option *ngFor="let exam of exams" [value]="exam._id">{{ exam.examTitle }} ({{ exam.classId.name }})</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-column">
+          <div class="form-group">
+            <label for="student">Student</label>
+            <select id="student" [(ngModel)]="selectedStudentId" (ngModelChange)="onStudentChange()" [disabled]="!selectedExamId" name="student" required>
+              <option value="">Select Student</option>
+              <option *ngFor="let student of students" [value]="student._id">
+                {{ student.name }} (Roll No: {{ student.rollNo || 'N/A' }})
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Marks Entry Section -->
+    <div class="form-section" *ngIf="subjects.length > 0 && selectedStudent">
+      <h3>Enter Marks</h3>
+      <div class="marks-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Marks Obtained</th>
+              <th>Max Marks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let subject of subjects; let i = index">
+              <td>{{ subject.subjectId.name }}</td>
+              <td>
+                <input type="number" [(ngModel)]="marks[subject.subjectId._id]" [name]="'marks-' + i" min="0" [max]="subject.maxMarks" required />
+              </td>
+              <td>{{ subject.maxMarks }}</td>
+            </tr>
+            <div *ngIf="exams.length === 0" class="empty-state">
+  No exams available for your assigned subjects.
+</div>
+
+<div *ngIf="selectedExam && subjects.length === 0" class="empty-state">
+  No subjects found for the selected exam.
+</div>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions" *ngIf="subjects.length > 0 && selectedStudent">
+      <button type="button" class="submit-button" (click)="submitMarks()" [disabled]="isLoading">
+        Submit Marks
+      </button>
+      <button type="button" class="cancel-button" (click)="router.navigate(['/result-list'])" [disabled]="isLoading">
+        Back to List
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <ng-template #loadingSpinner>
+    <div class="spinner">
+      <div class="spinner-icon"></div>
+      Loading...
+    </div>
+  </ng-template>
+</div>

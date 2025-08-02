@@ -1,18 +1,16 @@
-<div class="container">
-  <!-- <header class="header">
-    <button class="create-button" (click)="navigateToCreateResult()" [disabled]="isLoadingExams || isLoadingAcademicYears">
-      Create New Result
-    </button>
-  </header> -->
+<div class="container-fluid">
+  <header class="header">
+    <h2>Result List</h2>
+    <button (click)="navigateToCreateResult()" class="create-btn">Create Result</button>
+  </header>
 
   <div class="filters">
     <div class="filter-group">
       <label for="academicYear">Academic Year</label>
       <select id="academicYear" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()" [disabled]="isLoadingAcademicYears">
-        <option value="">All Academic Years</option>
+        <option value="">Select Academic Year</option>
         <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
       </select>
-      <span class="loading" *ngIf="isLoadingAcademicYears">Loading...</span>
     </div>
     <div class="filter-group">
       <label for="exam">Exam</label>
@@ -20,91 +18,71 @@
         <option value="">Select Exam</option>
         <option *ngFor="let exam of exams" [value]="exam._id">{{ getExamDisplayName(exam) }}</option>
       </select>
-      <span class="loading" *ngIf="isLoadingExams">Loading...</span>
     </div>
   </div>
 
-  <div class="result-table">
-    <div class="loading-overlay" *ngIf="isLoadingResults">
-      <span>Loading results...</span>
-    </div>
-    <table>
+  <div class="result-table" *ngIf="!isLoadingResults; else loading">
+    <table *ngIf="results.length > 0">
       <thead>
         <tr>
-          <th>Student</th>
-          <th>Total Marks Obtained</th>
-          <th>Total Max Marks</th>
+          <th>Student Name</th>
+          <th>Roll No</th>
+          <th>Exam</th>
+          <th>Total Marks</th>
           <th>Percentage</th>
-          <th>Grade</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <ng-container *ngFor="let result of results">
-          <tr class="result-row">
-            <td>{{ result.studentId.name }} (Roll No: {{ result.studentId.rollNo }})</td>
-            <td>{{ result.totalMarksObtained }}</td>
-            <td>{{ result.totalMaxMarks }}</td>
-            <td>{{ result.percentage.toFixed(2) }}%</td>
-            <td>{{ result.grade }}</td>
-            <td>
-              <span class="status-badge" [ngClass]="{
-                'status-pass': result.status === 'Pass',
-                'status-fail': result.status === 'Fail',
-                'status-onhold': result.status === 'On Hold'
-              }">
-                {{ result.status }}
-              </span>
-            </td>
-            <td>
-              <button class="action-button view" (click)="toggleRow(result._id)">
-                {{ expandedRows[result._id] ? 'Hide' : 'View' }} Details
-              </button>
-            </td>
-          </tr>
-          <tr *ngIf="expandedRows[result._id]" class="details-row">
-            <td colspan="7">
-              <div class="subject-marks">
-                <h3>Subject Marks</h3>
-                <table class="marks-table">
-                  <thead>
-                    <tr>
-                      <th>Subject</th>
-                      <th>Marks Obtained</th>
-                      <th>Max Marks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let subject of result.subjects">
-                      <td>{{ subject.subjectId.name }}</td>
-                      <td>{{ subject.marksObtained }}</td>
-                      <td>{{ subject.maxMarks }}</td>
-                      
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </td>
-          </tr>
-        </ng-container>
+        <tr *ngFor="let result of results" [class.expanded]="expandedRows[result._id]">
+          <td>{{ result.studentId.name || 'N/A' }}</td>
+          <td>{{ result.studentId.rollNo || 'N/A' }}</td>
+          <td>{{ result.examId.examTitle || 'N/A' }}</td>
+          <td>{{ result.totalMarksObtained }} / {{ result.totalMaxMarks }}</td>
+          <td>{{ result.percentage | number:'1.2-2' }}%</td>
+          <td>{{ result.status }}</td>
+          <td>
+            <button (click)="toggleRow(result._id)">View Details</button>
+          </td>
+        </tr>
       </tbody>
     </table>
-
-    <div class="no-data" *ngIf="!results.length && selectedExamId && !isLoadingResults">
-      No results found for this exam.
-    </div>
-    <div class="no-data" *ngIf="!selectedExamId && !isLoadingExams">
-      Please select an exam to view results.
-    </div>
-    <div class="no-data" *ngIf="!selectedAcademicYearId && !isLoadingAcademicYears">
-      Please select an academic year to view exams and results.
+    <div class="no-data" *ngIf="results.length === 0 && !isLoadingResults">
+      No results found for the selected exam.
     </div>
   </div>
+
+  <ng-template #loading>
+    <div class="loading-overlay">Loading...</div>
+  </ng-template>
+
+  <div class="details" *ngFor="let result of results" [@expand]="expandedRows[result._id] ? 'expanded' : 'collapsed'">
+    <h3>Subject Details for {{ result.studentId.name }}</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Subject</th>
+          <th>Marks Obtained</th>
+          <th>Max Marks</th>
+          <th>Percentage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let subject of result.subjects">
+          <td>{{ subject.subjectId.name || 'N/A' }}</td>
+          <td>{{ subject.marksObtained || 0 }}</td>
+          <td>{{ subject.maxMarks || 0 }}</td>
+          <td>{{ (subject.marksObtained / subject.maxMarks * 100) | number:'1.2-2' }}%</td>
+        </tr>
+        <!-- Fallback for partial results with subjectId -->
+        <tr *ngIf="result.subjects.length === 0 && result.subjectId">
+          <td>{{ result.subjectId.name || 'N/A' }}</td>
+          <td>{{ result.marksObtained || 0 }}</td>
+          <td>{{ 100 }}</td> <!-- Default max marks for partial results -->
+          <td>{{ (result.marksObtained / 100 * 100) | number:'1.2-2' }}%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
-
-
-
-
-
-

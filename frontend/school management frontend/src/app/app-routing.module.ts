@@ -16,7 +16,19 @@ export const routes: Routes = [
     path: 'auth/register',
     loadComponent: () => import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
   },
-  
+  {
+    path: 'auth/forgot-password',
+    loadComponent: () => import('./authentication/forgot-password/forgot-password.component').then((c) => c.ForgotPasswordComponent)
+  },
+  {
+    path: 'auth/reset-password',
+    loadComponent: () => import('./authentication/reset-password/reset-password.component').then((c) => c.ResetPasswordComponent)
+  },
+  {
+    path: 'settings/change-password',
+    loadComponent: () => import('./authentication/change-password/change-password.component').then((c) => c.ChangePasswordComponent), canActivate:[AuthGuard]
+  },
+    
   {
     path: '',
     component: AdminComponent,
@@ -86,6 +98,15 @@ export const routes: Routes = [
         path: 'result',
         canActivate:[AuthGuard],
         loadChildren: () => import('./demo/component/advance-component/result/result.router').then((c) => c.resultRouter)
+      },
+      {
+        path: 'settings/profile',
+        loadComponent: () => import('./authentication/profile/profile.component').then((c) => c.ProfileComponent), canActivate:[AuthGuard]
+      },
+      {
+        path: 'holiday-calendar',
+        canActivate: [AuthGuard],
+        loadComponent: () => import('./demo/component/advance-component/holidays/holiday-calendar/holiday-calendar.component').then(c => c.HolidayCalendarComponent)
       },
     ]
   },

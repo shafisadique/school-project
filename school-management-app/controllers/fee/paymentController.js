@@ -6,83 +6,191 @@ const AdmZip = require('adm-zip');
 const Student = require('../../models/student');
 const FeeInvoice = require('../../models/feeInvoice');
 const School = require('../../models/school');
-const Receipt = require('../../models/receipt')
+const Receipt = require('../../models/receipt');
 const Payment = require('../../models/Payment');
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
+const SchoolInvoice = require('../../models/schoolInvoice');
+const Subscription = require('../../models/subscription');
+const auditLogs = require('../../models/auditLogs');
 
-// exports.processPayment = async (req, res) => {
-//   const session = await mongoose.startSession();
-//   try {
-//     session.startTransaction();
-//     const { studentId } = req.params;
-//     const { amount, paymentMethod, date, chequeNumber, transactionId } = req.body;
-//     const { schoolId, id: userId } = req.user;
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
+});
 
-//     // Validate inputs
-//     if (!studentId) throw new Error('Student ID is required');
-//     if (typeof amount !== 'number' || amount <= 0) throw new Error('Invalid amount');
+exports.createPaymentOrder = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const { schoolId, planType, amount } = req.body;
+      if (req.user.role !== 'superadmin') {
+        throw { status: 403, message: 'Access denied: Superadmin only' };
+      }
 
-//     // Get ALL unpaid invoices sorted by due date (oldest first)
-//     const invoices = await FeeInvoice.find({
-//       studentId,
-//       schoolId,
-//       status: { $in: ['Pending', 'Partial', 'Overdue'] }
-//     }).sort({ dueDate: 1 }).session(session);
+      const order = await razorpay.orders.create({
+        amount: amount * 100, // Convert to paise
+        currency: 'INR',
+        receipt: `school_${schoolId}_${Date.now()}`
+      });
 
-//     if (invoices.length === 0) {
-//       throw new Error('No outstanding invoices found');
-//     }
+      const invoice = new SchoolInvoice({
+        schoolId,
+        paymentId: order.id,
+        amount,
+        planType,
+        status: 'pending'
+      });
+      await invoice.save({ session });
 
-//     let remainingAmount = amount;
-//     const updatedInvoices = [];
+      await new auditLogs({
+        userId: req.user.id,
+        action: 'create_payment_order',
+        details: { schoolId, planType, amount, paymentId: order.id }
+      }).save({ session });
 
-//     // Apply payment to invoices chronologically
-//     for (const invoice of invoices) {
-//       if (remainingAmount <= 0) break;
+      res.status(200).json({ message: 'Payment order created', data: { order, invoiceId: invoice._id } });
+    });
+  } catch (err) {
+    res.status(err.status || 500).json({ message: err.message || 'Error creating payment order' });
+  } finally {
+    await session.endSession();
+  }
+};
 
-//       const amountToApply = Math.min(remainingAmount, invoice.remainingDue);
-//       if (amountToApply <= 0) continue;
+exports.handleWebhook = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const signature = req.headers['x-razorpay-signature'];
+      const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+      if (!secret) {
+        console.error('RAZORPAY_WEBHOOK_SECRET not set');
+        return res.status(200).json({ message: 'Server configuration error' });
+      }
 
-//       // Add payment record
-//       invoice.paymentHistory.push({
-//         date: date || new Date(),
-//         amount: amountToApply,
-//         paymentMethod,
-//         processedBy: userId,
-//         ...(paymentMethod === 'Cheque' && { chequeNumber }),
-//         ...(paymentMethod === 'Online' && { transactionId }),
-//       });
+      const bodyPayload = JSON.stringify(req.body);
+      const expectedSignature = crypto.createHmac('sha256', secret).update(bodyPayload).digest('hex');
+      if (signature !== expectedSignature) {
+        console.error('Invalid webhook signature');
+        return res.status(200).json({ message: 'Invalid webhook signature' });
+      }
 
-//       // Update invoice
-//       invoice.paidAmount += amountToApply;
-//       invoice.remainingDue = invoice.totalAmount - invoice.paidAmount;
-//       invoice.status = invoice.remainingDue > 0 ? 'Partial' : 'Paid';
+      const { event, payload: webhookPayload } = req.body;
+      if (!webhookPayload?.payment?.entity?.order_id) {
+        console.error('Invalid webhook payload: order_id missing');
+        return res.status(200).json({ message: 'Invalid webhook payload' });
+      }
 
-//       remainingAmount -= amountToApply;
-//       updatedInvoices.push(await invoice.save({ session }));
-//     }
+      if (event === 'payment.captured') {
+        const paymentId = webhookPayload.payment.entity.order_id;
+        const invoice = await SchoolInvoice.findOneAndUpdate(
+          { paymentId, status: 'pending' },
+          {
+            status: 'completed',
+            updatedAt: new Date(),
+            paymentDetails: {
+              method: 'Online',
+              transactionId: webhookPayload.payment.entity.id,
+              date: new Date()
+            }
+          },
+          { new: true, session }
+        );
 
-//     // Update student's overall fee status
-//     const totalPaid = amount - remainingAmount;
-//     await Student.findByIdAndUpdate(
-//       studentId,
-//       { $inc: { totalPaid, totalDue: -totalPaid } },
-//       { session }
-//     );
+        if (!invoice) {
+          console.error('Invoice not found for paymentId:', paymentId);
+          return res.status(200).json({ message: 'Invoice not found' });
+        }
 
-//     await session.commitTransaction();
+        await Subscription.findOneAndUpdate(
+          { schoolId: invoice.schoolId },
+          {
+            planType: invoice.planType,
+            status: 'active',
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            updatedAt: new Date()
+          },
+          { upsert: true, session }
+        );
 
-//     res.json({
-//       success: true,
-//       message: 'Payment processed across invoices',
-//       data: updatedInvoices
-//     });
-//   } catch (err) {
-//     await session.abortTransaction();
-//     res.status(400).json({ error: err.message });
-//   } finally {
-//     session.endSession();
-//   }
-// };
+        await new auditLogs({
+          userId: null,
+          action: 'payment_processed',
+          details: { schoolId: invoice.schoolId, paymentId, planType: invoice.planType }
+        }).save({ session });
+      }
+
+      res.status(200).json({ message: 'Webhook processed' });
+    });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(200).json({ message: 'Error processing webhook: ' + (err.message || 'Unknown error') });
+  } finally {
+    await session.endSession();
+  }
+};
+
+exports.generateSchoolInvoicePDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const invoice = await SchoolInvoice.findById(id)
+      .populate('schoolId', 'name address');
+
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice not found' });
+    }
+
+    const doc = new PDFDocument();
+    const filePath = `./temp/school_invoice_${id}.pdf`;
+    const tempDir = './temp';
+
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    doc.pipe(fs.createWriteStream(filePath));
+
+    const schoolName = invoice.schoolId?.name || 'Unknown School';
+    const schoolAddress = invoice.schoolId?.address
+      ? `${invoice.schoolId.address.street || ''}, ${invoice.schoolId.address.city || ''}, ${invoice.schoolId.address.state || ''}, ${invoice.schoolId.address.country || ''}, ${invoice.schoolId.address.postalCode || ''}`
+          .replace(/, ,/g, ',').replace(/^,|,$/g, '').trim() || 'No Address'
+      : 'No Address';
+
+    doc.fontSize(18).text(schoolName, { align: 'center' });
+    doc.fontSize(12).text(schoolAddress, { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(14).text('School Subscription Invoice', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(`Invoice Date: ${moment(invoice.createdAt).format('DD/MM/YYYY') || 'N/A'}`);
+    doc.text(`Plan Type: ${invoice.planType || 'N/A'}`);
+    doc.text(`Amount: ₹${invoice.amount || 0}`);
+    doc.text(`Status: ${invoice.status || 'N/A'}`);
+    if (invoice.paymentDetails) {
+      doc.text(`Payment Method: ${invoice.paymentDetails.method || 'N/A'}`);
+      doc.text(`Transaction ID: ${invoice.paymentDetails.transactionId || 'N/A'}`);
+      doc.text(`Payment Date: ${moment(invoice.paymentDetails.date).format('DD/MM/YYYY') || 'N/A'}`);
+    }
+
+    doc.end();
+
+    res.download(filePath, `school_invoice_${schoolName}_${invoice.planType}.pdf`, (err) => {
+      if (err) {
+        console.error('Download error:', err);
+        return res.status(500).json({ error: 'Failed to download invoice PDF' });
+      }
+      setTimeout(() => {
+        fs.unlink(filePath, (err) => {
+          if (err) console.error('Failed to delete temp file:', err);
+        });
+      }, 1000);
+    });
+  } catch (err) {
+    console.error('Error generating school invoice PDF:', err);
+    res.status(500).json({ error: 'Failed to generate invoice PDF: ' + err.message });
+  }
+};
 
 exports.processPayment = async (req, res) => {
   const session = await mongoose.startSession();
@@ -191,7 +299,7 @@ exports.generateAdvanceInvoices = async (req, res) => {
       const futureYear = new Date().getFullYear() + Math.floor((currentMonthIndex + i) / 12);
       const formattedMonth = `${futureYear}-${String(futureMonthIndex + 1).padStart(2, '0')}`;
 
-      const existingInvoice = await Invoice.findOne({
+      const existingInvoice = await FeeInvoice.findOne({
         studentId,
         month: formattedMonth,
         academicYear: academicYearId,
@@ -208,12 +316,58 @@ exports.generateAdvanceInvoices = async (req, res) => {
     await session.commitTransaction();
     res.json({ success: true, data: invoices });
   } catch (err) {
+    console.error('Error generating advance invoices:', err);
     await session.abortTransaction();
     res.status(400).json({ error: err.message });
   } finally {
     session.endSession();
   }
 };
+
+// exports.generateAdvanceInvoices = async (req, res) => {
+//   const session = await mongoose.startSession();
+//   try {
+//     session.startTransaction();
+//     const { studentId, monthsAhead } = req.body;
+//     const { schoolId, classId, academicYearId } = await Student.findById(studentId).select('schoolId classId academicYear');
+
+//     if (!studentId || !monthsAhead || monthsAhead < 1) {
+//       throw new Error('studentId and monthsAhead are required, and monthsAhead must be positive');
+//     }
+
+//     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+//     const currentMonthIndex = new Date().getMonth();
+//     const invoices = [];
+
+//     for (let i = 1; i <= monthsAhead; i++) {
+//       const futureMonthIndex = (currentMonthIndex + i) % 12;
+//       const futureMonth = monthNames[futureMonthIndex];
+//       const futureYear = new Date().getFullYear() + Math.floor((currentMonthIndex + i) / 12);
+//       const formattedMonth = `${futureYear}-${String(futureMonthIndex + 1).padStart(2, '0')}`;
+
+//       const existingInvoice = await Invoice.findOne({
+//         studentId,
+//         month: formattedMonth,
+//         academicYear: academicYearId,
+//         schoolId,
+//       }).session(session);
+
+//       if (existingInvoice) continue;
+
+//       const className = (await Student.findById(studentId).select('className')).className;
+//       const invoice = await generateInvoices(schoolId, classId, className, futureMonth, academicYearId, [], false, studentId);
+//       invoices.push(...invoice);
+//     }
+
+//     await session.commitTransaction();
+//     res.json({ success: true, data: invoices });
+//   } catch (err) {
+//     await session.abortTransaction();
+//     res.status(400).json({ error: err.message });
+//   } finally {
+//     session.endSession();
+//   }
+// };
 
 exports.generatePaymentReceipt = async (invoice, amount, paymentMethod) => {
   const doc = new PDFDocument();
@@ -326,86 +480,86 @@ exports.getInvoiceDetails = async (req, res) => {
   }
 };
 
-exports.generateInvoicePDF = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const schoolId = req.user.schoolId;
+// exports.generateInvoicePDF = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const schoolId = req.user.schoolId;
     
 
-    const invoice = await FeeInvoice.findOne({ _id: id, schoolId })
-      .populate('studentId', 'name admissionNo className')
-      .populate('academicYear', 'name')
-      .populate('schoolId', 'name address');
+//     const invoice = await FeeInvoice.findOne({ _id: id, schoolId })
+//       .populate('studentId', 'name admissionNo className')
+//       .populate('academicYear', 'name')
+//       .populate('schoolId', 'name address');
     
-    if (!invoice) {
-      return res.status(404).json({ error: 'Invoice not found' });
-    }
+//     if (!invoice) {
+//       return res.status(404).json({ error: 'Invoice not found' });
+//     }
 
-    const doc = new PDFDocument();
-    const filePath = `./temp/invoice_${id}.pdf`;
+//     const doc = new PDFDocument();
+//     const filePath = `./temp/invoice_${id}.pdf`;
     
-    if (!fs.existsSync('./temp')) {
-      fs.mkdirSync('./temp');
-    }
+//     if (!fs.existsSync('./temp')) {
+//       fs.mkdirSync('./temp');
+//     }
 
-    doc.pipe(fs.createWriteStream(filePath));
+//     doc.pipe(fs.createWriteStream(filePath));
 
-    doc.fontSize(18).text(invoice.schoolId.name, { align: 'center' });
-    doc.fontSize(12).text(invoice.schoolId.address, { align: 'center' });
-    doc.moveDown();
+//     doc.fontSize(18).text(invoice.schoolId.name, { align: 'center' });
+//     doc.fontSize(12).text(invoice.schoolId.address, { align: 'center' });
+//     doc.moveDown();
 
-    doc.fontSize(14).text('Fee Invoice', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(12).text(`Invoice Date: ${moment(invoice.createdAt).format('DD/MM/YYYY')}`);
-    doc.text(`Due Date: ${moment(invoice.dueDate).format('DD/MM/YYYY')}`);
-    doc.text(`Student Name: ${invoice.studentId.name}`);
-    doc.text(`Admission No: ${invoice.studentId.admissionNo}`);
-    doc.text(`Class: ${invoice.studentId.className}`);
-    doc.text(`Month: ${invoice.month}`);
-    doc.text(`Academic Year: ${invoice.academicYear.name}`);
+//     doc.fontSize(14).text('Fee Invoice', { align: 'center' });
+//     doc.moveDown();
+//     doc.fontSize(12).text(`Invoice Date: ${moment(invoice.createdAt).format('DD/MM/YYYY')}`);
+//     doc.text(`Due Date: ${moment(invoice.dueDate).format('DD/MM/YYYY')}`);
+//     doc.text(`Student Name: ${invoice.studentId.name}`);
+//     doc.text(`Admission No: ${invoice.studentId.admissionNo}`);
+//     doc.text(`Class: ${invoice.studentId.className}`);
+//     doc.text(`Month: ${invoice.month}`);
+//     doc.text(`Academic Year: ${invoice.academicYear.name}`);
 
-    doc.moveDown();
-    const feeTable = {
-      headers: ['Description', 'Amount (₹)'],
-      rows: []
-    };
+//     doc.moveDown();
+//     const feeTable = {
+//       headers: ['Description', 'Amount (₹)'],
+//       rows: []
+//     };
 
-    for (const [key, value] of Object.entries(invoice.invoiceDetails)) {
-      if (value > 0) {
-        feeTable.rows.push([key.charAt(0).toUpperCase() + key.slice(1), value]);
-      }
-    }
+//     for (const [key, value] of Object.entries(invoice.invoiceDetails)) {
+//       if (value > 0) {
+//         feeTable.rows.push([key.charAt(0).toUpperCase() + key.slice(1), value]);
+//       }
+//     }
 
-    feeTable.rows.push(['Previous Due', invoice.previousDue]);
-    feeTable.rows.push(['Late Fee', invoice.lateFee]);
+//     feeTable.rows.push(['Previous Due', invoice.previousDue]);
+//     feeTable.rows.push(['Late Fee', invoice.lateFee]);
 
-    if (invoice.discountsApplied.length > 0) {
-      invoice.discountsApplied.forEach(discount => {
-        feeTable.rows.push([discount.name, `-${discount.amount}`]);
-      });
-    }
+//     if (invoice.discountsApplied.length > 0) {
+//       invoice.discountsApplied.forEach(discount => {
+//         feeTable.rows.push([discount.name, `-${discount.amount}`]);
+//       });
+//     }
 
-    feeTable.rows.push(['Total', invoice.totalAmount]);
+//     feeTable.rows.push(['Total', invoice.totalAmount]);
 
-    doc.table(feeTable, {
-      prepareHeader: () => doc.font('Helvetica-Bold'),
-      padding: 5
-    });
+//     doc.table(feeTable, {
+//       prepareHeader: () => doc.font('Helvetica-Bold'),
+//       padding: 5
+//     });
 
-    doc.moveDown();
-    doc.text(`Paid Amount: ₹${invoice.paidAmount}`);
-    doc.text(`Remaining Due: ₹${invoice.remainingDue}`);
-    doc.text(`Status: ${invoice.status}`);
+//     doc.moveDown();
+//     doc.text(`Paid Amount: ₹${invoice.paidAmount}`);
+//     doc.text(`Remaining Due: ₹${invoice.remainingDue}`);
+//     doc.text(`Status: ${invoice.status}`);
 
-    doc.end();
+//     doc.end();
 
-    res.download(filePath, `invoice_${invoice.studentId.admissionNo}_${invoice.month}.pdf`, () => {
-      fs.unlinkSync(filePath);
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+//     res.download(filePath, `invoice_${invoice.studentId.admissionNo}_${invoice.month}.pdf`, () => {
+//       fs.unlinkSync(filePath);
+//     });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// };
 
 exports.getFeeCollectionReport = async (req, res) => {
   try {
@@ -518,6 +672,11 @@ exports.generateClassReceipts = async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: schoolId, className, month, and academicYearId are required.' });
     }
 
+    const school = await School.findById(schoolId);
+    if (!school) {
+      return res.status(404).json({ error: 'School not found' });
+    }
+
     const students = await Student.find({
       schoolId,
       className,
@@ -544,7 +703,7 @@ exports.generateClassReceipts = async (req, res) => {
     const tempDir = './temp_receipts';
 
     if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir);
+      fs.mkdirSync(tempDir, { recursive: true });
     }
 
     for (const student of students) {
@@ -556,8 +715,14 @@ exports.generateClassReceipts = async (req, res) => {
 
       doc.pipe(fs.createWriteStream(filePath));
 
-      doc.fontSize(18).text('Rainbow Public School', { align: 'center' });
-      doc.fontSize(12).text('Karbala Chowk, Jhalpo, Jhumri Telaiya, Koderma, Jharkhand', { align: 'center' });
+      const schoolName = school.name || 'Unknown School';
+      const schoolAddress = school.address
+        ? `${school.address.street || ''}, ${school.address.city || ''}, ${school.address.state || ''}, ${school.address.country || ''}, ${school.address.postalCode || ''}`
+            .replace(/, ,/g, ',').replace(/^,|,$/g, '').trim() || 'No Address'
+        : 'No Address';
+
+      doc.fontSize(18).text(schoolName, { align: 'center' });
+      doc.fontSize(12).text(schoolAddress, { align: 'center' });
 
       doc.moveDown();
       doc.fontSize(14).text(`Name: ${student.name}`);
@@ -600,9 +765,103 @@ exports.generateClassReceipts = async (req, res) => {
       fs.rmSync(tempDir, { recursive: true });
     });
   } catch (err) {
+    console.error('Error generating class receipts:', err);
     res.status(500).json({ error: err.message });
   }
 };
+// exports.generateClassReceipts = async (req, res) => {
+//   try {
+//     const { schoolId, className, month, academicYearId } = req.body;
+
+//     if (!schoolId || !className || !month || !academicYearId) {
+//       return res.status(400).json({ error: 'Missing required fields: schoolId, className, month, and academicYearId are required.' });
+//     }
+
+//     const students = await Student.find({
+//       schoolId,
+//       className,
+//       academicYear: academicYearId
+//     });
+
+//     if (!students || students.length === 0) {
+//       return res.status(404).json({ error: 'No students found for this class and academic year.' });
+//     }
+
+//     const studentIds = students.map(student => student._id);
+//     const invoices = await FeeInvoice.find({
+//       schoolId,
+//       studentId: { $in: studentIds },
+//       month,
+//       academicYear: academicYearId
+//     });
+
+//     if (!invoices || invoices.length === 0) {
+//       return res.status(404).json({ error: 'No invoices found for this class and month.' });
+//     }
+
+//     const receipts = [];
+//     const tempDir = './temp_receipts';
+
+//     if (!fs.existsSync(tempDir)) {
+//       fs.mkdirSync(tempDir);
+//     }
+
+//     for (const student of students) {
+//       const studentInvoice = invoices.find(inv => inv.studentId.toString() === student._id.toString());
+//       if (!studentInvoice) continue;
+
+//       const doc = new PDFDocument();
+//       const filePath = `${tempDir}/${student.admissionNo}_receipt.pdf`;
+
+//       doc.pipe(fs.createWriteStream(filePath));
+
+//       doc.fontSize(18).text('Rainbow Public School', { align: 'center' });
+//       doc.fontSize(12).text('Karbala Chowk, Jhalpo, Jhumri Telaiya, Koderma, Jharkhand', { align: 'center' });
+
+//       doc.moveDown();
+//       doc.fontSize(14).text(`Name: ${student.name}`);
+//       doc.text(`Admission No: ${student.admissionNo}`);
+//       doc.text(`Class: ${student.className}`);
+//       doc.text(`Month: ${month}`);
+
+//       const feeTable = {
+//         headers: ['Description', 'Amount (Rs.)'],
+//         rows: studentInvoice.invoiceDetails
+//           ? Object.entries(studentInvoice.invoiceDetails)
+//               .filter(([_, value]) => value > 0)
+//               .map(([key, value]) => [
+//                 key.charAt(0).toUpperCase() + key.slice(1),
+//                 value
+//               ])
+//           : []
+//       };
+
+//       doc.moveDown();
+//       doc.table(feeTable, {
+//         prepareHeader: () => doc.font('Helvetica-Bold'),
+//         padding: 5
+//       });
+
+//       doc.end();
+//       receipts.push(filePath);
+//     }
+
+//     if (receipts.length === 0) {
+//       return res.status(404).json({ error: 'No receipts generated. No invoices found for the selected students.' });
+//     }
+
+//     const zip = new AdmZip();
+//     receipts.forEach(file => zip.addLocalFile(file));
+//     const zipPath = `${tempDir}/receipts.zip`;
+//     zip.writeZip(zipPath);
+
+//     res.download(zipPath, `class_receipts_${className}_${month}.zip`, () => {
+//       fs.rmSync(tempDir, { recursive: true });
+//     });
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// };
 
 exports.getFeeCollectionDetailsReport = async (req, res) => {
   try {
@@ -731,21 +990,6 @@ exports.getFeeCollectionDetailsReport = async (req, res) => {
     });
   }
 };
-
-
-// In your payment controller
-// exports.generateReceipt = async (payment) => {
-//   const receipt = new Receipt({
-//     paymentId: payment._id,
-//     studentId: payment.studentId,
-//     invoiceId: payment.invoiceId,
-//     amount: payment.amount,
-//     paymentMethod: payment.method,
-//     receiptNumber: `RC-${new Date().getFullYear()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-//     schoolDetails: await getSchoolDetails(payment.schoolId)
-//   });
-//   return await receipt.save();
-// };
 
 const generateReceipt = async (payment) => {
   const receipt = new Receipt({

@@ -1,3 +1,4 @@
+// models/teacherAbsence.js
 const mongoose = require('mongoose');
 
 const teacherAbsenceSchema = new mongoose.Schema(
@@ -31,13 +32,17 @@ const teacherAbsenceSchema = new mongoose.Schema(
       enum: ['Pending', 'Approved', 'Rejected'],
       default: 'Pending',
     },
+    leaveType: {
+      type: String,
+      enum: ['Casual', 'Sick', 'Unpaid', null],
+      default: null,
+    },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt fields
+    timestamps: true,
   }
 );
 
-// Ensure uniqueness of absence record for a teacher on a specific date
-teacherAbsenceSchema.index({ teacherId: 1, date: 1 }, { unique: true });
+teacherAbsenceSchema.index({ schoolId: 1, teacherId: 1, date: -1 }, { unique: true });
 
 module.exports = mongoose.model('TeacherAbsence', teacherAbsenceSchema);

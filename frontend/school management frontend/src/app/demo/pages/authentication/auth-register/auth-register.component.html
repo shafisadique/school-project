@@ -16,33 +16,44 @@
               <input type="text" formControlName="schoolName" 
                      placeholder="School Name" 
                      class="form-control p-2 mb-3 border rounded"
-                     [class.is-invalid]="schoolForm.get('schoolName')?.invalid && schoolForm.get('schoolName')?.touched">
-                     <input type="text" 
-                     formControlName="username" 
-                     placeholder="Admin Username"
-                     class="form-control p-2 mb-3 border rounded"
-                     [class.is-invalid]="schoolForm.get('username')?.invalid && schoolForm.get('username')?.touched">
-              
-              <div *ngIf="schoolForm.get('username')?.invalid && schoolForm.get('username')?.touched" 
-                   class="invalid-feedback">
-                <div *ngIf="schoolForm.get('username')?.errors?.['required']">
-                  Username is required
-                </div>
-                <div *ngIf="schoolForm.get('username')?.errors?.['minlength']">
-                  Minimum 4 characters required
-                </div>
+                     [class.is-invalid]="f['schoolName']?.invalid && f['schoolName']?.touched">
+              <div *ngIf="f['schoolName']?.invalid && f['schoolName']?.touched" class="invalid-feedback">
+                School Name is required
               </div>
-              
+
               <input type="text" formControlName="adminName" 
                      placeholder="Admin Name" 
                      class="form-control p-2 mb-3 border rounded"
-                     [class.is-invalid]="schoolForm.get('adminName')?.invalid && schoolForm.get('adminName')?.touched">
-              
+                     [class.is-invalid]="f['adminName']?.invalid && f['adminName']?.touched">
+              <div *ngIf="f['adminName']?.invalid && f['adminName']?.touched" class="invalid-feedback">
+                Admin Name is required
+              </div>
+
+              <input type="text" formControlName="username" 
+                     placeholder="Admin Username" 
+                     class="form-control p-2 mb-3 border rounded"
+                     [class.is-invalid]="f['username']?.invalid && f['username']?.touched">
+              <div *ngIf="f['username']?.invalid && f['username']?.touched" class="invalid-feedback">
+                <div *ngIf="f['username']?.errors?.['required']">Username is required</div>
+                <div *ngIf="f['username']?.errors?.['minlength']">Minimum 4 characters required</div>
+              </div>
+
               <input type="email" formControlName="email" 
                      placeholder="Email" 
                      class="form-control p-2 mb-3 border rounded"
-                     [class.is-invalid]="schoolForm.get('email')?.invalid && schoolForm.get('email')?.touched">
-              
+                     [class.is-invalid]="f['email']?.invalid && f['email']?.touched">
+              <div *ngIf="f['email']?.invalid && f['email']?.touched" class="invalid-feedback">
+                Valid email is required
+              </div>
+
+              <input type="text" formControlName="mobileNo" 
+                     placeholder="Mobile Number (e.g., +919876543210)" 
+                     class="form-control p-2 mb-3 border rounded"
+                     [class.is-invalid]="f['mobileNo']?.invalid && f['mobileNo']?.touched">
+              <div *ngIf="f['mobileNo']?.invalid && f['mobileNo']?.touched" class="invalid-feedback">
+                Valid mobile number is required
+              </div>
+
               <div class="d-grid mt-3">
                 <button type="submit" 
                         [disabled]="schoolForm.invalid"
@@ -61,12 +72,10 @@
                 <input type="password" formControlName="password" 
                        placeholder="Password" 
                        class="form-control p-2 border rounded"
-                       [class.is-invalid]="passwordForm.get('password')?.invalid && passwordForm.touched">
-                <div *ngIf="passwordForm.get('password')?.invalid && passwordForm.touched" class="invalid-feedback">
-                  <div *ngIf="passwordForm.get('password')?.errors?.['required']">Password is required</div>
-                  <div *ngIf="passwordForm.get('password')?.errors?.['minlength']">
-                    Password must be at least 6 characters
-                  </div>
+                       [class.is-invalid]="p['password']?.invalid && passwordForm.touched">
+                <div *ngIf="p['password']?.invalid && passwordForm.touched" class="invalid-feedback">
+                  <div *ngIf="p['password']?.errors?.['required']">Password is required</div>
+                  <div *ngIf="p['password']?.errors?.['minlength']">Password must be at least 6 characters</div>
                 </div>
               </div>
 
@@ -74,8 +83,8 @@
                 <input type="password" formControlName="confirmPassword" 
                        placeholder="Confirm Password" 
                        class="form-control p-2 border rounded"
-                       [class.is-invalid]="passwordForm.get('confirmPassword')?.invalid && passwordForm.touched">
-                <div *ngIf="passwordForm.get('confirmPassword')?.invalid && passwordForm.touched" class="invalid-feedback">
+                       [class.is-invalid]="p['confirmPassword']?.invalid && passwordForm.touched">
+                <div *ngIf="p['confirmPassword']?.invalid && passwordForm.touched" class="invalid-feedback">
                   Confirm password is required
                 </div>
               </div>
@@ -97,38 +106,47 @@
             </form>
           </div>
 
-          <!-- Step 3: Confirmation -->
+          <!-- Step 3: Address Information -->
+          <!-- Step 3: Address Information -->
+<div *ngIf="step() === 3">
+  <form [formGroup]="addressForm" (ngSubmit)="nextStep()">
+    <input type="text" formControlName="street" placeholder="Street Address" class="form-control p-2 mb-3 border rounded"
+           [class.is-invalid]="a['street']?.invalid && a['street']?.touched">
+    <div *ngIf="a['street']?.invalid && a['street']?.touched" class="invalid-feedback">
+      Street is required
+    </div>
 
-          <div *ngIf="step() === 3">
-            <form [formGroup]="addressForm" (ngSubmit)="nextStep()">
-              <input type="text" formControlName="street" placeholder="Street Address" class="form-control p-2 mb-3 border rounded">
-              <input type="text" formControlName="city" placeholder="City" class="form-control p-2 mb-3 border rounded">
-              <input type="text" formControlName="state" placeholder="State" class="form-control p-2 mb-3 border rounded">
-              <input type="text" formControlName="country" placeholder="Country" class="form-control p-2 mb-3 border rounded">
-              <input type="text" formControlName="postalCode" placeholder="Postal Code" class="form-control p-2 mb-3 border rounded">
-              <div class="d-flex gap-2">
-                <button (click)="prevStep()" class="btn btn-secondary">Back</button>
-                <button (click)="submitForm()" class="btn btn-success">Submit</button>
-              </div>
-            <a [routerLink]="['/auth/login']" class="link-primary">Already have an account?</a>
-            </form>
-          </div>
+    <input type="text" formControlName="city" placeholder="City" class="form-control p-2 mb-3 border rounded"
+           [class.is-invalid]="a['city']?.invalid && a['city']?.touched">
+    <div *ngIf="a['city']?.invalid && a['city']?.touched" class="invalid-feedback">
+      City is required
+    </div>
 
+    <input type="text" formControlName="state" placeholder="State" class="form-control p-2 mb-3 border rounded"
+           [class.is-invalid]="a['state']?.invalid && a['state']?.touched">
+    <div *ngIf="a['state']?.invalid && a['state']?.touched" class="invalid-feedback">
+      State is required
+    </div>
 
-          <!-- Step 3: Confirmation -->
-          <!-- <div *ngIf="step() === 3">
-            <h2 class="text-center mb-4">Review Details</h2>
-            <div class="card mb-3">
-              <div class="card-body">
-                <pre>{{ formData() | json }}</pre>
-              </div>
-            </div>
-            <div class="d-flex gap-2">
-              <button (click)="prevStep()" class="btn btn-secondary">Back</button>
-              <button (click)="submitForm()" class="btn btn-success">Submit</button>
-            </div>
-          </div> -->
-          <!-- <a [routerLink]="['/login']" class="link-primary">Already have an account?</a> -->
+    <input type="text" formControlName="country" placeholder="Country" class="form-control p-2 mb-3 border rounded"
+           [class.is-invalid]="a['country']?.invalid && a['country']?.touched">
+    <div *ngIf="a['country']?.invalid && a['country']?.touched" class="invalid-feedback">
+      Country is required
+    </div>
+
+    <input type="text" formControlName="postalCode" placeholder="Postal Code" class="form-control p-2 mb-3 border rounded"
+           [class.is-invalid]="a['postalCode']?.invalid && a['postalCode']?.touched">
+    <div *ngIf="a['postalCode']?.invalid && a['postalCode']?.touched" class="invalid-feedback">
+      Postal Code is required
+    </div>
+
+    <div class="d-flex gap-2">
+      <button type="button" (click)="prevStep()" class="btn btn-secondary">Back</button>
+      <button type="submit" [disabled]="addressForm.invalid" class="btn btn-success">Submit</button>
+    </div>
+    <a [routerLink]="['/auth/login']" class="link-primary mt-3 d-block">Already have an account?</a>
+  </form>
+</div>
         </div>
       </div>
       

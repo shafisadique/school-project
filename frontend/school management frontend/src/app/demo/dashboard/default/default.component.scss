@@ -2,7 +2,26 @@
   .card-body.dashboard-card {
     padding: 18px;
     padding-bottom: 20px;
+
   }
+}
+
+// src/app/default.component.scss
+.chart-container {
+  max-height: 250px; // Matches the chart height
+  height: 250px; // Enforces the height
+  overflow: hidden; // Prevents content from spilling out
+  width: 100%; // Ensures it fits within the card
+  display: flex; // Ensures proper layout
+  justify-content: center; // Centers the chart
+  align-items: center; // Vertically centers the chart
+}
+
+
+apx-chart {
+  width: 100% !important; // Overrides any default width
+  height: 100% !important; // Ensures it respects the container height
+  max-width: 200px !important; // Limits the width to match height
 }
 
 .user-group {

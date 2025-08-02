@@ -7,6 +7,7 @@ import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-combined-class-subject-management',
+  standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule],
   templateUrl: './combined-class-subject-management.component.html',
   styleUrls: ['./combined-class-subject-management.component.scss']
@@ -38,6 +39,10 @@ export class CombinedClassSubjectManagementComponent implements OnInit {
       return;
     }
 
+    // Initialize selectedAcademicYearId from localStorage or default
+    this.selectedAcademicYearId = localStorage.getItem('activeAcademicYearId') || '';
+    console.log('Initial selectedAcademicYearId from localStorage:', this.selectedAcademicYearId);
+
     this.loadClasses();
     this.loadSubjects();
     this.loadTeachers();
@@ -47,7 +52,7 @@ export class CombinedClassSubjectManagementComponent implements OnInit {
       classId: ['', Validators.required],
       subjectId: ['', Validators.required],
       teacherId: ['', Validators.required],
-      academicYearId: ['', Validators.required],
+      academicYearId: [this.selectedAcademicYearId || '', Validators.required],
     });
 
     this.attendanceTeacherForm = this.fb.group({
@@ -56,14 +61,23 @@ export class CombinedClassSubjectManagementComponent implements OnInit {
       substituteAttendanceTeachers: [[]],
     });
 
+    // Subscribe to academicYearId changes
     this.assignForm.get('academicYearId')?.valueChanges.subscribe(value => {
       this.selectedAcademicYearId = value;
+      console.log('Selected academicYearId changed to:', value); // Debug change
       if (value) {
         this.loadAssignments();
+        localStorage.setItem('activeAcademicYearId', value); // Persist to localStorage
       } else {
         this.assignments = [];
       }
     });
+
+    // Trigger initial load if selectedAcademicYearId is set
+    if (this.selectedAcademicYearId) {
+      this.assignForm.patchValue({ academicYearId: this.selectedAcademicYearId });
+      this.loadAssignments();
+    }
   }
 
   loadClasses() {
@@ -113,9 +127,20 @@ export class CombinedClassSubjectManagementComponent implements OnInit {
     this.academicYearsService.getAllAcademicYears(this.schoolId).subscribe({
       next: (academicYears) => {
         this.academicYears = academicYears;
-        const activeYear = academicYears.find(year => year.isActive);
-        if (activeYear) {
-          this.assignForm.patchValue({ academicYearId: activeYear._id });
+        // Validate and set selectedAcademicYearId
+        if (this.selectedAcademicYearId && academicYears.some(year => year._id === this.selectedAcademicYearId)) {
+          this.assignForm.patchValue({ academicYearId: this.selectedAcademicYearId });
+          console.log('Using localStorage academicYearId:', this.selectedAcademicYearId);
+        } else {
+          const activeYear = academicYears.find(year => year.isActive);
+          if (activeYear) {
+            this.selectedAcademicYearId = activeYear._id;
+            this.assignForm.patchValue({ academicYearId: activeYear._id });
+            localStorage.setItem('activeAcademicYearId', activeYear._id);
+            console.log('Using active academicYearId:', activeYear._id);
+          } else {
+            this.toastr.warning('No active academic year found', 'Warning');
+          }
         }
         this.loading = false;
       },
@@ -133,13 +158,16 @@ export class CombinedClassSubjectManagementComponent implements OnInit {
       return;
     }
     this.loading = true;
+    console.log('Loading assignments for schoolId:', this.schoolId, 'academicYearId:', this.selectedAcademicYearId);
     this.classSubjectService.getCombinedAssignments(this.schoolId, this.selectedAcademicYearId).subscribe({
       next: (data) => {
         this.assignments = data;
+        console.log('Assignments loaded:', data); // Debug response
         this.loading = false;
       },
       error: (err) => {
         this.toastr.error(err.error?.message || 'Error fetching assignments', 'Error');
+        console.log('Error fetching assignments:', err); // Debug error
         this.loading = false;
       }
     });

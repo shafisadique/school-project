@@ -9,7 +9,6 @@ const {
   assignSubjectToClass,
   getCombinedAssignments,
   getTeachersBySchoolId,
-  getStudentsByClass,
   updateAttendanceTeachers,
 } = require('../controllers/classSubjectManagement/classSubjectController');
 

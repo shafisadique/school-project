@@ -57,7 +57,7 @@ export class StudentService {
   }
 
   getResultsByClassAndAcademicYear(classId: string, academicYearId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/api/results/exam/class/${classId}`, {
+    return this.http.get(`${this.apiUrl}/api/results/class/${classId}`, {
       params: { academicYearId }
     });
   }

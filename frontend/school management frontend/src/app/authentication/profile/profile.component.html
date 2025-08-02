@@ -1,0 +1,33 @@
+<div class="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+  <div class="max-w-[320px] w-full bg-white rounded-lg shadow-lg p-4">
+
+    <div *ngIf="loadingService.isLoading()" class="flex justify-center mb-2">
+      <div class="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+    <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="space-y-3" *ngIf="!loadingService.isLoading()">
+      <!-- Personal Details -->
+      <fieldset class="form-section">
+        <legend class="bg-gradient-to-r from-blue-600 to-indigo-500 text-white text-sm font-medium p-2 rounded-t text-center">
+          USER Details
+        </legend>
+        <div class="space-y-2">
+          <div class="text-center">
+            <div class="flex justify-between items-center mb-2">
+              <label for="name" class="block text-xs font-medium text-gray-700">Name</label>
+              <button type="button" *ngIf="p['name'].disabled" (click)="enableEditing()" class="btn btn-secondary px-2 py-1 text-xs rounded">Edit</button>
+              <button type="submit" *ngIf="!p['name'].disabled" class="btn btn-primary px-2 py-1 text-xs rounded">Update</button>
+            </div>
+            <div class="flex space-x-2">
+              <input id="name" type="text" formControlName="name" class="form-control form-control-sm shadow-sm flex-1" [readonly]="p['name'].disabled" value="Shakib Raza" />
+              <input id="username" type="text" formControlName="username" class="form-control form-control-sm shadow-sm flex-1" [readonly]="p['name'].disabled" value="shakib_raza" />
+              <input id="email" type="email" formControlName="email" class="form-control form-control-sm shadow-sm flex-1" [readonly]="p['name'].disabled" value="1234sadique1234@gmail.com" />
+            </div>
+            <small *ngIf="p['name']?.invalid && p['name']?.touched && !p['name'].disabled" class="error">Name is required</small>
+            <small *ngIf="p['email']?.invalid && p['email']?.touched && !p['name'].disabled" class="error">Valid email is required</small>
+          </div>
+        </div>
+      </fieldset>
+    </form>
+    <a *ngIf="!loadingService.isLoading()" [routerLink]="['/dashboard']" class="block text-center text-blue-600 mt-2 hover:text-blue-800 transition duration-200">Back to Dashboard</a>
+  </div>
+</div>

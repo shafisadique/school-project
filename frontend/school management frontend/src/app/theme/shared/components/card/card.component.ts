@@ -1,5 +1,5 @@
 // Angular import
-import { Component, ContentChild, ElementRef, TemplateRef, input } from '@angular/core';
+import { Component, ContentChild, ElementRef, Input, TemplateRef, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./card.component.scss']
 })
 export class CardComponent {
+  @Input() backgroundColor: string = '#ffffff';
   // public props
   /**
    * Title of card. It will be visible at left side of card header

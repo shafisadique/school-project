@@ -168,7 +168,11 @@ const studentSchema = new mongoose.Schema({
   status: { 
     type: Boolean, 
     default: true
-  }
+  },
+  isPromotedManually: {
+    type: Boolean,
+    default: false
+  },
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },

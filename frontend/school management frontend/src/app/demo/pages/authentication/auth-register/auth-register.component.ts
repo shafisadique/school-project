@@ -4,7 +4,6 @@ import { Component, OnInit, signal } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { StudentService } from 'src/app/demo/component/advance-component/students/student.service';
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
 
 @Component({
@@ -14,46 +13,45 @@ import { AuthService } from 'src/app/theme/shared/service/auth.service';
   templateUrl: './auth-register.component.html',
   styleUrls: ['./auth-register.component.scss']
 })
-export class AuthRegisterComponent implements OnInit{
+export class AuthRegisterComponent implements OnInit {
   step = signal(1);
   formData = signal<any>({});
+  isSubmitting = signal(false); // Add submission guard
 
   schoolForm: FormGroup;
   passwordForm: FormGroup;
-  addressForm:FormGroup;
+  addressForm: FormGroup;
 
-  constructor(private fb: FormBuilder, private router: Router, private http: HttpClient,private authService:AuthService,private toastr: ToastrService) {
+  constructor(
+    private fb: FormBuilder,
+    private router: Router,
+    private http: HttpClient,
+    private authService: AuthService,
+    private toastr: ToastrService
+  ) {
     this.schoolForm = this.fb.group({
       schoolName: ['', Validators.required],
       adminName: ['', Validators.required],
       username: ['', [Validators.required, Validators.minLength(4)]],
       email: ['', [Validators.required, Validators.email]],
-      // address: this.fb.group({
-      //   street: [''],
-      //   city: [''],
-      //   state: [''],
-      //   country: [''],
-      //   postalCode: ['']
-      // })
+      mobileNo: ['', [Validators.required, Validators.pattern('^\\+?[1-9]\\d{9,14}$')]] // Validate mobile number
     });
 
     this.passwordForm = this.fb.group({
       password: ['', [Validators.required, Validators.minLength(6)]],
       confirmPassword: ['', Validators.required]
     }, { validators: this.passwordMatchValidator });
-    
-    this.addressForm =this.fb.group({
+
+    this.addressForm = this.fb.group({
       street: ['', Validators.required],
       city: ['', Validators.required],
       state: ['', Validators.required],
       country: ['', Validators.required],
       postalCode: ['', Validators.required]
-    })
+    });
   }
 
-  ngOnInit(): void {
-    
-  }
+  ngOnInit(): void {}
 
   passwordMatchValidator(form: FormGroup) {
     const password = form.get('password')?.value;
@@ -76,7 +74,7 @@ export class AuthRegisterComponent implements OnInit{
       }
     } else if (this.step() === 3) {
       this.addressForm.markAllAsTouched();
-      if (this.addressForm.valid) {
+      if (this.addressForm.valid && !this.isSubmitting()) {
         this.formData.set({ ...this.formData(), address: this.addressForm.value });
         this.submitForm();
       }
@@ -90,31 +88,33 @@ export class AuthRegisterComponent implements OnInit{
   }
 
   submitForm() {
-    const { confirmPassword, ...cleanData } = this.formData();
-  
-  // const finalData = {
-  //   ...cleanData,
-  //   address: {
-  //     street: this.schoolForm.get('address.street')?.value,
-  //     city: this.schoolForm.get('address.city')?.value,
-  //     state: this.schoolForm.get('address.state')?.value,
-  //     country: this.schoolForm.get('address.country')?.value,
-  //     postalCode: this.schoolForm.get('address.postalCode')?.value
-  //   },
-  //   username: this.schoolForm.get('username')?.value
-  // };
-    this.authService.registerSchool(cleanData).subscribe({
-      next: (res:any) =>{
-       this.toastr.success('Registration Successful! Redirecting...', 'Success'); // ✅ Show success notification
+    if (this.isSubmitting()) return; // Prevent multiple submissions
+    this.isSubmitting.set(true);
 
-       setTimeout(() => {
-         this.router.navigate(['/auth/login']); // ✅ Redirect after success
-       }, 2000); // Delay to let the user see the message
+    const { confirmPassword, ...cleanData } = this.formData();
+    const finalData = {
+      ...cleanData,
+      activeAcademicYear: 'someAcademicYearId', // Replace with dynamic value or API call if needed
+      createdBy: 'currentUserId' // Replace with actual user ID from auth service
+    };
+
+    this.authService.registerSchool(finalData).subscribe({
+      next: (res: any) => {
+        this.toastr.success('Registration Successful! Redirecting...', 'Success');
+        setTimeout(() => {
+          this.router.navigate(['/auth/login']);
+          this.isSubmitting.set(false); // Reset after navigation
+        }, 2000);
       },
       error: (err) => {
-        this.toastr.error(err.error?.message || 'Registration Failed', 'Error'); // ✅ Show error notification
+        this.toastr.error(err.error?.message || 'Registration Failed', 'Error');
         console.error('Registration Failed', err);
+        this.isSubmitting.set(false); // Reset on error
       }
     });
   }
+
+  get f() { return this.schoolForm.controls; }
+  get p() { return this.passwordForm.controls; }
+  get a() { return this.addressForm.controls; }
 }
