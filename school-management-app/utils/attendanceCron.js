@@ -2,13 +2,15 @@ const cron = require('node-cron');
 const mongoose = require('mongoose');
 const Teacher = require('../models/teacher');
 const TeacherAttendance = require('../models/teacherAttendance');
-const Holiday = require('../models/holiday');
 const TeacherAbsence = require('../models/teacherAbsence');
+const Holiday = require('../models/holiday');
 const School = require('../models/school');
 const User = require('../models/user');
 
-cron.schedule('*/10 * * * *', async () => { // Runs every 10 minutes
-  console.log('Cron job started:', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
+// Remove or comment out the scheduled cron
+// cron.schedule('0 15 * * *', async () => {
+(async () => {
+  console.log('Manual cron job started:', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -65,6 +67,7 @@ cron.schedule('*/10 * * * *', async () => { // Runs every 10 minutes
             schoolId,
             date: todayIST,
             status: 'Approved',
+            isTeacherApplied: true,
           }).session(session);
           if (approvedLeave) {
             console.log(`Approved leave found for teacher ${teacher._id} on ${todayIST}. Skipping.`);
@@ -83,31 +86,28 @@ cron.schedule('*/10 * * * *', async () => { // Runs every 10 minutes
             }],
             { session }
           );
+
           await TeacherAbsence.create(
             [{
               teacherId: teacher._id,
               schoolId,
               date: todayIST,
-              reason: 'Unplanned absence',
+              reason: 'Unplanned absence (forgot to mark attendance)',
               status: 'Pending',
               leaveType: 'Unpaid',
+              isTeacherApplied: false,
             }],
             { session }
           );
-          const teacherDoc = await Teacher.findById(teacher._id).session(session);
-          if (teacherDoc && teacherDoc.leaveBalance > 0) {
-            teacherDoc.leaveBalance -= 1;
-            await teacherDoc.save({ session });
-          }
         }
       }
     });
-    console.log('Cron job completed successfully');
   } catch (error) {
-    console.error('Cron job error:', error);
+    console.error('Manual cron job error:', error);
   } finally {
     await session.endSession();
   }
-});
+  console.log('Manual cron job completed');
+})();
 
 module.exports = cron;

@@ -1,11 +1,11 @@
 const Class = require('../../models/class');
 const student = require('../../models/student');
 const Subject = require('../../models/subject');
-const Teacher =require('../../models/teacher');
+const Teacher = require('../../models/teacher');
 const APIError = require('../../utils/apiError');
 const { updateClassProgression } = require('../../utils/classProgression');
-// ✅ Create Class
 
+// ✅ Create Class
 const createClass = async (req, res, next) => {
   try {
     const { name, sections, attendanceTeacher, substituteAttendanceTeachers } = req.body;
@@ -24,18 +24,18 @@ const createClass = async (req, res, next) => {
 
     // Validate attendance teacher
     if (attendanceTeacher) {
-      const teacher = await Teacher.findById(attendanceTeacher);
+      const teacher = await Teacher.findOne({ _id: attendanceTeacher, status: true });
       if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
-        throw new APIError('Invalid attendance teacher or teacher not in this school', 400);
+        throw new APIError('Invalid attendance teacher, teacher not active, or teacher not in this school', 400);
       }
     }
 
     // Validate substitute teachers
     if (substituteAttendanceTeachers && Array.isArray(substituteAttendanceTeachers)) {
       for (const teacherId of substituteAttendanceTeachers) {
-        const teacher = await Teacher.findById(teacherId);
+        const teacher = await Teacher.findOne({ _id: teacherId, status: true });
         if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
-          throw new APIError('Invalid substitute teacher or teacher not in this school', 400);
+          throw new APIError('Invalid substitute teacher, teacher not active, or teacher not in this school', 400);
         }
       }
     }
@@ -61,106 +61,7 @@ const createClass = async (req, res, next) => {
     next(error);
   }
 };
-// const createClass = async (req, res, next) => {
-//   try {
-//     const { name, sections, attendanceTeacher, substituteAttendanceTeachers } = req.body;
-//     const schoolId = req.user.schoolId;
 
-//     if (!name) {
-//       throw new APIError('Class name is required', 400);
-//     }
-
-//     const existingClass = await Class.findOne({ name, schoolId });
-//     if (existingClass) {
-//       throw new APIError('Class already exists in this school', 409);
-//     }
-
-//     if (attendanceTeacher) {
-//       const teacher = await Teacher.findById(attendanceTeacher);
-//       if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
-//         throw new APIError('Invalid attendance teacher or teacher not in this school', 400);
-//       }
-//     }
-
-//     if (substituteAttendanceTeachers && Array.isArray(substituteAttendanceTeachers)) {
-//       for (const teacherId of substituteAttendanceTeachers) {
-//         const teacher = await Teacher.findById(teacherId);
-//         if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
-//           throw new APIError('Invalid substitute teacher or teacher not in this school', 400);
-//         }
-//       }
-//     }
-
-//     const newClass = await Class.create({
-//       name,
-//       sections,
-//       schoolId,
-//       attendanceTeacher,
-//       substituteAttendanceTeachers: substituteAttendanceTeachers || [],
-//       createdBy: req.user.id,
-//     });
-
-//     res.status(201).json({
-//       success: true,
-//       data: newClass,
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
-// controllers/classSubjectController.js (or wherever getCombinedAssignments is defined)
-// controllers/classSubjectController.js
-
-const getCombinedAssignments = async (req, res) => {
-  try {
-    const { schoolId } = req.params;
-    const { academicYearId } = req.query;
-
-    if (!academicYearId) {
-      return res.status(400).json({ message: 'Academic year ID is required' });
-    }
-
-    // Fetch classes with populated subjects, attendanceTeacher, and substituteAttendanceTeachers
-    const classes = await Class.find({ schoolId })
-      .populate({
-        path: 'subjects',
-        populate: {
-          path: 'teacherAssignments.teacherId',
-          model: 'Teacher',
-          select: 'name email', // Include email for the teacher
-        },
-      })
-      .populate('attendanceTeacher', 'name') // Populate attendanceTeacher
-      .populate('substituteAttendanceTeachers', 'name'); // Populate substituteAttendanceTeachers
-
-    const assignments = [];
-    classes.forEach(cls => {
-      cls.subjects.forEach(subject => {
-        const relevantAssignments = subject.teacherAssignments.filter(ta => 
-          ta.academicYearId.toString() === academicYearId
-        );
-        relevantAssignments.forEach(ta => {
-          assignments.push({
-            classId: cls._id,
-            className: cls.name,
-            subjectId: subject._id,
-            subjectName: subject.name,
-            teacherId: ta.teacherId._id,
-            teacherName: ta.teacherId.name,
-            teacherEmail: ta.teacherId.email || 'N/A', // Include teacher email
-            attendanceTeacher: cls.attendanceTeacher, // Include populated attendanceTeacher
-            substituteAttendanceTeachers: cls.substituteAttendanceTeachers || [], // Include populated substituteAttendanceTeachers
-          });
-        });
-      });
-    });
-
-    res.status(200).json(assignments);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
 // ✅ Get All Classes (For a Specific School)
 const getClassesBySchool = async (req, res, next) => {
   try {
@@ -168,9 +69,19 @@ const getClassesBySchool = async (req, res, next) => {
     if (req.user.role === 'admin') {
       console.log('Fetching all classes for admin');
       classes = await Class.find({ schoolId: req.user.schoolId })
-        .populate('subjects')
-        .populate('attendanceTeacher', 'name')
-        .populate('substituteAttendanceTeachers', 'name');
+        .populate({
+          path: 'subjects',
+        })
+        .populate({
+          path: 'attendanceTeacher',
+          match: { status: true }, // Only populate active teachers
+          select: 'name',
+        })
+        .populate({
+          path: 'substituteAttendanceTeachers',
+          match: { status: true }, // Only populate active teachers
+          select: 'name',
+        });
     } else if (req.user.role === 'teacher') {
       console.log('Fetching classes for teacher with ID:', req.user.id);
       // Check both teacherAssignments and teachers array
@@ -195,9 +106,19 @@ const getClassesBySchool = async (req, res, next) => {
         _id: { $in: classIds },
         schoolId: req.user.schoolId
       })
-        .populate('subjects')
-        .populate('attendanceTeacher', 'name')
-        .populate('substituteAttendanceTeachers', 'name');
+        .populate({
+          path: 'subjects',
+        })
+        .populate({
+          path: 'attendanceTeacher',
+          match: { status: true }, // Only populate active teachers
+          select: 'name',
+        })
+        .populate({
+          path: 'substituteAttendanceTeachers',
+          match: { status: true }, // Only populate active teachers
+          select: 'name',
+        });
     } else {
       throw new APIError('Access denied', 403);
     }
@@ -209,32 +130,9 @@ const getClassesBySchool = async (req, res, next) => {
     next(new APIError('Error fetching classes: ' + err.message, 500));
   }
 };
-/**
- * @desc    Get students by class
- * @route   GET /api/students/list?className=<className>
- * @access  Private/Admin or Teacher
- */
-// const   = async (req, res, next) => {
-//   try {
-//     const className = req.query.className;
-//     if (!className) {
-//       throw new APIError('Class name is required', 400);
-//     }
-
-//     const students = await student.find({
-//       schoolId: req.user.schoolId,
-//       className
-//     }).select('name className section rollNo');
-
-//     res.status(200).json(students);
-//   } catch (error) {
-//     next(error);
-//   }
-// };
 
 // ✅ Create Subject
-
-const createSubject = async (req, res,next) => {
+const createSubject = async (req, res, next) => {
   try {
     const { name, classes, teachers } = req.body;
     const schoolId = req.user.schoolId;
@@ -266,7 +164,6 @@ const createSubject = async (req, res,next) => {
   }
 };
 
-
 // ✅ Get All Subjects (For a Specific School)
 const getSubjectsBySchool = async (req, res) => {
   try {
@@ -277,6 +174,67 @@ const getSubjectsBySchool = async (req, res) => {
   }
 };
 
+// ✅ Get Combined Assignments
+const getCombinedAssignments = async (req, res) => {
+  try {
+    const { schoolId } = req.params;
+    const { academicYearId } = req.query;
+
+    if (!academicYearId) {
+      return res.status(400).json({ message: 'Academic year ID is required' });
+    }
+
+    // Fetch classes with populated subjects, attendanceTeacher, and substituteAttendanceTeachers
+    const classes = await Class.find({ schoolId })
+      .populate({
+        path: 'subjects',
+        populate: {
+          path: 'teacherAssignments.teacherId',
+          model: 'Teacher',
+          match: { status: true }, // Only populate active teachers
+          select: 'name email',
+        },
+      })
+      .populate({
+        path: 'attendanceTeacher',
+        match: { status: true }, // Only populate active teachers
+        select: 'name',
+      })
+      .populate({
+        path: 'substituteAttendanceTeachers',
+        match: { status: true }, // Only populate active teachers
+        select: 'name',
+      });
+
+    const assignments = [];
+    classes.forEach(cls => {
+      cls.subjects.forEach(subject => {
+        const relevantAssignments = subject.teacherAssignments.filter(ta => 
+          ta.academicYearId.toString() === academicYearId
+        );
+        relevantAssignments.forEach(ta => {
+          assignments.push({
+            classId: cls._id,
+            className: cls.name,
+            subjectId: subject._id,
+            subjectName: subject.name,
+            teacherId: ta.teacherId?._id || null,
+            teacherName: ta.teacherId?.name || 'N/A',
+            teacherEmail: ta.teacherId?.email || 'N/A',
+            attendanceTeacher: cls.attendanceTeacher || null,
+            substituteAttendanceTeachers: cls.substituteAttendanceTeachers || [],
+          });
+        });
+      });
+    });
+
+    res.status(200).json(assignments);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ✅ Get Assignments by Teacher
 const getAssignmentsByTeacher = async (req, res) => {
   try {
     const { teacherId } = req.params;
@@ -290,7 +248,21 @@ const getAssignmentsByTeacher = async (req, res) => {
     const subjects = await Subject.find({
       'teacherAssignments.teacherId': teacherId,
       'teacherAssignments.academicYearId': academicYearId,
-    }).populate('classes');
+    }).populate({
+      path: 'classes',
+      populate: [
+        {
+          path: 'attendanceTeacher',
+          match: { status: true }, // Only populate active teachers
+          select: '_id',
+        },
+        {
+          path: 'substituteAttendanceTeachers',
+          match: { status: true }, // Only populate active teachers
+          select: '_id',
+        },
+      ],
+    });
 
     const assignments = [];
     for (const subject of subjects) {
@@ -298,14 +270,7 @@ const getAssignmentsByTeacher = async (req, res) => {
         (ta) => ta.teacherId.toString() === teacherId && ta.academicYearId.toString() === academicYearId
       );
       for (const ta of relevantAssignments) {
-        for (const classId of subject.classes) {
-          // Populate attendanceTeacher and substituteAttendanceTeachers
-          const classData = await Class.findById(classId)
-            .populate('attendanceTeacher', '_id') 
-            .populate('substituteAttendanceTeachers', '_id');
-
-          if (!classData) continue;
-
+        for (const classData of subject.classes) {
           // Determine if the teacher can mark attendance
           const isAssignedTeacher = true; // Already confirmed by teacherAssignments filter
           const isAttendanceTeacher = classData.attendanceTeacher?._id.toString() === teacherId;
@@ -319,7 +284,9 @@ const getAssignmentsByTeacher = async (req, res) => {
             subjectId: { _id: subject._id, name: subject.name },
             day: ta.day || 'N/A',
             time: ta.time || 'N/A',
-            canMarkAttendance, // Add flag to indicate if teacher can mark attendance
+            canMarkAttendance,
+            attendanceTeacher: classData.attendanceTeacher || null,
+            substituteAttendanceTeachers: classData.substituteAttendanceTeachers || [],
           });
         }
       }
@@ -330,7 +297,6 @@ const getAssignmentsByTeacher = async (req, res) => {
       const selectedDate = new Date(date);
       const dayOfWeek = selectedDate.toLocaleString('en-US', { weekday: 'long' });
       // Filter assignments based on day if applicable (requires day field in teacherAssignments)
-      // This is optional and can be adjusted based on your timetable logic
     }
 
     res.status(200).json(assignments);
@@ -339,6 +305,7 @@ const getAssignmentsByTeacher = async (req, res) => {
   }
 };
 
+// ✅ Assign Subject to Class
 const assignSubjectToClass = async (req, res) => {
   const { classId, subjectId, teacherId, academicYearId } = req.body;
 
@@ -399,6 +366,7 @@ const assignSubjectToClass = async (req, res) => {
   }
 };
 
+// ✅ Update Attendance Teachers
 const updateAttendanceTeachers = async (req, res, next) => {
   try {
     const { classId, attendanceTeacher, substituteAttendanceTeachers } = req.body;
@@ -414,18 +382,18 @@ const updateAttendanceTeachers = async (req, res, next) => {
     }
 
     if (attendanceTeacher) {
-      const teacher = await Teacher.findById(attendanceTeacher);
+      const teacher = await Teacher.findOne({ _id: attendanceTeacher, status: true });
       if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
-        throw new APIError('Invalid attendance teacher or teacher not in this school', 400);
+        throw new APIError('Invalid attendance teacher, teacher not active, or teacher not in this school', 400);
       }
       classData.attendanceTeacher = attendanceTeacher;
     }
 
     if (substituteAttendanceTeachers && Array.isArray(substituteAttendanceTeachers)) {
       for (const teacherId of substituteAttendanceTeachers) {
-        const teacher = await Teacher.findById(teacherId);
+        const teacher = await Teacher.findOne({ _id: teacherId, status: true });
         if (!teacher || teacher.schoolId.toString() !== schoolId.toString()) {
-          throw new APIError('Invalid substitute teacher or teacher not in this school', 400);
+          throw new APIError('Invalid substitute teacher, teacher not active, or teacher not in this school', 400);
         }
       }
       classData.substituteAttendanceTeachers = substituteAttendanceTeachers;
@@ -443,14 +411,15 @@ const updateAttendanceTeachers = async (req, res, next) => {
   }
 };
 
+// ✅ Get Teachers by School ID
 const getTeachersBySchoolId = async (req, res) => {
   try {
-    const { schoolId } = req.params; // ✅ Get schoolId from request params
+    const { schoolId } = req.params;
 
-    const teachers = await Teacher.find({ schoolId }).select('-__v');
+    const teachers = await Teacher.find({ schoolId, status: true }).select('-__v');
 
     if (!teachers.length) {
-      return res.status(404).json({ message: 'No teachers found for this school' });
+      return res.status(404).json({ message: 'No active teachers found for this school' });
     }
 
     res.status(200).json(teachers);
@@ -458,7 +427,6 @@ const getTeachersBySchoolId = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 module.exports = {
   createClass,

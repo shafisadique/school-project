@@ -1,33 +1,67 @@
 const auditLogs = require('../../models/auditLogs');
-const pendingSchool = require('../../models/pendingSchool');
 const School = require('../../models/school');
+const pendingSchool = require('../../models/pendingSchool');
 const mongoose = require('mongoose'); // ✅ Added
-const subscription = require('../../models/subscription');
+const User = require('../../models/user'); // Added
+const academicyear = require('../../models/academicyear');
 
-// ✅ Add a new school
+// Lazy load Subscription to avoid circular dependency
+let SubscriptionModel = null;
+
 const addSchool = async (req, res) => {
   const { name, address, mobileNo, email, contactPerson, website, activeAcademicYear } = req.body;
 
   try {
-    // Validate required fields
     if (!name || !address || !mobileNo || !email || !activeAcademicYear) {
       return res.status(400).json({ message: 'Name, address, mobileNo, email, and activeAcademicYear are required' });
     }
 
-    const school = new School({ 
-      name, 
-      address,
-      mobileNo,
-      email,
-      contactPerson: contactPerson || {}, // Optional, defaults to empty object
-      website: website || '', // Optional
-      activeAcademicYear,
-      createdBy: req.user._id,
-      status: true // Default to active
-    });
+    if (!mongoose.Types.ObjectId.isValid(activeAcademicYear)) {
+      return res.status(400).json({ message: 'Invalid activeAcademicYear ID' });
+    }
 
-    await school.save();
-    res.status(201).json({ message: 'School added successfully', school });
+    const existingSchool = await School.findOne({ email });
+    if (existingSchool) {
+      return res.status(400).json({ message: 'Email is already associated with another school' });
+    }
+
+    const academicYear = await AcademicYear.findById(activeAcademicYear);
+    if (!academicYear) {
+      return res.status(400).json({ message: 'Active academic year not found' });
+    }
+
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const school = new School({ 
+          name, 
+          address,
+          mobileNo,
+          email,
+          contactPerson: contactPerson || {},
+          website: website || '',
+          activeAcademicYear,
+          createdBy: req.user._id,
+          status: true
+        });
+
+        await school.save({ session });
+
+        // Create a trial subscription automatically
+        const SubscriptionModel = require('../../models/subscription');
+        const subscription = new SubscriptionModel({
+          schoolId: school._id,
+          planType: 'trial',
+          status: 'active',
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30-day trial
+        });
+        await subscription.save({ session });
+
+        res.status(201).json({ message: 'School added successfully', school, subscription });
+      });
+    } finally {
+      await session.endSession();
+    }
   } catch (err) {
     res.status(500).json({ message: 'Error adding school', error: err.message });
   }
@@ -57,13 +91,84 @@ const getSchoolById = async (req, res) => {
 };
 
 const requestSchool = async (req, res) => {
+  const { name, address, adminEmail, adminName } = req.body;
+
   try {
-    const { name, email, mobileNo, address } = req.body;
-    const pendingSchool = new pendingSchool({ name, email, mobileNo, address });
-    await pendingSchool.save();
-    res.status(201).json({ message: 'School request submitted', data: { id: pendingSchool._id } });
+    // Check if adminEmail exists or create a new user
+    let admin = await User.findOne({ email: adminEmail });
+    if (!admin) {
+      admin = new User({
+        name: adminName,
+        email: adminEmail,
+        role: 'pending-admin',
+        password: 'temp_password',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      await admin.save();
+    } else if (admin.role !== 'pending-admin') {
+      return res.status(400).json({ message: 'Email is already associated with another role' });
+    }
+
+    // Create school request
+    const school = new School({
+      name,
+      address,
+      adminId: admin._id,
+      status: 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    await school.save();
+
+    res.status(201).json({ message: 'School request submitted successfully', schoolId: school._id });
   } catch (err) {
-    res.status(500).json({ message: 'Error submitting request', error: err.message });
+    res.status(500).json({ message: 'Error requesting school', error: err.message });
+  }
+};
+
+const updateSubscription = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const { schoolId, planType, expiresAt } = req.body;
+      if (!SubscriptionModel) SubscriptionModel = require('../../models/subscription'); // Load only if null
+
+      if (!schoolId || !planType) {
+        return res.status(400).json({ message: 'schoolId and planType are required' });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(schoolId)) {
+        return res.status(400).json({ message: 'Invalid schoolId' });
+      }
+
+      if (!['trial', 'basic', 'premium'].includes(planType)) {
+        return res.status(400).json({ message: 'Invalid plan type' });
+      }
+
+      const subscription = await SubscriptionModel.findOne({ schoolId }).session(session);
+      if (!subscription) {
+        return res.status(404).json({ message: 'Subscription not found' });
+      }
+
+      subscription.planType = planType;
+      subscription.expiresAt = expiresAt ? new Date(expiresAt) : new Date(Date.now() + (planType === 'trial' ? 30 : planType === 'basic' ? 365 : 730) * 24 * 60 * 60 * 1000);
+      subscription.status = 'active';
+      await subscription.save({ session });
+
+      await new auditLogs({
+        userId: req.user.id,
+        action: 'update_subscription',
+        details: { schoolId, planType, expiresAt: subscription.expiresAt }
+      }).save({ session });
+
+      res.status(200).json({ message: 'Subscription updated successfully', subscription });
+    });
+  } catch (err) {
+    console.error('Error updating subscription:', err);
+    res.status(err.status || 500).json({ message: err.message || 'Error updating subscription' });
+  } finally {
+    await session.endSession();
   }
 };
 
@@ -72,28 +177,30 @@ const approveSchoolRequest = async (req, res) => {
   try {
     await session.withTransaction(async () => {
       const { pendingSchoolId, planType } = req.body;
-      const pendingSchool = await PendingSchool.findById(pendingSchoolId).session(session);
-      if (!pendingSchool || pendingSchool.status !== 'pending') {
+      if (!SubscriptionModel) SubscriptionModel = require('../../models/subscription'); // Load only if null
+
+      const pendingSchoolDoc = await pendingSchool.findById(pendingSchoolId).session(session);
+      if (!pendingSchoolDoc || pendingSchoolDoc.status !== 'pending') {
         throw { status: 400, message: 'Invalid or already processed request' };
       }
 
       // Create School document
       const school = new School({
-        name: pendingSchool.name,
-        email: pendingSchool.email,
-        mobileNo: pendingSchool.mobileNo,
-        address: pendingSchool.address,
+        name: pendingSchoolDoc.name,
+        email: pendingSchoolDoc.email,
+        mobileNo: pendingSchoolDoc.mobileNo,
+        address: pendingSchoolDoc.address,
         createdBy: req.user.id,
         status: true
       });
       await school.save({ session });
 
       // Update pending school status
-      pendingSchool.status = 'approved';
-      await pendingSchool.save({ session });
+      pendingSchoolDoc.status = 'approved';
+      await pendingSchoolDoc.save({ session });
 
       // Create trial subscription
-      const subscription = new Subscription({
+      const subscription = new SubscriptionModel({
         schoolId: school._id,
         planType: planType || 'trial',
         status: 'active',
@@ -105,7 +212,7 @@ const approveSchoolRequest = async (req, res) => {
       await new auditLogs({
         userId: req.user.id,
         action: 'approve_school_request',
-        details: { pendingSchoolId, schoolName: pendingSchool.name, planType, schoolId: school._id }
+        details: { pendingSchoolId, schoolName: pendingSchoolDoc.name, planType, schoolId: school._id }
       }).save({ session });
 
       res.status(200).json({ message: 'School request approved', data: { id: pendingSchoolId, schoolId: school._id } });
@@ -136,8 +243,8 @@ const getSchoolByUser = async (req, res) => {
       _id: school._id,
       name: school.name,
       address: school.address,
-      contact: school.mobileNo, // Match frontend 'contact'
-      academicYear: school.activeAcademicYear ? school.activeAcademicYear.year : '', // Adjust if year field exists
+      contact: school.mobileNo,
+      academicYear: school.activeAcademicYear ? school.activeAcademicYear.year : '',
       logo: school.logo || ''
     });
   } catch (err) {
@@ -146,29 +253,24 @@ const getSchoolByUser = async (req, res) => {
   }
 };
 
-
-
 // ✅ Update School
 const updateSchool = async (req, res) => {
   try {
-    const { schoolName, address, mobileNo: contact, email, contactPerson, website, activeAcademicYear, status } = req.body; // Map contact to mobileNo
+    const { schoolName, address, mobileNo: contact, email, contactPerson, website, activeAcademicYear, status } = req.body;
     const { id } = req.params;
 
-    // 1️⃣ Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid School ID' });
     }
 
-    // 2️⃣ Validate academicYear as ObjectId
     if (activeAcademicYear && !mongoose.Types.ObjectId.isValid(activeAcademicYear)) {
       return res.status(400).json({ message: 'Invalid AcademicYear ID' });
     }
 
-    // 3️⃣ Prepare update data
     const updateData = {
       name: schoolName,
       address,
-      mobileNo: contact, // Use mobileNo as per schema
+      mobileNo: contact,
       email,
       contactPerson: contactPerson || undefined,
       website: website || undefined,
@@ -176,11 +278,10 @@ const updateSchool = async (req, res) => {
       status: status !== undefined ? status : true
     };
 
-    // 4️⃣ Update the school
     const updatedSchool = await School.findByIdAndUpdate(
       id,
-      { $set: updateData }, // Use $set to update only provided fields
-      { new: true, runValidators: true, context: 'query' } // Ensure validators run
+      { $set: updateData },
+      { new: true, runValidators: true, context: 'query' }
     );
 
     if (!updatedSchool) {
@@ -189,7 +290,7 @@ const updateSchool = async (req, res) => {
 
     res.status(200).json({ message: 'School updated successfully', school: updatedSchool });
   } catch (err) {
-    console.error('Error updating school:', err.message); // Log the error for debugging
+    console.error('Error updating school:', err.message);
     res.status(500).json({ message: 'Error updating school', error: err.message });
   }
 };
@@ -246,16 +347,13 @@ const uploadSchoolLogo = async (req, res) => {
       return res.status(404).json({ message: 'School not found' });
     }
 
-    school.logo = `/uploads/${req.file.filename}`; // Store relative path
+    school.logo = `/uploads/${req.file.filename}`;
     await school.save();
 
-    const logoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`; // Full URL
-    console.log('Generated logoUrl:', logoUrl); // Debug log
+    const logoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    console.log('Generated logoUrl:', logoUrl);
 
-    res.status(200).json({ 
-      message: 'Logo uploaded successfully', 
-      logoUrl: logoUrl 
-    });
+    res.status(200).json({ message: 'Logo uploaded successfully', logoUrl });
   } catch (err) {
     console.error('Error uploading logo:', err.message);
     res.status(500).json({ message: 'Error uploading logo', error: err.message });
@@ -292,5 +390,6 @@ module.exports = {
   uploadSchoolLogo,
   updateSchoolStatus,
   approveSchoolRequest,
-  requestSchool
+  requestSchool,
+  updateSubscription
 };

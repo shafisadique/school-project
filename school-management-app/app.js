@@ -12,7 +12,7 @@ const fs = require('fs');
 dotenv.config();
 const app = express();
 
-require('./utils/attendanceCron');
+
 const uploadsDir = path.join(__dirname, 'Uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -20,7 +20,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit to 100 requests per window
+  max: 40, 
   message: 'Too many requests from this IP, please try again later.'
 });
 
@@ -31,6 +31,8 @@ app.use(cors({
   origin: allowedOrigins, // e.g., ['http://localhost:4200']
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Length'], // Expose headers if needed
+  optionsSuccessStatus: 200,
   credentials: true
 }));
 
@@ -45,6 +47,7 @@ app.use(helmet({
     }
   }
 }));
+
 app.set('trust proxy', 1); // Trust proxy for x-forwarded-proto
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
@@ -62,8 +65,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ✅ Static File Serving (Verify the uploads directory exists)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use('/uploads', express.static(path.join(__dirname, 'Uploads'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+      res.set('Content-Type', 'image/' + path.split('.').pop());
+    }
+  }
+}));
 // ✅ MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
@@ -89,25 +97,27 @@ const resultRoutes = require('./routes/resultRouter');
 const academicYearRoute = require('./routes/academicYearRoutes');
 const transporatationRoute = require('./routes/routeRouter');
 const teacherAttendanceRoutes = require('./routes/teacherAttendanceRouters');
-
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
 // ✅ Middleware
 const authMiddleware = require('./middleware/authMiddleware');
-const studentDashboard = require('./routes/admin-dashboard/student-dashboard.routes')
+const studentDashboard = require('./routes/admin-dashboard/dashboard.routes');
+const { isAdmin } = require('./middleware/roleMiddleware');
 // ✅ API Endpoints
 app.use('/api/auth', authRoutes); 
 app.use('/api/schools', authMiddleware, schoolRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/students', authMiddleware, studentRoutes);
-app.use('/api/fees', authMiddleware, feeRoutes);
+app.use('/api/fees', authMiddleware,isAdmin, feeRoutes);
 app.use('/api/class-subject-management', authMiddleware, classAndSubjectRoutes);
-app.use('/api/holidays', holidayRoutes);
-app.use('/api/timetable', timetableRoutes);
-app.use('/api/academicyear', academicYearRoute);
+app.use('/api/holidays', authMiddleware,holidayRoutes);
+app.use('/api/timetable',authMiddleware, timetableRoutes);
+app.use('/api/academicyear',authMiddleware, academicYearRoute);
 app.use('/api/teachers', authMiddleware, teacherRoutes);
 app.use('/api/attendance', StudentAttendanceRoutes);
 app.use('/api/teacher-absences', teacherAbsenceRoutes);
 app.use('/api/teacher-attendance',teacherAttendanceRoutes);
 app.use('/api/exams',authMiddleware, exam);
+app.use('/api/subscriptions', authMiddleware, subscriptionRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/routes',transporatationRoute);
 app.use('/api/admin', studentDashboard);

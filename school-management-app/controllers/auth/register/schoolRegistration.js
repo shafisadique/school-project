@@ -3,15 +3,17 @@ const mongoose = require('mongoose');
 const User = require('../../../models/user');
 const School = require('../../../models/school');
 const AcademicYear = require('../../../models/academicyear');
-const subscription = require('../../../models/subscription');
+const subscriptionSchema = require('../../../models/subscription');
 const pendingSchool = require('../../../models/pendingSchool');
+const auditLogsSchema = require('../../../models/auditLogs');
 
 
 const registerSchool = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      const { pendingSchoolId, schoolName, adminName, username, email, password, mobileNo, address } = req.body;
+      const { schoolName, adminName, username, email, password, mobileNo, address } = req.body;
+      const pendingSchoolId = req.body.pendingSchoolId; // Optional
 
       // Validate pending school request if provided
       let pendingSchool = null;
@@ -90,34 +92,23 @@ const registerSchool = async (req, res) => {
         defaultYear.save({ session })
       ]);
 
-      // Update subscription and pending school within transaction
+      // Always create a trial subscription
+      const subscription = new subscriptionSchema({
+        schoolId: newSchool._id,
+        planType: 'trial',
+        status: 'active',
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30-day trial
+      });
+      await subscription.save({ session });
+
+      // Update pending school if provided
       if (pendingSchoolId) {
-        const subscription = await Subscription.findOne({
-          schoolId: null,
-          status: 'active',
-          createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } // Recent subscription
-        }).session(session);
-
-        if (subscription) {
-          subscription.schoolId = newSchool._id;
-          await subscription.save({ session });
-        } else {
-          // Create a default trial subscription if none exists
-          const newSubscription = new Subscription({
-            schoolId: newSchool._id,
-            planType: 'trial',
-            status: 'active',
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30-day trial
-          });
-          await newSubscription.save({ session });
-        }
-
         pendingSchool.status = 'completed';
         await pendingSchool.save({ session });
       }
 
       // Log school creation
-      await new AuditLog({
+      await new auditLogsSchema({
         userId: req.user.id,
         action: 'create_school',
         details: { schoolId: newSchool._id, schoolName, pendingSchoolId }
@@ -128,7 +119,8 @@ const registerSchool = async (req, res) => {
         data: {
           schoolId: newSchool._id,
           academicYear: defaultYear.name,
-          userId: adminUser._id
+          userId: adminUser._id,
+          subscriptionId: subscription._id // Include subscription ID in response
         }
       });
     });

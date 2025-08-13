@@ -2,12 +2,14 @@ const TeacherAbsence = require('../../models/teacherAbsence');
 const Holiday = require('../../models/holiday');
 const APIError = require('../../utils/apiError');
 const School = require('../../models/school');
-const mongoose =require('mongoose')
+const mongoose =require('mongoose');
+const teacherSchema = require('../../models/teacher');
+const teacherAttendance = require('../../models/teacherAttendance');
 
 exports.addAbsence = async (req, res, next) => {
   try {
     const { teacherId, date, reason, substituteTeacherId, status } = req.body;
-    const schoolId = req.body.schoolId || req.user.schoolId; // Use user schoolId if not provided
+    const schoolId = req.body.schoolId || req.user.schoolId;
 
     if (!teacherId || !mongoose.Types.ObjectId.isValid(teacherId)) {
       throw new APIError('Valid teacherId is required', 400);
@@ -19,7 +21,6 @@ exports.addAbsence = async (req, res, next) => {
     const absenceDate = new Date(date);
     absenceDate.setHours(0, 0, 0, 0);
 
-    // Check weekly holiday
     const school = await School.findById(schoolId);
     if (!school) throw new APIError('School not found', 404);
     const weeklyHolidayDay = school.weeklyHolidayDay;
@@ -28,7 +29,6 @@ exports.addAbsence = async (req, res, next) => {
       throw new APIError(`Cannot apply for absence on ${weeklyHolidayDay} as it is a weekly holiday`, 400);
     }
 
-    // Check specific holiday
     const holiday = await Holiday.findOne({ schoolId, date: absenceDate });
     if (holiday) {
       throw new APIError('Cannot apply for absence on a holiday', 400);
@@ -40,7 +40,8 @@ exports.addAbsence = async (req, res, next) => {
       date: absenceDate,
       reason,
       substituteTeacherId: substituteTeacherId ? new mongoose.Types.ObjectId(substituteTeacherId) : null,
-      status: status || 'Pending' // Default to Pending if not provided
+      status: status || 'Pending',
+      isTeacherApplied: true // Explicitly set
     });
 
     const savedAbsence = await absence.save();
@@ -183,8 +184,8 @@ exports.getAbsences = async (req, res, next) => {
 exports.updateAbsence = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // Only status is required
-    const schoolId = req.body.schoolId || req.user.schoolId; // Use user schoolId if not provided
+    const { status } = req.body;
+    const schoolId = req.body.schoolId || req.user.schoolId;
 
     if (!status) {
       throw new APIError('Status is required', 400);
@@ -197,40 +198,78 @@ exports.updateAbsence = async (req, res, next) => {
     session.startTransaction();
 
     try {
-      // Fetch the current absence to check previous status
       const absence = await TeacherAbsence.findOne({ _id: id, schoolId }).session(session);
       if (!absence) {
         throw new APIError('Absence not found or unauthorized', 404);
       }
 
-      // Update only the status (other fields remain unchanged unless provided)
-      const updatedAbsence = await TeacherAbsence.findOneAndUpdate(
-        { _id: id, schoolId },
-        { status },
-        { new: true, runValidators: true, session }
-      );
+      if (absence.isTeacherApplied) {
+        // Teacher-applied leave: Update status and deduct leave balance if Approved
+        const updatedAbsence = await TeacherAbsence.findOneAndUpdate(
+          { _id: id, schoolId },
+          { status },
+          { new: true, runValidators: true, session }
+        );
 
-      if (!updatedAbsence) {
-        throw new APIError('Failed to update absence', 400);
-      }
+        if (status === 'Approved' && absence.status !== 'Approved') {
+          const teacher = await teacherSchema.findById(absence.teacherId).session(session);
+          if (!teacher) throw new APIError('Teacher not found', 404);
 
-      // Handle leave balance deduction for Approved status change
-      if (status === 'Approved' && absence.status !== 'Approved') {
-        const Teacher = require('../../models/teacher'); // Import Teacher model
-        const teacher = await Teacher.findById(absence.teacherId).session(session);
-        if (!teacher) throw new APIError('Teacher not found', 404);
+          const leaveDays = 1;
+          if (teacher.leaveBalance < leaveDays) {
+            throw new APIError('Insufficient leave balance', 400);
+          }
 
-        const leaveDays = 1;
-        if (teacher.leaveBalance < leaveDays) {
-          throw new APIError('Insufficient leave balance', 400);
+          teacher.leaveBalance -= leaveDays;
+          await teacher.save({ session });
         }
 
-        teacher.leaveBalance -= leaveDays;
-        await teacher.save({ session });
-      }
+        await session.commitTransaction();
+        res.status(200).json(updatedAbsence);
+      } else {
+        // Auto-generated absence (forgot to mark attendance)
+        if (status === 'Approved') {
+          // Teacher was present but forgot to mark attendance
+          const attendance = await teacherAttendance.findOne({
+            teacherId: absence.teacherId,
+            schoolId,
+            date: absence.date,
+          }).session(session);
+          if (attendance) {
+            attendance.status = 'Present';
+            attendance.remarks = 'Manually approved by admin (forgot to mark attendance)';
+            await attendance.save({ session });
+          } else {
+            throw new APIError('Corresponding attendance record not found', 404);
+          }
 
-      await session.commitTransaction();
-      res.status(200).json(updatedAbsence);
+          // Delete the absence record since the teacher was present
+          await TeacherAbsence.deleteOne({ _id: id, schoolId }).session(session);
+        } else if (status === 'Rejected') {
+          // Confirm absence, mark as Approved with Unpaid leave
+          const updatedAbsence = await TeacherAbsence.findOneAndUpdate(
+            { _id: id, schoolId },
+            { status: 'Approved', leaveType: 'Unpaid', reason: 'Confirmed absence (forgot to mark attendance)' },
+            { new: true, runValidators: true, session }
+          );
+
+          const teacher = await Teacher.findById(absence.teacherId).session(session);
+          if (!teacher) throw new APIError('Teacher not found', 404);
+
+          const leaveDays = 1;
+          if (teacher.leaveBalance < leaveDays) {
+            throw new APIError('Insufficient leave balance', 400);
+          }
+
+          teacher.leaveBalance -= leaveDays;
+          await teacher.save({ session });
+        } else {
+          throw new APIError('Invalid status for auto-generated absence', 400);
+        }
+
+        await session.commitTransaction();
+        res.status(200).json({ message: `Absence ${status.toLowerCase()} successfully` });
+      }
     } catch (error) {
       await session.abortTransaction();
       throw error;
@@ -264,7 +303,73 @@ exports.deleteAbsence = async (req, res, next) => {
 };
 
 
-exports.getPendingAbsences = async (req, res, next) => {
+// exports.getPendingTeacherLeaveApplications = async (req, res, next) => {
+
+//   try {
+//     const { schoolId } = req.user; // Assuming schoolId is in req.user from authMiddleware
+//     const { startDate, endDate, teacherId } = req.query;
+
+//     if (!schoolId || !mongoose.Types.ObjectId.isValid(schoolId)) {
+//       throw new APIError('Valid schoolId is required', 400);
+//     }
+
+//     const matchStage = { schoolId: new mongoose.Types.ObjectId(schoolId), status: 'Pending' };
+//     if (teacherId && mongoose.Types.ObjectId.isValid(teacherId)) {
+//       matchStage.teacherId = new mongoose.Types.ObjectId(teacherId);
+//     }
+//     if (startDate && endDate) {
+//       matchStage.date = {
+//         $gte: new Date(startDate),
+//         $lte: new Date(endDate)
+//       };
+//     }
+
+//     const absences = await TeacherAbsence.aggregate([
+//       { $match: matchStage },
+//       {
+//         $lookup: {
+//           from: 'teachers',
+//           localField: 'teacherId',
+//           foreignField: '_id',
+//           as: 'teacherDetails' 
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: 'teachers',
+//           localField: 'substituteTeacherId',
+//           foreignField: '_id',
+//           as: 'substituteDetails'
+//         }
+//       },
+//       {
+//         $project: {
+//           _id: 1,
+//           teacherId: { $arrayElemAt: ['$teacherDetails', 0] }, // Return full teacher object
+//           schoolId: 1,
+//           date: 1,
+//           reason: 1,
+//           substituteTeacherId: { $arrayElemAt: ['$substituteDetails', 0] }, // Return full substitute teacher object
+//           status: 1,
+//           createdAt: 1,
+//           updatedAt: 1
+//         }
+//       },
+//       { $sort: { date: 1 } }
+//     ]);
+
+//     console.log('Pending teacher leave applications:', absences);
+//     res.status(200).json({
+//       success: true,
+//       count: absences.length,
+//       data: absences
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+exports.getPendingTeacherLeaveApplications = async (req, res, next) => {
   try {
     const { schoolId } = req.user; // Assuming schoolId is in req.user from authMiddleware
     const { startDate, endDate, teacherId } = req.query;
@@ -273,7 +378,11 @@ exports.getPendingAbsences = async (req, res, next) => {
       throw new APIError('Valid schoolId is required', 400);
     }
 
-    const matchStage = { schoolId: new mongoose.Types.ObjectId(schoolId), status: 'Pending' };
+    const matchStage = { 
+      schoolId: new mongoose.Types.ObjectId(schoolId), 
+      status: 'Pending',
+      isTeacherApplied: true // Only teacher-applied leaves
+    };
     if (teacherId && mongoose.Types.ObjectId.isValid(teacherId)) {
       matchStage.teacherId = new mongoose.Types.ObjectId(teacherId);
     }
@@ -305,12 +414,27 @@ exports.getPendingAbsences = async (req, res, next) => {
       {
         $project: {
           _id: 1,
-          teacherId: { $arrayElemAt: ['$teacherDetails.name', 0] },
+          teacherId: {
+            _id: { $arrayElemAt: ['$teacherDetails._id', 0] },
+            name: { $arrayElemAt: ['$teacherDetails.name', 0] },
+            email: { $arrayElemAt: ['$teacherDetails.email', 0] }
+          },
           schoolId: 1,
           date: 1,
           reason: 1,
-          substituteTeacherId: { $arrayElemAt: ['$substituteDetails.name', 0] },
+          substituteTeacherId: {
+            $cond: {
+              if: { $gt: [{ $size: '$substituteDetails' }, 0] },
+              then: {
+                _id: { $arrayElemAt: ['$substituteDetails._id', 0] },
+                name: { $arrayElemAt: ['$substituteDetails.name', 0] },
+                email: { $arrayElemAt: ['$substituteDetails.email', 0] }
+              },
+              else: null
+            }
+          },
           status: 1,
+          isTeacherApplied: 1,
           createdAt: 1,
           updatedAt: 1
         }
@@ -318,7 +442,92 @@ exports.getPendingAbsences = async (req, res, next) => {
       { $sort: { date: 1 } }
     ]);
 
-    console.log('Pending absences:', absences);
+    console.log('Pending teacher-applied leaves:', absences);
+    res.status(200).json({
+      success: true,
+      count: absences.length,
+      data: absences
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// New endpoint for auto-generated absences
+exports.getPendingAutoAbsences = async (req, res, next) => {
+  try {
+    const { schoolId } = req.user; // Assuming schoolId is in req.user from authMiddleware
+    const { startDate, endDate, teacherId } = req.query;
+
+    if (!schoolId || !mongoose.Types.ObjectId.isValid(schoolId)) {
+      throw new APIError('Valid schoolId is required', 400);
+    }
+
+    const matchStage = { 
+      schoolId: new mongoose.Types.ObjectId(schoolId), 
+      status: 'Pending',
+      isTeacherApplied: false // Only auto-generated absences
+    };
+    if (teacherId && mongoose.Types.ObjectId.isValid(teacherId)) {
+      matchStage.teacherId = new mongoose.Types.ObjectId(teacherId);
+    }
+    if (startDate && endDate) {
+      matchStage.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const absences = await TeacherAbsence.aggregate([
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: 'teachers',
+          localField: 'teacherId',
+          foreignField: '_id',
+          as: 'teacherDetails'
+        }
+      },
+      {
+        $lookup: {
+          from: 'teachers',
+          localField: 'substituteTeacherId',
+          foreignField: '_id',
+          as: 'substituteDetails'
+        }
+      },
+      {
+        $project: {
+          _id: 1,
+          teacherId: {
+            _id: { $arrayElemAt: ['$teacherDetails._id', 0] },
+            name: { $arrayElemAt: ['$teacherDetails.name', 0] },
+            email: { $arrayElemAt: ['$teacherDetails.email', 0] }
+          },
+          schoolId: 1,
+          date: 1,
+          reason: 1,
+          substituteTeacherId: {
+            $cond: {
+              if: { $gt: [{ $size: '$substituteDetails' }, 0] },
+              then: {
+                _id: { $arrayElemAt: ['$substituteDetails._id', 0] },
+                name: { $arrayElemAt: ['$substituteDetails.name', 0] },
+                email: { $arrayElemAt: ['$substituteDetails.email', 0] }
+              },
+              else: null
+            }
+          },
+          status: 1,
+          isTeacherApplied: 1,
+          createdAt: 1,
+          updatedAt: 1
+        }
+      },
+      { $sort: { date: 1 } }
+    ]);
+
+    console.log('Pending auto-generated absences:', absences);
     res.status(200).json({
       success: true,
       count: absences.length,

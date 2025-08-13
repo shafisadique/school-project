@@ -1,10 +1,9 @@
 const isSuperAdmin = (req, res, next) => {
-    if (req.user.role === 'superadmin') {
-      next();
-    } else {
-      res.status(403).json({ message: 'Access denied: Super Admin only' });
-    }
-  };
+  if (!req.user || req.user.role !== 'superadmin') {
+    return res.status(403).json({ message: 'Access denied: Super Admin only' });
+  }
+  next();
+};
   
   const isAdmin = (req, res, next) => {
     if (req.user.role === 'admin') {
@@ -23,7 +22,6 @@ const isSuperAdmin = (req, res, next) => {
         message: "Authentication required"
       });
     }
-    console.log('isTeacher check - User role:', req.user.role); // Log role at this point
     if (req.user.role !== 'teacher') {
       return res.status(403).json({
         success: false,
@@ -63,13 +61,9 @@ const isSuperAdmin = (req, res, next) => {
    
   const externalRoleMiddleware = (...allowedRoles) => {
   return (req, res, next) => {
-    console.log('Allowed roles:', allowedRoles); // Debug the raw input
     const flattenedRoles = Array.isArray(allowedRoles[0]) ? allowedRoles[0] : allowedRoles;
-    console.log('Flattened allowed roles:', flattenedRoles);
     const userRole = req.user?.role; // Safely access role
-    console.log('User role:', userRole, typeof userRole); // Log type to debug
     if (!req.user || !flattenedRoles.includes(String(userRole))) { // Convert to string if needed
-      console.log('Access denied due to role mismatch');
       return res.status(403).json({ message: 'Access denied: Insufficient permissions' });
     }
     next();

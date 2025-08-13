@@ -14,6 +14,12 @@ const teacherAttendanceSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+    academicYearId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'AcademicYear',
+    required: true,
+    index: true
+  },
   date: {
     type: Date,
     required: true,

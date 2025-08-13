@@ -4,6 +4,8 @@ const invoiceSchema = new mongoose.Schema({
   studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   feeStructureId: { type: mongoose.Schema.Types.ObjectId, ref: 'FeeStructure', required: true },
+  classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class', required: true },
+  className: { type: String, required: true }, 
   academicYear: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear', required: true }, // Added ref: 'AcademicYear'
   month: { type: String, required: true },
   dueDate: { type: Date, required: true },
@@ -20,7 +22,9 @@ const invoiceSchema = new mongoose.Schema({
   totalAmount: { type: Number, required: true },
   paidAmount: { type: Number, default: 0 },
   remainingDue: { type: Number, required: true },
-  discountsApplied: [{ type: String }],
+  discountsApplied: [{name: String,
+    amount: Number,
+    type: String}],
   status: {
     type: String,
     enum: ['Pending', 'Partial', 'Paid', 'Overdue'],

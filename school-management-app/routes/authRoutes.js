@@ -4,7 +4,7 @@ const login = require('../controllers/auth/login');
 const registerTeacher = require('../controllers/auth/register/teacherRegister');
 const registerStudent = require('../controllers/auth/register/studentRegister');
 const { registerSchool, getSchoolById } = require('../controllers/auth/register/schoolRegistration');
-const { approveSchoolRequest,requestSchool } =require('../controllers/school/schoolController');
+const { approveSchoolRequest,requestSchool, updateSubscription } =require('../controllers/school/schoolController');
 const { changePassword, forgotPassword, resetPassword, getProfile, updateProfile, getUsers, updateUser } = require('../controllers/user/user');
 const validateRequest = require('../middleware/validateRequest');
 const authMiddleware = require('../middleware/authMiddleware');
@@ -22,16 +22,16 @@ const paymentLimiter = rateLimiter({
   router.post('/login', login);
 
 // Public endpoint for school requests
-  router.post('/request-school', validateRequest([
-    body('name').notEmpty().withMessage('School name is required'),
-    body('email').isEmail().withMessage('Valid email is required'),
-    body('mobileNo').matches(/^\+?[1-9]\d{9,14}$/).withMessage('Valid mobile number is required'),
-    body('address.street').notEmpty().withMessage('Street is required'),
-    body('address.city').notEmpty().withMessage('City is required'),
-    body('address.state').notEmpty().withMessage('State is required'),
-    body('address.country').notEmpty().withMessage('Country is required'),
-    body('address.postalCode').notEmpty().withMessage('Postal code is required')
-  ]), requestSchool);
+  // router.post('/request-school', validateRequest([
+  //   body('name').notEmpty().withMessage('School name is required'),
+  //   body('email').isEmail().withMessage('Valid email is required'),
+  //   body('mobileNo').matches(/^\+?[1-9]\d{9,14}$/).withMessage('Valid mobile number is required'),
+  //   body('address.street').notEmpty().withMessage('Street is required'),
+  //   body('address.city').notEmpty().withMessage('City is required'),
+  //   body('address.state').notEmpty().withMessage('State is required'),
+  //   body('address.country').notEmpty().withMessage('Country is required'),
+  //   body('address.postalCode').notEmpty().withMessage('Postal code is required')
+  // ]), requestSchool);
 
 // Superadmin endpoint for approving requests
   router.post('/approve-school-request', isSuperAdmin, validateRequest([
@@ -40,7 +40,7 @@ const paymentLimiter = rateLimiter({
   ]), approveSchoolRequest);
 
 // ✅ Register School (No Auth Required)
-  router.post('/register-school',isSuperAdmin, validateRequest([
+  router.post('/register-school',authMiddleware,isSuperAdmin, validateRequest([
     body('schoolName').notEmpty().withMessage('School name is required'),
     body('adminName').notEmpty().withMessage('Admin name is required'),
     body('username').notEmpty().withMessage('Username is required'),
@@ -136,5 +136,13 @@ router.get('/users', authMiddleware, getUsers);
 router.patch('/user/:userId', authMiddleware, validateRequest([
   body('additionalInfo').optional().isObject().withMessage('Additional info must be an object')
 ]), updateUser);
+
+router.post('/subscription/update', authMiddleware, isSuperAdmin, validateRequest([
+  body('schoolId').notEmpty().withMessage('School ID is required'),
+  body('planType').isIn(['trial', 'basic', 'premium']).withMessage('Invalid plan type'),
+  body('expiresAt').optional().isISO8601().withMessage('Invalid date format')
+]), updateSubscription);
+
+
 
 module.exports = router;

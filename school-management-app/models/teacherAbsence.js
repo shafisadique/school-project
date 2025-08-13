@@ -37,6 +37,9 @@ const teacherAbsenceSchema = new mongoose.Schema(
       enum: ['Casual', 'Sick', 'Unpaid', null],
       default: null,
     },
+    isTeacherApplied: { type: Boolean, default: true }, // Ensure this is set
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
   },
   {
     timestamps: true,

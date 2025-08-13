@@ -24,6 +24,15 @@ const schoolSchema = new mongoose.Schema({
     unique: true,
     match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email address']
   },
+  smtpConfig: {
+    host: { type: String, default: 'shafisadique123@gmail.com' },
+    port: { type: Number, default: 465 },
+    secure: { type: Boolean, default: true },
+    auth: {
+      user: { type: String }, // School-specific email
+      pass: { type: String }  // App Password or API key
+    }
+  },
   contactPerson: { // Added contact person details
     name: String,
     designation: String
@@ -46,6 +55,7 @@ const schoolSchema = new mongoose.Schema({
     enum: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
     default: 'Sunday' // Default to Sunday if not specified
   },
+  smsPackActive: { type: Boolean, default: false },
   status: { // Added status to track active/inactive schools
     type: Boolean,
     default: true

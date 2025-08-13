@@ -43,12 +43,12 @@ router.get('/get-fee-structure', authMiddleware, getFeeStructures);
 // Invoice Generation
 router.post('/generate', authMiddleware, async (req, res) => {
   try {
-    const { schoolId, classId, className, month, academicYearId, customSchedules, isExamMonth, studentId } = req.body;
+    const { schoolId, classId, className, month, academicYearId, customSchedules, isExamMonth, studentId, miscalculationStudents } = req.body;
     if (!schoolId || !classId || !className || !month || !academicYearId) {
       return res.status(400).json({ message: 'Missing required fields: schoolId, classId, className, month, and academicYearId are required.' });
     }
 
-    const invoices = await invoiceService.generateInvoices(schoolId, classId, className, month, academicYearId, customSchedules, isExamMonth, studentId);
+    const invoices = await invoiceService.generateInvoices(schoolId, classId, className, month, academicYearId, customSchedules, isExamMonth, studentId, miscalculationStudents);
     res.status(201).json({ message: 'Invoices generated successfully', data: invoices });
   } catch (error) {
     res.status(500).json({ message: error.message });

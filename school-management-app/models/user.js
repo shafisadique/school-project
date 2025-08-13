@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
   resetToken: { type: String },
   resetTokenExpires: { type: Date },
+  status: { type: Boolean, default: true },
   additionalInfo: { type: mongoose.Schema.Types.Mixed, default: {} } // Flexible field for additional data
 }, { timestamps: true });
 
