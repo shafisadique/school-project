@@ -7,13 +7,14 @@ export type AbsenceStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export interface TeacherAbsence {
   _id?: string;
-  teacherId: string | { _id: string; name: string; email: string };
+  teacherId: { _id: string; name: string; email: string } | any;
   date: string | Date;
   reason: string;
-  substituteTeacherId?: string | { _id: string; name: string; email: string } | null;
+  substituteTeacherId?: { _id: string; name: string; email: string } | string | null;
   status: AbsenceStatus;
   schoolId: string;
-  createdAt?:any
+  createdAt?: Date;
+  isTeacherApplied: boolean;
 }
 
 @Injectable({
@@ -24,17 +25,17 @@ export class TeacherAbsenceService {
 
   constructor(private http: HttpClient) {}
 
-  getAbsences(params: { schoolId: string } & any): Observable<TeacherAbsence[]> {
+  getAbsences(params: { schoolId: string } & any): Observable<{ data: TeacherAbsence[] }> {
     const { schoolId, ...queryParams } = params;
-    return this.http.get<TeacherAbsence[]>(`${this.apiUrl}/list/${schoolId}`, { params: queryParams });
+    return this.http.get<{ data: TeacherAbsence[] }>(`${this.apiUrl}/list/${schoolId}`, { params: queryParams });
   }
 
-  addAbsence(absence: TeacherAbsence): Observable<TeacherAbsence> {
-    return this.http.post<TeacherAbsence>(`${this.apiUrl}/add`, absence);
+  addAbsence(absence: TeacherAbsence): Observable<{ data: TeacherAbsence }> {
+    return this.http.post<{ data: TeacherAbsence }>(`${this.apiUrl}/add`, absence);
   }
 
-  updateAbsence(id: string, absence: Partial<TeacherAbsence>): Observable<TeacherAbsence> {
-    return this.http.put<TeacherAbsence>(`${this.apiUrl}/update/${id}`, absence);
+  updateAbsence(id: string, absence: Partial<TeacherAbsence>): Observable<{ data: TeacherAbsence }> {
+    return this.http.put<{ data: TeacherAbsence }>(`${this.apiUrl}/update/${id}`, absence);
   }
 
   deleteAbsence(id: string, schoolId: string): Observable<any> {
@@ -44,14 +45,20 @@ export class TeacherAbsenceService {
   checkHoliday(schoolId: string, date: string): Observable<any[]> {
     return this.http.get<any[]>(`${environment.apiUrl}/api/holidays/check/${schoolId}`, { params: { date } });
   }
-  getPendingAbsences(schoolId: string, startDate?: string, endDate?: string, teacherId?: string): Observable<any> {
-    let url = `${this.apiUrl}/pending?schoolId=${schoolId}`;
-    if (startDate && endDate) {
-      url += `&startDate=${startDate}&endDate=${endDate}`;
-    }
-    if (teacherId) {
-      url += `&teacherId=${teacherId}`;
-    }
-    return this.http.get<any>(url);
+
+  getPendingAbsences(schoolId: string, startDate?: string, endDate?: string, teacherId?: string): Observable<{ data: TeacherAbsence[] }> {
+    let params: any = { schoolId };
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (teacherId) params.teacherId = teacherId;
+    return this.http.get<{ data: TeacherAbsence[] }>(`${this.apiUrl}/pending-applications`, { params });
+  }
+
+  getPendingAutoAbsences(schoolId: string, startDate?: string, endDate?: string, teacherId?: string): Observable<{ data: TeacherAbsence[] }> {
+    let params: any = { schoolId };
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (teacherId) params.teacherId = teacherId;
+    return this.http.get<{ data: TeacherAbsence[] }>(`${this.apiUrl}/pending-auto-absences`, { params });
   }
 }

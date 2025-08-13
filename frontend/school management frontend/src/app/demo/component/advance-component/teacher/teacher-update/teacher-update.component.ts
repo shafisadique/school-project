@@ -11,7 +11,7 @@ import { HttpEventType } from '@angular/common/http';
 @Component({
   selector: 'app-teacher-update',
   imports: [ReactiveFormsModule, CommonModule, CardComponent, NgSelectModule],
-  templateUrl: './teacher-update.component.html', // Create this template
+  templateUrl: './teacher-update.component.html',
   styleUrls: ['./teacher-update.component.scss'],
   standalone: true
 })
@@ -40,38 +40,39 @@ export class TeacherUpdateComponent implements OnInit {
   }
 
   initForm() {
-    this.teacherForm = this.fb.group({
-      name: ['', [Validators.required, Validators.minLength(3)]],
-      username: ['', [Validators.required, Validators.minLength(3)]],
-      email: ['', [Validators.required, Validators.email]],
-      password: [''],
-      phone: ['', [Validators.required, Validators.pattern('^[0-9]{10}$')]],
-      designation: ['', Validators.required],
-      subjects: [[], Validators.required],
-      gender: ['', Validators.required]
-    });
-  }
+  this.teacherForm = this.fb.group({
+    name: ['', [Validators.required, Validators.minLength(3)]],
+    username: [''], // Make optional by removing required validator
+    email: ['', [Validators.required, Validators.email]],
+    password: [''],
+    phone: ['', [Validators.required, Validators.pattern('^[0-9]{10}$')]],
+    designation: ['', Validators.required],
+    subjects: [[], Validators.required],
+    gender: ['', Validators.required]
+  });
+}
 
-  loadTeacherDetails() {
-    this.teacherService.getTeacherById(this.teacherId).subscribe({
-      next: (teacher: any) => {
-        this.teacherForm.patchValue({
-          name: teacher.name,
-          username: teacher.username,
-          email: teacher.email,
-          phone: teacher.phone,
-          designation: teacher.designation,
-          subjects: teacher.subjects,
-          gender: teacher.gender
-        });
-        this.imagePreview = teacher.profileImage ? `http://localhost:5000/uploads/${teacher.profileImage}` : null;
-      },
-      error: (err) => {
-        this.toastr.error('Failed to load teacher details.', 'Error');
-        console.error(err);
-      }
-    });
-  }
+loadTeacherDetails() {
+  this.teacherService.getTeacher(this.teacherId).subscribe({
+    next: (teacher: any) => {
+      this.teacherForm.patchValue({
+        name: teacher.data.name,
+        username: teacher.data.name || '', // Fallback to name if username is missing
+        email: teacher.data.email,
+        phone: teacher.data.phone,
+        designation: teacher.data.designation,
+        subjects: teacher.data.subjects,
+        gender: teacher.data.gender
+      });
+      this.imagePreview = teacher.data.profileImage ? `http://localhost:5000/Uploads/${teacher.data.profileImage}` : null;
+      console.log(this.imagePreview)
+    },
+    error: (err) => {
+      this.toastr.error('Failed to load teacher details.', 'Error');
+      console.error(err);
+    }
+  });
+}
 
   get f() { return this.teacherForm.controls; }
 
@@ -123,7 +124,7 @@ export class TeacherUpdateComponent implements OnInit {
       next: (event) => {
         if (event.type === HttpEventType.Response) {
           this.toastr.success(event.body.message || 'Teacher updated successfully!', 'Success');
-          this.router.navigate(['/teacher-list']); // Redirect to teacher list or another page
+          this.router.navigate(['/teacher/teacher-details']);
         }
       },
       error: (err) => this.handleServerError(err)

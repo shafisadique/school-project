@@ -9,17 +9,18 @@
           <th>Class</th>
           <th>Email address</th>
           <th>Gender</th>
+        <th>Actions</th>
+
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let teacher of teachers; let i = index">
           <td>{{ i + 1 }}</td>
-          
           <!-- Profile Image & Name -->
           <td class="profile-cell">
             <div class="profile-wrapper">
-              <img *ngIf="teacher.profileImage" 
-                   [src]="getImageUrl(teacher.profileImage)" 
+              <img *ngIf="teacher.profileImage" crossorigin="anonymous"
+                 [src]="getImageUrl(teacher.profileImage)" 
                    alt="{{ teacher.name }} profile"
                    class="profile-avatar"
                    (error)="handleImageError($event)">
@@ -34,6 +35,10 @@
           <td>{{ teacher.class || 'N/A' }}</td>
           <td><a href="mailto:{{ teacher.email }}">{{ teacher.email }}</a></td>
           <td>{{ teacher.gender }}</td>
+          <td>
+          <button class="btn btn-primary btn-sm" (click)="editTeacher(teacher._id)">Edit</button>
+          <button class="btn btn-danger btn-sm" (click)="deleteTeacher(teacher._id)">Delete</button>
+        </td>
         </tr>
         @if(teachers.length == 0){
           <tr>
@@ -41,6 +46,7 @@
               No Teacher Available
           </td> 
         </tr>
+
         }
       </tbody>
     </table>

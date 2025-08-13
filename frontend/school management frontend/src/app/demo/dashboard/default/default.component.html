@@ -1,156 +1,505 @@
-<div class="row">
-    <div class="col-md-12 col-xl-6">
-  <app-card blockClass="dashboard-card" [backgroundColor]="'#073980'">
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col-md-12">
+      <div class="d-flex justify-content-between align-items-center">
+        <div *ngIf="isExpiringSoon && !isExpired && !isPending" class="alert alert-warning alert-dismissible fade show" role="alert">
+          Your plan expires in {{ subscriptionData.daysToExpire }} days. 
+          <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Upgrade your plan</a> now!
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div *ngIf="isExpired" class="alert alert-danger alert-dismissible fade show" role="alert">
+          Your subscription has expired. You can only view data. 
+          <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Renew now</a> to restore full access.
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <div *ngIf="isPending" class="alert alert-info alert-dismissible fade show" role="alert">
+          Your payment is pending verification. You can only view data until approved.
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <button class="btn btn-primary" (click)="openUpgradeModal(upgradeModal)">
+          <i class="fas fa-star me-1"></i> Subscription
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- Student Section -->
   <div class="row">
-    <div class="col-sm-5 col-lg-5" style="display: flex; flex-direction: column; justify-content: center;font-family: 'Poppins',sans-serif; color: white !important;">
-      <div class="mb-3">
-        <h4 class="mb-3" style="color: white;">
-          <p><strong>Total Students:</strong> {{ totalStudents }}</p>
-        </h4>
-        <p><strong>Total Present:</strong> {{ totalPresent }}</p>
-        <p><strong>Total Absent:</strong> {{ totalAbsent }}</p>
-      </div>
-      <select (change)="onClassChange($event)" class="form-control form-control-sm">
-        <option value="">All Classes</option>
-        @for (class of classes; track class._id) {
-          <option [value]="class._id">{{ class.name }}</option>
-        }
-      </select>
-    </div>
-    <div class="col-md-7 col-sm-7">
-      <div class="chart-container" style="overflow: hidden; width: 100%; height: 100%;">
-        <apx-chart
-          #chart
-          [series]="chartOptions?.series || [0, 0, 0]"
-          [chart]="chartOptions?.chart"
-          [labels]="chartOptions?.labels"
-          [colors]="chartOptions?.colors"
-          [legend]="chartOptions?.legend"
-          [responsive]="chartOptions?.responsive"
-        ></apx-chart>
-        <div *ngIf="!chartOptions?.series?.length" class="text-center text-muted" style="color: white !important;">No attendance data available</div>
-      </div>
-    </div>
-  </div>
-</app-card>
-  </div>
-    <div class="col-md-12 col-xl-6"></div>
-  @for (analytic of AnalyticEcommerce; track analytic) {
-    <div class="col-md-6 col-xl-3">
-      <app-card [showHeader]="false" blockClass="dashboard-card">
-        <h6 class="mb-2 f-w-400 text-muted">{{ analytic.title }}</h6>
-        <h4 class="mb-3">
-          {{ analytic.amount }}
-          <span class="badge {{ analytic.background }} border {{ analytic.border }} ">
-            <i antIcon type="{{ analytic.icon }}" theme="outline"></i>
-            {{ analytic.percentage }}
-          </span>
-        </h4>
-        <p class="mb-0 text-muted text-sm">
-          You made an extra
-          <span class="{{ analytic.color }}">{{ analytic.number }}</span>
-          this year
-        </p>
-      </app-card>
-    </div>
-  }
-
-
-
-  <div class="col-md-12 col-xl-8">
-    <app-monthly-bar-chart />
-  </div>
-  <div class="col-md-12 col-xl-4">
-    <app-income-overview-chart />
-  </div>
-
-  <div class="col-md-12 col-xl-8">
-    <h5 class="mb-3">Recent Orders</h5>
-    <div class="card tbl-card">
-      <div class="table-responsive">
-        <table class="table table-hover mb-0">
-          <thead>
-            <tr>
-              <th>TRACKING NO.</th>
-              <th>PRODUCT NAME</th>
-              <th>STATUS</th>
-              <th class="text-end">TOTAL ORDER</th>
-              <th class="text-end">TOTAL AMOUNT</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (order of recentOrder; track order) {
-              <tr>
-                <td>
-                  <a href="javascript:" class="text-muted">{{ order.id }}</a>
-                </td>
-                <td>{{ order.name }}</td>
-                <td>
-                  <span class="d-block">
-                    <i class="badge-circle {{ order.status_type }} f-10 m-r-5"></i>
-                    {{ order.status }}
-                  </span>
-                </td>
-                <td class="text-end">{{ order.quantity }}</td>
-                <td class="text-end">{{ order.amount }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-12 col-xl-4">
-    <app-analytics-chart />
-  </div>
-
-  <div class="col-md-12 col-xl-8">
-    <app-sales-report-chart />
-  </div>
-  <div class="col-md-12 col-xl-4">
-    <h5 class="mb-3">Transaction History</h5>
-    <div class="card">
-      <div class="list-group list-group-flush">
-        @for (history of transaction; track history) {
-          <a href="javascript:" class="list-group-item list-group-item-action px-3">
-            <div class="d-flex">
-              <div class="flex-shrink-0">
-                <div class="avatar avatar-s rounded-circle {{ history.background }}">
-                  <i class="f-16" antIcon type="{{ history.icon }}" theme="outline"></i>
-                </div>
-              </div>
-              <div class="flex-grow-1 ms-3">
-                <h6 class="mb-1">{{ history.title }}</h6>
-                <p class="mb-0 text-muted">{{ history.time }}</p>
-              </div>
-              <div class="flex-shrink-0 text-end">
-                <h6 class="mb-1">{{ history.amount }}</h6>
-                <p class="mb-0 text-muted">{{ history.percentage }}</p>
-              </div>
+    <div class="col-md-12 col-xl-6">
+      <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'" >
+        <div class="row">
+          <div class="col-sm-5 col-lg-5" style="display: flex; flex-direction: column; justify-content: center; font-family: 'Poppins', sans-serif; color: white !important;">
+            <div class="mb-3">
+              <h4 class="mb-3" style="color: white;">
+                <p style="display: flex; align-items: center;"><img src="assets/student.png" width="30px" height="25px"><strong>Total Students:</strong> {{ totalStudents }}</p>
+              </h4>
+              <p style="display: flex; align-items: center;"><img src="assets/classroom.png" width="30px" height="25px"><strong>Total Present:</strong> {{ studentPresent }}</p>
+              <p style="display: flex; align-items: center;"><img src="assets/desk.png" width="30px" height="25px"><strong>Total Absent:</strong> {{ studentAbsent }}</p>
             </div>
-          </a>
-        }
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-body">
-        <div class="row justify-content-between">
-          <div class="col-auto">
-            <h5>Help & Support Chat</h5>
-            <p class="mb-3">Typical replay within 5 min</p>
+            <select (change)="onClassChange($event)" class="form-control form-control-sm" style="background-color: #1a4a8c; color: white; border-color: #4a6fa5;">
+              <option value="">All Classes</option>
+              <ng-container *ngFor="let class of classes">
+                <option [value]="class._id">{{ class.name || 'Unknown' }}</option>
+              </ng-container>
+            </select>
           </div>
-          <div class="col-auto">
-            <div class="user-group mb-3">
-              <img src="assets/images/user/avatar-1.jpg" alt="image" />
-              <img src="assets/images/user/avatar-2.jpg" alt="image" />
-              <img src="assets/images/user/avatar-3.jpg" alt="image" />
+          <div class="col-md-7 col-sm-7">
+            <div class="chart-container" style="overflow: hidden; width: 100%; height: 100%;">
+              <apx-chart
+                #studentChart
+                [series]="studentChartOptions?.series || [0, 0, 0]"
+                [chart]="studentChartOptions?.chart"
+                [labels]="studentChartOptions?.labels"
+                [colors]="studentChartOptions?.colors"
+                [legend]="studentChartOptions?.legend"
+                [responsive]="studentChartOptions?.responsive"
+              ></apx-chart>
+              <div *ngIf="!studentChartOptions?.series?.length" class="text-center" style="color: white !important;">No attendance data available</div>
             </div>
           </div>
         </div>
-        <div class="d-grid">
-          <div class="btn btn-primary">Need Help?</div>
+      </app-card>
+    </div>
+    <div class="col-md-12 col-xl-6">
+      <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'">
+        <div class="row">
+          <div class="col-sm-5 col-lg-5" style="display: flex; flex-direction: column; justify-content: center; font-family: 'Poppins', sans-serif; color: white !important;">
+            <div class="mb-3">
+              <h4 class="mb-3" style="color: white;">
+                <p style="display: flex; align-items: center;"><img src="assets/teacher.png" width="30px" height="25px"><strong>Total Teachers:</strong> {{ totalTeachers }}</p>
+              </h4>
+              <p style="display: flex; align-items: center;"><img src="assets/training.png" width="30px" height="25px"><strong>Total Present:</strong> {{ teacherPresent }}</p>
+              <p style="display: flex; align-items: center;"><img src="assets/absent.png" width="30px" height="25px"><strong>Total Absent:</strong> {{ teacherAbsent }}</p>
+              <p><strong>Total On Leave:</strong> {{ teacherOnLeave }}</p>
+              <p *ngIf="isHoliday"><strong>Note:</strong> Today is a holiday</p>
+            </div>
+          </div>
+          <div class="col-md-7 col-sm-7">
+            <div class="chart-container" style="overflow: hidden; width: 100%; height: 100%;">
+              <apx-chart
+                #teacherChart
+                [series]="teacherChartOptions?.series || [0, 0, 0]"
+                [chart]="teacherChartOptions?.chart"
+                [labels]="teacherChartOptions?.labels"
+                [colors]="teacherChartOptions?.colors"
+                [legend]="teacherChartOptions?.legend"
+                [responsive]="teacherChartOptions?.responsive"
+              ></apx-chart>
+              <div *ngIf="!teacherChartOptions?.series?.length" class="text-center" style="color: white !important;">No attendance data available</div>
+            </div>
+          </div>
+        </div>
+      </app-card>
+    </div>
+  </div>
+
+  <!-- Fee Dashboard Section -->
+  <div class="row">
+    <!-- Summary Cards -->
+    <div class="col-md-12">
+      <div class="row">
+        <div class="col-md-3">
+          <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'">
+            <h6 class="mb-2">Total Remaining Due</h6>
+            <h4 class="mb-3">₹{{ summary.totalRemainingDue | number }}</h4>
+          </app-card>
+        </div>
+        <div class="col-md-3">
+          <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'">
+            <h6 class="mb-2">Total Paid</h6>
+            <h4 class="mb-3">₹{{ summary.totalPaid | number }}</h4>
+          </app-card>
+        </div>
+        <div class="col-md-3">
+          <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'">
+            <h6 class="mb-2">Overdue Invoices</h6>
+            <h4 class="mb-3">{{ summary.overdueCount }}</h4>
+          </app-card>
+        </div>
+        <div class="col-md-3">
+          <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'">
+            <h6 class="mb-2">Collection Rate</h6>
+            <h4 class="mb-3">{{ summary.collectionRate }}%</h4>
+          </app-card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="col-md-12 mb-3">
+      <div class="row">
+        <div class="col-md-3">
+          <select [(ngModel)]="selectedMonth" (change)="onFilterChange()" class="form-control form-control-sm" style="background-color: #1a4a8c; color: white; border-color: #4a6fa5;">
+            <option value="">Select Month</option>
+            <ng-container *ngFor="let month of getMonthsForYear()">
+              <option [value]="month.value">{{ month.label }} {{ month.value.split('-')[0] }}</option>
+            </ng-container>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select [(ngModel)]="selectedClassId" (change)="onClassChange($event)" class="form-control form-control-sm" style="background-color: #1a4a8c; color: white; border-color: #4a6fa5;">
+            <option value="">All Classes</option>
+            <ng-container *ngFor="let class of classes">
+              <option [value]="class._id">{{ class.name || 'Unknown' }}</option>
+            </ng-container>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <select [(ngModel)]="selectedAcademicYearId" (change)="onFilterChange()" class="form-control form-control-sm" style="background-color: #1a4a8c; color: white; border-color: #4a6fa5;">
+            <option value="">Select Academic Year</option>
+            <ng-container *ngFor="let year of academicYears">
+              <option [value]="year._id">{{ year.name }}</option>
+            </ng-container>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary btn-sm" (click)="exportData()">Export Data</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Visualizations -->
+    <div class="col-md-12 mb-4">
+      <div class="row">
+        <div class="col-md-6">
+          <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'">
+            <h5 class="mb-3 text-white">Payment Methods</h5>
+            <apx-chart
+              #paymentMethodChart
+              [series]="paymentMethodChartOptions?.series || [1]"
+              [chart]="paymentMethodChartOptions?.chart"
+              [labels]="paymentMethodChartOptions?.labels"
+              [colors]="paymentMethodChartOptions?.colors"
+              [legend]="paymentMethodChartOptions?.legend"
+              [responsive]="paymentMethodChartOptions?.responsive"
+            ></apx-chart>
+            <div *ngIf="!paymentMethods.length" class="text-center" style="color: white !important;">No payment data available</div>
+          </app-card>
+        </div>
+        <div class="col-md-6">
+          <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'">
+            <h5 class="mb-3 text-white">Monthly Trend (Last 6 Months)</h5>
+            <apx-chart
+              #monthlyTrendChart
+              [series]="monthlyTrendChartOptions?.series || []"
+              [chart]="monthlyTrendChartOptions?.chart"
+              [xaxis]="monthlyTrendChartOptions?.xaxis"
+              [colors]="monthlyTrendChartOptions?.colors"
+              [legend]="monthlyTrendChartOptions?.legend"
+              [responsive]="monthlyTrendChartOptions?.responsive"
+            ></apx-chart>
+            <div *ngIf="!monthlyTrend.length" class="text-center" style="color: white !important;">No trend data available</div>
+          </app-card>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Class Breakdown Table -->
+    <div class="col-md-12 mb-4">
+      <app-card blockClass="dashboard-card">
+        <h5 class="mb-3" style="color: black;">Class-wise Fee Breakdown</h5>
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr >
+                <th>Class</th>
+                <th>Total Invoices</th>
+                <th>Total Amount (₹)</th>
+                <th>Paid Amount (₹)</th>
+                <th>Remaining Due (₹)</th>
+                <th>Overdue Invoices</th>
+                <th>Collection Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngIf="breakdownByClass.length; else noData">
+                <ng-container *ngFor="let classData of breakdownByClass">
+                  <tr>
+                    <td>{{ classData.className || 'Unknown' }}</td>
+                    <td>{{ classData.invoiceCount }}</td>
+                    <td>{{ classData.totalAmount | number }}</td>
+                    <td>{{ classData.totalPaid | number }}</td>
+                    <td>{{ classData.totalRemainingDue | number }}</td>
+                    <td>{{ classData.overdueCount }}</td>
+                    <td>
+                      <div class="progress">
+                        <div class="progress-bar bg-success" [style.width]="classData.collectionRate + '%'" role="progressbar" [attr.aria-valuenow]="classData.collectionRate" aria-valuemin="0" aria-valuemax="100">
+                          {{ classData.collectionRate | number:'1.2-2' }}%
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </ng-container>
+              </ng-container>
+              <ng-template #noData>
+                <tr>
+                  <td colspan="7" class="text-center">No fee data available for the selected filters</td>
+                </tr>
+              </ng-template>
+            </tbody>
+          </table>
+        </div>
+      </app-card>
+    </div>
+
+    <!-- Top Defaulters Table -->
+    <div class="col-md-7 col-sm-6 mb-4">
+      <app-card blockClass="dashboard-card" >
+        <h5 class="mb-3" style="color: black;">Top Defaulters</h5>
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Student Name</th>
+                <th>Admission No.</th>
+                <th>Class</th>
+                <th>Remaining Due (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngIf="topDefaulters.length; else noDefaulters">
+                <ng-container *ngFor="let defaulter of topDefaulters">
+                  <tr>
+                    <td>
+                      <div class="d-flex align-items-center" style="padding-block-end:.5rem">
+                          <div class="avatar flex-shrink-0 " style="position: relative; border-radius: 50%; cursor: pointer;inline-size: 2.5rem;">
+                            <img src="assets/ladies.png" width="25px" height="25px">
+                          </div>
+                          {{ defaulter.studentName || 'Unknown' }}
+                      </div>
+                    </td>
+                    <td>{{ defaulter.admissionNo }}</td>
+                    <td>{{ defaulter.className || 'Unknown' }}</td>
+                    <td>{{ defaulter.remainingDue | number }}</td>
+                  </tr>
+                </ng-container>
+              </ng-container>
+              <ng-template #noDefaulters>
+                <tr>
+                  <td colspan="4" class="text-center">No defaulters found</td>
+                </tr>
+              </ng-template>
+            </tbody>
+          </table>
+        </div>
+      </app-card>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="col-md-12">
+      <button class="btn btn-primary me-2" (click)="generateReceipts()">Generate Receipts</button>
+      <button class="btn btn-warning me-2" (click)="sendSMSReminders()">Send SMS Reminders</button>
+      <button class="btn btn-info" (click)="exportData()">View Detailed Report</button>
+    </div>
+  </div>
+
+  <!-- Other Sections -->
+  <div class="row mt-4">
+    <ng-container *ngFor="let analytic of AnalyticEcommerce">
+      <div class="col-md-6 col-xl-3">
+        <app-card [showHeader]="false" blockClass="dashboard-card">
+          <h6 class="mb-2 f-w-400">{{ analytic.title }}</h6>
+          <h4 class="mb-3">
+            {{ analytic.amount }}
+            <span class="badge {{ analytic.background }} border {{ analytic.border }}">
+              <i antIcon type="{{ analytic.icon }}" theme="outline"></i>
+              {{ analytic.percentage }}
+            </span>
+          </h4>
+          <p class="mb-0 text-sm">
+            You made an extra
+            <span class="{{ analytic.color }}">{{ analytic.number }}</span>
+            this year
+          </p>
+        </app-card>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="row">
+    <div class="col-md-12 col-xl-8">
+      <app-monthly-bar-chart />
+    </div>
+    <div class="col-md-12 col-xl-4">
+      <app-income-overview-chart />
+    </div>
+    <div class="col-md-12 col-xl-8">
+      <h5 class="mb-3">Recent Orders</h5>
+      <div class="card tbl-card">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>TRACKING NO.</th>
+                <th>PRODUCT NAME</th>
+                <th>STATUS</th>
+                <th class="text-end">TOTAL ORDER</th>
+                <th class="text-end">TOTAL AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let order of recentOrder">
+                <tr>
+                  <td><a href="javascript:" class="">{{ order.id }}</a></td>
+                  <td>{{ order.name }}</td>
+                  <td><span class="d-block"><i class="badge-circle {{ order.status_type }} f-10 m-r-5"></i>{{ order.status }}</span></td>
+                  <td class="text-end">{{ order.quantity }}</td>
+                  <td class="text-end">{{ order.amount }}</td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-12 col-xl-4">
+      <app-analytics-chart />
+    </div>
+    <div class="col-md-12 col-xl-8">
+      <app-sales-report-chart />
+    </div>
+    <div class="col-md-12 col-xl-4">
+      <h5 class="mb-3">Transaction History</h5>
+      <div class="card">
+        <div class="list-group list-group-flush">
+          <ng-container *ngFor="let history of transaction">
+            <a href="javascript:" class="list-group-item list-group-item-action px-3">
+              <div class="d-flex">
+                <div class="flex-shrink-0">
+                  <div class="avatar avatar-s rounded-circle {{ history.background }}">
+                    <i class="f-16" antIcon type="{{ history.icon }}" theme="outline"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                  <h6 class="mb-1">{{ history.title }}</h6>
+                  <p class="mb-0">{{ history.time }}</p>
+                </div>
+                <div class="flex-shrink-0 text-end">
+                  <h6 class="mb-1">{{ history.amount }}</h6>
+                  <p class="mb-0">{{ history.percentage }}</p>
+                </div>
+              </div>
+            </a>
+          </ng-container>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="row justify-content-between">
+            <div class="col-auto">
+              <h5>Help & Support Chat</h5>
+              <p class="mb-3">Typical reply within 5 min</p>
+            </div>
+            <div class="col-auto">
+              <div class="user-group mb-3">
+                <img src="assets/images/user/avatar-1.jpg" alt="image" />
+                <img src="assets/images/user/avatar-2.jpg" alt="image" />
+                <img src="assets/images/user/avatar-3.jpg" alt="image" />
+              </div>
+            </div>
+          </div>
+          <div class="d-grid">
+            <div class="btn btn-primary">Need Help?</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+
+
+
+<ng-template #upgradeModal>
+    <div class="modal-header">
+      <h4 class="modal-title">Manage Your Subscription</h4>
+      <button type="button" class="btn-close" (click)="modalService.dismissAll()" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+      <div class="row">
+        <div class="col-12 mb-3">
+          <p *ngIf="subscriptionData.planType" class="text-center">
+            Current Plan: <strong>{{ subscriptionData.planType | titlecase }}</strong> 
+            (Expires: {{ subscriptionData.expiresAt | date:'mediumDate' }})
+          </p>
+          <p *ngIf="isExpired" class="text-center text-danger">
+            Your subscription has expired. Choose a plan to restore full access.
+          </p>
+          <p *ngIf="isPending" class="text-center text-info">
+            Your payment is pending verification. Upload new proof if needed.
+          </p>
+        </div>
+        <!-- Plan Selection -->
+        <div class="col-12 mb-4">
+          <h5>Select Plan</h5>
+          <div class="row">
+            <div class="col-md-6" *ngFor="let plan of plans">
+              <div class="card plan-card" [ngClass]="{'selected': selectedPlan === plan.value}">
+                <div class="card-body text-center">
+                  <h5 class="card-title">{{ plan.name }}</h5>
+                  <h3 class="card-price">₹{{ plan.price }}/year</h3>
+                  <ul class="list-group list-group-flush mb-3">
+                    <li class="list-group-item" *ngFor="let feature of plan.features">{{ feature }}</li>
+                  </ul>
+                  <button class="btn btn-outline-primary" 
+                          [ngClass]="{'btn-primary': selectedPlan === plan.value}"
+                          (click)="selectedPlan = plan.value">
+                    {{ selectedPlan === plan.value ? 'Selected' : 'Select' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- Payment Method Selection -->
+        <div class="col-12">
+          <h5>Select Payment Method</h5>
+          <div class="btn-group w-100 mb-3" role="group">
+            <button type="button" class="btn btn-outline-primary" 
+                    [ngClass]="{'btn-primary': selectedPaymentMethod === 'razorpay'}"
+                    (click)="selectedPaymentMethod = 'razorpay'">Online (Card/UPI)</button>
+            <button type="button" class="btn btn-outline-primary" 
+                    [ngClass]="{'btn-primary': selectedPaymentMethod === 'phonepe'}"
+                    (click)="selectedPaymentMethod = 'phonepe'">PhonePe</button>
+            <button type="button" class="btn btn-outline-primary" 
+                    [ngClass]="{'btn-primary': selectedPaymentMethod === 'bank_transfer'}"
+                    (click)="selectedPaymentMethod = 'bank_transfer'">Bank Transfer</button>
+          </div>
+          <!-- Bank Transfer Details -->
+          <div *ngIf="selectedPaymentMethod === 'bank_transfer' && bankDetails" class="card">
+            <div class="card-body">
+              <h6>Bank Transfer Details</h6>
+              <p>Account Name: {{ bankDetails.accountName }}</p>
+              <p>Account Number: {{ bankDetails.accountNumber }}</p>
+              <p>IFSC Code: {{ bankDetails.ifscCode }}</p>
+              <p>Bank: {{ bankDetails.bankName }} ({{ bankDetails.branch }})</p>
+              <div class="mb-3">
+                <label for="paymentProof" class="form-label">Upload Payment Proof (JPG/PNG/PDF)</label>
+                <input type="file" class="form-control" id="paymentProof" 
+                       accept="image/jpeg,image/png,application/pdf" 
+                       (change)="onFileChange($event)">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" 
+              *ngIf="selectedPaymentMethod !== 'bank_transfer'" 
+              (click)="upgradePlan()" 
+              [disabled]="!selectedPlan">
+        <i class="fas fa-credit-card me-1"></i> Pay and {{ isExpired ? 'Renew' : 'Upgrade' }}
+      </button>
+      <button class="btn btn-primary" 
+              *ngIf="selectedPaymentMethod === 'bank_transfer' && bankDetails" 
+              (click)="uploadPaymentProof()" 
+              [disabled]="!paymentProof">
+        <i class="fas fa-upload me-1"></i> Upload Proof
+      </button>
+      <!-- <button class="btn btn-secondary" (click)="modalService.dismissAll()">Cancel</button> -->
+    </div>
+    
+  </ng-template>
+
+ 

@@ -6,10 +6,11 @@ import { NavBarComponent } from './nav-bar/nav-bar.component';
 import { NavigationComponent } from './navigation/navigation.component';
 import { ConfigurationComponent } from './configuration/configuration.component';
 import { BreadcrumbComponent } from 'src/app/theme/shared/components/breadcrumb/breadcrumb.component';
+import { BouncingLoaderComponent } from 'src/app/demo/component/bouncing-loader/bouncing-loader.component';
 
 @Component({
   selector: 'app-admin',
-  imports: [CommonModule, BreadcrumbComponent, NavigationComponent, NavBarComponent, RouterModule, ConfigurationComponent],
+  imports: [CommonModule, BreadcrumbComponent,BouncingLoaderComponent, NavigationComponent, NavBarComponent, RouterModule, ConfigurationComponent],
   templateUrl: './admin-layout.component.html',
   styleUrls: ['./admin-layout.component.scss']
 })

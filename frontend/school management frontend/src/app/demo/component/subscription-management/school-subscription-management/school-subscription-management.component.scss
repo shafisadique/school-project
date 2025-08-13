@@ -1,0 +1,50 @@
+.container {
+  padding: 20px;
+  .spinner {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+  }
+  .management-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 500px;
+    .form-group {
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+      h3 {
+        margin-top: 0;
+        color: #333;
+      }
+      label {
+        display: block;
+        margin: 5px 0 3px;
+        font-weight: bold;
+      }
+      input, select, button {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        &:hover {
+          background-color: #0056b3;
+        }
+      }
+    }
+    .error-message {
+      color: #dc3545;
+      text-align: center;
+      padding: 10px;
+    }
+  }
+}

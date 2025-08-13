@@ -70,12 +70,13 @@ export class BulkInvoiceListComponent implements OnInit {
     this.classSubjectService.getClassesBySchool(this.schoolId!).subscribe({
       next: (classes: any[]) => {
         this.classList = classes.map(c => ({ id: c._id, name: c.name }));
-        console.log('Loaded classes:', this.classList);
         if (this.classList.length === 0) {
           this.toastr.warning('No classes found for this school.');
         }
         this.route.queryParams.subscribe(params => {
+            console.log('working 1',params['classId'])
           if (params['classId'] && params['month']) {
+            console.log('working 2')
             this.selectedClassId = params['classId'];
             this.month = params['month'];
             const selectedClass = this.classList.find(cls => cls.id === this.selectedClassId);
@@ -151,6 +152,7 @@ export class BulkInvoiceListComponent implements OnInit {
   }
 
   loadInvoices(): void {
+    console.log('working')
     if (!this.selectedClassId || !this.month || !this.activeAcademicYearId) {
       this.toastr.error('Please select a class and month.');
       return;

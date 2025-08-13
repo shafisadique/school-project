@@ -1,0 +1,38 @@
+<div class="container">
+  <h2>School Subscription Management</h2>
+  <div *ngIf="isLoading" class="spinner">Loading...</div>
+  <div *ngIf="!isLoading" class="management-form">
+    <!-- Request School Form -->
+    <div class="form-group">
+      <h3>Request New School</h3>
+      <label for="name">School Name:</label>
+      <input id="name" [(ngModel)]="requestForm.name" placeholder="e.g., Rambo Public School" required>
+      <label for="address">Address:</label>
+      <input id="address" [(ngModel)]="requestForm.address" placeholder="e.g., 123 School St" required>
+      <label for="adminEmail">Admin Email:</label>
+      <input id="adminEmail" [(ngModel)]="requestForm.adminEmail" placeholder="e.g., admin@rambo.com" required>
+      <label for="adminName">Admin Name:</label>
+      <input id="adminName" [(ngModel)]="requestForm.adminName" placeholder="e.g., Admin User" required>
+      <button (click)="requestSchool()">Submit Request</button>
+    </div>
+
+    <!-- Approve School Form -->
+    <div class="form-group">
+      <h3>Approve School Request</h3>
+      <label for="pendingSchoolId">Pending School ID:</label>
+      <select id="pendingSchoolId" [(ngModel)]="approveForm.pendingSchoolId" required>
+        <option value="">Select a Pending School</option>
+        <option *ngFor="let school of pendingSchools" [value]="school._id">{{ school.name }} (ID: {{ school._id }})</option>
+      </select>
+      <label for="planType">Plan Type:</label>
+      <select id="planType" [(ngModel)]="approveForm.planType" required>
+        <option value="trial">Trial</option>
+        <option value="basic">Basic</option>
+        <option value="premium">Premium</option>
+      </select>
+      <button (click)="approveSchoolRequest()">Approve Request</button>
+    </div>
+
+    <div *ngIf="error" class="error-message">{{ error }}</div>
+  </div>
+</div>

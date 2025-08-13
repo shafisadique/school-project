@@ -5,32 +5,36 @@ import { ToastrService } from 'ngx-toastr';
 import { Router } from '@angular/router';
 import { AttendanceService } from './attendance.service';
 import { ClassSubjectService } from '../advance-component/class-subject-management/class-subject.service';
+import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap';
 
 @Component({
   selector: 'app-attendance',
-  imports: [ReactiveFormsModule, CommonModule],
+  imports: [ReactiveFormsModule, CommonModule, NgbModalModule],
   templateUrl: './attendance.component.html',
   styleUrls: ['./attendance.component.scss'],
   standalone: true
 })
 export class AttendanceComponent implements OnInit {
   attendanceForm!: FormGroup;
+  editForm!: FormGroup;
   assignments: any[] = [];
   students: any[] = [];
   attendanceHistory: any[] = [];
-  classList:any[]=[]
+  classList: any[] = [];
   selectedAcademicYearId: string = '';
   selectedSchoolId: string = '';
   selectedClassId: string = '';
   loading: boolean = false;
   canMarkAttendance: boolean = false;
+  selectedAttendance: any = null;
 
   constructor(
     private fb: FormBuilder,
     private attendanceService: AttendanceService,
     private classSubjectService: ClassSubjectService,
     private toastr: ToastrService,
-    private router: Router
+    private router: Router,
+    private modalService: NgbModal
   ) {}
 
   ngOnInit(): void {
@@ -38,10 +42,9 @@ export class AttendanceComponent implements OnInit {
     this.selectedAcademicYearId = localStorage.getItem('activeAcademicYearId') || '';
     const teacherId = localStorage.getItem('teacherId') || '';
     this.validateSession();
-    this.initForm();
+    this.initForms();
     this.loadTeacherAssignments();
   }
-
 
   validateSession() {
     if (!this.selectedSchoolId || !this.selectedAcademicYearId) {
@@ -57,11 +60,15 @@ export class AttendanceComponent implements OnInit {
     }
   }
 
-  initForm() {
+  initForms() {
     this.attendanceForm = this.fb.group({
       classId: ['', Validators.required],
       subjectId: ['', Validators.required],
-      date: ['', [Validators.required, this.dateNotInFutureValidator.bind(this)]],
+      date: ['', [Validators.required, this.todayOnlyValidator.bind(this)]],
+      attendanceRecords: [[], Validators.required]
+    });
+
+    this.editForm = this.fb.group({
       attendanceRecords: [[], Validators.required]
     });
 
@@ -77,12 +84,14 @@ export class AttendanceComponent implements OnInit {
     });
   }
 
-  dateNotInFutureValidator(control: any) {
+  todayOnlyValidator(control: any) {
     const selectedDate = new Date(control.value);
     const today = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const todayIST = new Date(today.getTime() + istOffset);
     selectedDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return selectedDate > today ? { futureDate: true } : null;
+    todayIST.setHours(0, 0, 0, 0);
+    return selectedDate.getTime() === todayIST.getTime() ? null : { notToday: true };
   }
 
   loadTeacherAssignments() {
@@ -97,7 +106,6 @@ export class AttendanceComponent implements OnInit {
     this.classSubjectService.getAssignmentsByTeacher(teacherId, this.selectedAcademicYearId, date).subscribe({
       next: (data) => {
         this.assignments = data;
-        console.log('Loaded assignments:', this.assignments); // Debug log
         this.loading = false;
         if (this.assignments.length === 0) {
           this.toastr.warning('No assignments found for this academic year. Please contact the admin.', 'Warning');
@@ -106,10 +114,7 @@ export class AttendanceComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.toastr.error(err.error?.message || 'Error fetching assignments', 'Error');
-        if (err.status === 401) {
-          this.router.navigate(['/login']);
-        }
+        this.handleError(err);
       }
     });
   }
@@ -122,121 +127,94 @@ export class AttendanceComponent implements OnInit {
     }
     const assignment = this.assignments.find(a => a.classId._id === selectedClassId);
     this.canMarkAttendance = assignment ? assignment.canMarkAttendance : false;
-    console.log('Selected class:', selectedClassId, 'Assignment:', assignment, 'Can mark:', this.canMarkAttendance); // Debug log
     if (!this.canMarkAttendance) {
       this.toastr.warning('You are not authorized to mark attendance for this class.', 'Warning');
     }
   }
 
-loadStudents() {
-  if (!this.selectedClassId) {
-    this.students = [];
-    return;
-  }
-
-  this.loading = true;
-  this.attendanceService.getStudentsByClass(this.selectedClassId).subscribe({
-    next: (response: any) => {
-      console.log('Students API Response:', response); // Debug log
-      
-      // Handle both array and paginated response formats
-      this.students = Array.isArray(response) ? response : response?.students || response?.data || [];
-      
-      console.log('Processed Students:', this.students); // Debug log
-      
-      if (this.students.length === 0) {
-        this.toastr.warning('No students found in this class.', 'Warning');
-      }
-
-      // Initialize attendance records
-      this.attendanceForm.patchValue({
-        attendanceRecords: this.students.map(s => ({ 
-          studentId: s._id, 
-          status: 'Present' 
-        }))
-      });
-      
-      this.loading = false;
-    },
-    error: (err) => {
-      this.loading = false;
-      console.error('Error loading students:', err);
-      this.toastr.error(err.error?.message || 'Error fetching students', 'Error');
-    }
-  });
-}
-
-  loadAttendanceHistory() {
-  if (!this.selectedClassId || !this.selectedAcademicYearId) {
-    this.attendanceHistory = [];
-    return;
-  }
-  this.loading = true;
-  this.attendanceService.getAttendanceHistory(this.selectedClassId, this.selectedAcademicYearId).subscribe({
-    next: (history) => {
-      console.log('Attendance History Response:', history); // Debug log
-      this.attendanceHistory = Array.isArray(history) ? history : [];
-      this.loading = false;
-      if (this.attendanceHistory.length === 0) {
-        this.toastr.info('No attendance records found for this class and academic year.', 'Info');
-      }
-    },
-    error: (err) => {
-      this.loading = false;
-      console.error('Error fetching attendance history:', err); // Detailed error log
-      this.toastr.error(err.error?.message || 'Error fetching attendance history', 'Error');
-      if (err.status === 401) {
-        this.router.navigate(['/login']);
-      }
-    }
-  });
-}
-
- getAttendanceStatus(studentId: string): string {
-  const records = this.attendanceForm.get('attendanceRecords')?.value || [];
-  const record = records.find((r: any) => r.studentId === studentId);
-  return record?.status || 'Present'; // Default to Present
-}
-
-updateAttendanceStatus(studentId: string, event: Event) {
-  const target = event.target as HTMLSelectElement;
-  const status = target.value;
-  
-  const records = this.attendanceForm.get('attendanceRecords')?.value || [];
-  const updatedRecords = records.map((record: any) => 
-    record.studentId === studentId ? { ...record, status } : record
-  );
-  
-  this.attendanceForm.patchValue({ attendanceRecords: updatedRecords });
-}
-
-  onSubmit() {
-    console.log('Form value:', this.attendanceForm.value);
-    console.log('Form valid:', this.attendanceForm.valid);
-    console.log('Form errors:', this.attendanceForm.errors);
-    console.log('Date control errors:', this.attendanceForm.get('date')?.errors);
-    console.log('Can mark attendance:', this.canMarkAttendance);
-  
-    if (this.attendanceForm.invalid) {
-      this.toastr.error('Please fill all required fields', 'Error');
+  loadStudents() {
+    if (!this.selectedClassId) {
+      this.students = [];
       return;
     }
-  
+    this.loading = true;
+    this.attendanceService.getStudentsByClass(this.selectedClassId).subscribe({
+      next: (response: any) => {
+        this.students = Array.isArray(response) ? response : response?.students || response?.data || [];
+        console.log('Loaded students:', this.students); // Debug
+        if (this.students.length === 0) {
+          this.toastr.warning('No students found in this class.', 'Warning');
+        }
+        this.attendanceForm.patchValue({
+          attendanceRecords: this.students.map(s => ({ studentId: s._id, status: 'Present' }))
+        });
+        this.loading = false;
+      },
+      error: (err) => {
+        this.loading = false;
+        this.handleError(err);
+      }
+    });
+  }
+
+  loadAttendanceHistory() {
+    if (!this.selectedClassId || !this.selectedAcademicYearId) {
+      this.attendanceHistory = [];
+      return;
+    }
+    this.loading = true;
+    this.attendanceService.getAttendanceHistory(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+      next: (history) => {
+        this.attendanceHistory = Array.isArray(history) ? history : [];
+        console.log('Attendance history:', this.attendanceHistory); // Debug
+        this.loading = false;
+        if (this.attendanceHistory.length === 0) {
+          this.toastr.info('No attendance records found for this class and academic year.', 'Info');
+        }
+      },
+      error: (err) => {
+        this.loading = false;
+        this.handleError(err);
+      }
+    });
+  }
+
+  getAttendanceStatus(studentId: string, form: FormGroup = this.attendanceForm): string {
+    const records = form.get('attendanceRecords')?.value || [];
+    const record = records.find((r: any) => r.studentId === studentId);
+    return record?.status || 'Present';
+  }
+
+  updateAttendanceStatus(studentId: string, event: Event, form: FormGroup = this.attendanceForm) {
+    const target = event.target as HTMLSelectElement;
+    const status = target.value;
+    const records = form.get('attendanceRecords')?.value || [];
+    const updatedRecords = records.map((record: any) =>
+      record.studentId === studentId ? { ...record, status } : record
+    );
+    form.patchValue({ attendanceRecords: updatedRecords });
+  }
+
+  onSubmit() {
+    if (this.attendanceForm.invalid) {
+      this.toastr.error('Please fill all required fields correctly.', 'Error');
+      return;
+    }
+
     if (!this.canMarkAttendance) {
       this.toastr.error('You are not authorized to mark attendance for this class.', 'Error');
       return;
     }
-  
+
     this.loading = true;
     const attendanceData = {
       classId: this.attendanceForm.value.classId,
       subjectId: this.attendanceForm.value.subjectId,
       academicYearId: this.selectedAcademicYearId,
       date: this.attendanceForm.value.date,
-      students: this.attendanceForm.value.attendanceRecords // Changed from attendanceRecords to students
+      students: this.attendanceForm.value.attendanceRecords
     };
-    console.log('Submitting attendance data:', attendanceData);
-  
+
     this.attendanceService.markAttendance(attendanceData).subscribe({
       next: (response) => {
         this.toastr.success(response.message || 'Attendance marked successfully', 'Success');
@@ -247,13 +225,72 @@ updateAttendanceStatus(studentId: string, event: Event) {
       },
       error: (err) => {
         this.loading = false;
-        this.toastr.error(err.error?.message || 'Error marking attendance', 'Error');
-        console.log('Backend error:', err);
-        if (err.status === 401) {
-          this.router.navigate(['/login']);
-        }
+        this.handleError(err);
       }
     });
+  }
+
+  isToday(date: string): boolean {
+    const recordDate = new Date(date);
+    const today = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const todayIST = new Date(today.getTime() + istOffset);
+    return recordDate.getFullYear() === todayIST.getFullYear() &&
+           recordDate.getMonth() === todayIST.getMonth() &&
+           recordDate.getDate() === todayIST.getDate();
+  }
+
+  openEditModal(content: any, attendance: any) {
+    this.selectedAttendance = attendance;
+    this.editForm.patchValue({
+      attendanceRecords: attendance.students.map((s: any) => ({
+        studentId: s.studentId._id || s.studentId,
+        status: s.status,
+        remarks: s.remarks || ''
+      }))
+    });
+    this.modalService.open(content, { ariaLabelledBy: 'modal-title', size: 'lg' });
+  }
+
+  onEditSubmit(modal: any) {
+    if (this.editForm.invalid) {
+      this.toastr.error('Please fill all required fields correctly.', 'Error');
+      return;
+    }
+
+    this.loading = true;
+    const editData = {
+      attendanceId: this.selectedAttendance._id,
+      academicYearId: this.selectedAcademicYearId,
+      students: this.editForm.value.attendanceRecords
+    };
+
+    this.attendanceService.editAttendance(editData).subscribe({
+      next: (response) => {
+        this.toastr.success(response.message || 'Attendance updated successfully', 'Success');
+        this.loadAttendanceHistory();
+        this.modalService.dismissAll();
+        this.loading = false;
+      },
+      error: (err) => {
+        this.loading = false;
+        this.handleError(err);
+      }
+    });
+  }
+
+  handleError(err: any) {
+    console.error('Error details:', err);
+    let errorMessage = err.error?.message || 'An unexpected error occurred. Please try again.';
+    if (err.status === 400 || err.status === 403 || err.status === 404) {
+      errorMessage = err.error?.message || errorMessage;
+    } else if (err.status === 401) {
+      errorMessage = 'Session expired. Please log in again.';
+      this.router.navigate(['/login']);
+    } else if (err.status >= 500) {
+      errorMessage = err.error?.message || 'Server error. Please contact support.';
+    }
+    this.toastr.error(errorMessage, 'Error');
   }
 
   getClasses() {
@@ -271,7 +308,7 @@ updateAttendanceStatus(studentId: string, event: Event) {
   goToDashboard() {
     this.router.navigate(['/dashboard/default']);
   }
-  
+
   goToMonthlyAttendance() {
     if (!this.selectedClassId || !this.attendanceForm.value.subjectId) {
       this.toastr.error('Please select a class and subject first.', 'Error');

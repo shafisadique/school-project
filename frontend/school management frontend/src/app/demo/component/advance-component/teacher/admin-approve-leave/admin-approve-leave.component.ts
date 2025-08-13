@@ -1,8 +1,6 @@
-// src/app/admin-approve-leave/admin-approve-leave.component.ts
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ToastrService } from 'ngx-toastr';
 import { TeacherAbsenceService, TeacherAbsence, AbsenceStatus } from '../teacher-absence.service';
 import { Teacher, TeacherService } from '../teacher.service';
@@ -33,7 +31,6 @@ export class AdminApproveLeaveComponent implements OnInit {
     private teacherAbsenceService: TeacherAbsenceService,
     private teacherService: TeacherService,
     private authService: AuthService,
-    private modalService: NgbModal,
     private toastr: ToastrService,
     private datePipe: DatePipe
   ) {
@@ -57,11 +54,11 @@ export class AdminApproveLeaveComponent implements OnInit {
 
   loadTeachers(): void {
     this.teacherService.getTeachersBySchool().subscribe({
-      next: (response) => {
-        this.teachers = Array.isArray(response.data) ? response.data : response;
+      next: (response:any) => {
+        this.teachers = (Array.isArray(response.data) ? response.data : response).filter(teacher => teacher.status === true);
       },
       error: (err) => {
-        this.error = 'Failed to load teachers';
+        this.error = 'Failed to load active teachers';
         this.toastr.error(this.error);
         console.error(err);
       }
@@ -72,20 +69,25 @@ export class AdminApproveLeaveComponent implements OnInit {
     this.loading = true;
     this.error = null;
     const schoolId = this.authService.getSchoolId();
-    const params: any = { schoolId };
+    if (!schoolId) {
+      this.error = 'School ID not found';
+      this.toastr.error(this.error);
+      this.loading = false;
+      return;
+    }
     const { startDate, endDate, teacherId } = this.filterForm.value;
-    if (startDate) params.startDate = startDate;
-    if (endDate) params.endDate = endDate;
-    if (teacherId) params.teacherId = teacherId;
 
-    this.teacherAbsenceService.getAbsences(params).subscribe({
-      next: (absences) => {
-        this.absences = absences;
+    this.teacherAbsenceService.getPendingAbsences(schoolId, startDate, endDate, teacherId).subscribe({
+      next: (response:any) => {
+        this.absences = response.data || response; // Handle response structure
         this.filterAbsences();
         this.loading = false;
+        if (!this.absences.length) {
+          this.toastr.info('No pending leave applications found.');
+        }
       },
       error: (err) => {
-        this.error = err.error?.message || 'Failed to load absences';
+        this.error = err.error?.message || 'Failed to load pending absences';
         this.toastr.error(this.error);
         this.loading = false;
         console.error(err);
@@ -98,7 +100,7 @@ export class AdminApproveLeaveComponent implements OnInit {
     const { startDate, endDate, teacherId } = this.filterForm.value;
     if (startDate) result = result.filter(a => new Date(a.date) >= new Date(startDate));
     if (endDate) result = result.filter(a => new Date(a.date) <= new Date(endDate));
-    if (teacherId) result = result.filter(a => a.teacherId === teacherId);
+    if (teacherId) result = result.filter((a: any) => a.teacherId === teacherId || a.teacherId?._id === teacherId);
     this.filteredAbsences = result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     this.totalItems = result.length;
     this.currentPage = 1;
@@ -125,6 +127,7 @@ export class AdminApproveLeaveComponent implements OnInit {
     const schoolId = this.authService.getSchoolId();
     if (!schoolId) {
       this.toastr.error('School ID not found');
+      this.loading = false;
       return;
     }
     this.loading = true;
@@ -135,11 +138,16 @@ export class AdminApproveLeaveComponent implements OnInit {
       return;
     }
     this.teacherAbsenceService.updateAbsence(id, { status, schoolId }).subscribe({
-      next: (updatedAbsence) => {
-        this.toastr.success(`Leave ${status.toLowerCase()}d successfully`);
-        // Update the local absence array
+      next: (updatedAbsence:any) => {
+        this.toastr.success(`Leave ${status.toLowerCase()} successfully`);
         const index = this.absences.findIndex(a => a._id === id);
-        if (index !== -1) this.absences[index] = updatedAbsence;
+        if (index !== -1) {
+          if (status === 'Approved' || status === 'Rejected') {
+            this.absences.splice(index, 1); // Remove from list since it's no longer pending
+          } else {
+            this.absences[index] = updatedAbsence;
+          }
+        }
         this.filterAbsences();
         this.loading = false;
       },

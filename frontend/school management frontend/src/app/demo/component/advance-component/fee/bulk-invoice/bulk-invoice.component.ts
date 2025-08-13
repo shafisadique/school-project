@@ -30,6 +30,7 @@ export class BulkInvoiceComponent implements OnInit {
   paymentOptions: string[] = ['Monthly', 'BiMonthly', 'Quarterly', 'Custom'];
   isGenerating: boolean = false;
   isExamMonth: boolean = false;
+  miscalculationStudents: boolean[] = []; // Array to track miscalculation for each student
 
   constructor(
     private feeService: FeeService,
@@ -82,13 +83,13 @@ export class BulkInvoiceComponent implements OnInit {
     }
     this.studentService.fetchStudentsByClassForInvoices(this.selectedClassId, this.activeAcademicYearId).subscribe({
       next: (students: any[]) => {
-        console.log('Loaded students:', students); // Debug log
         this.students = students;
         this.customSchedules = this.students.map(student => ({
           studentId: student._id.toString(),
-          paymentSchedule: 'Quarterly',
+          paymentSchedule: 'Monthly',
           customPaymentDetails: ''
         }));
+        this.miscalculationStudents = new Array(students.length).fill(false); // Initialize with false for each student
         if (this.students.length === 0) {
           this.toastr.warning('No students found for the selected class.');
         }
@@ -150,6 +151,11 @@ export class BulkInvoiceComponent implements OnInit {
 
     const formattedMonth = this.convertToMonthName(this.month);
 
+    // Collect student IDs where miscalculation is selected
+    const miscalculationStudents = this.miscalculationStudents
+      .map((selected, index) => selected ? this.students[index]._id.toString() : null)
+      .filter(id => id !== null);
+
     const data = {
       schoolId: this.schoolId,
       classId: this.selectedClassId,
@@ -157,7 +163,8 @@ export class BulkInvoiceComponent implements OnInit {
       month: formattedMonth,
       academicYearId: this.activeAcademicYearId,
       customSchedules: filteredCustomSchedules,
-      isExamMonth: this.isExamMonth
+      isExamMonth: this.isExamMonth,
+      miscalculationStudents: miscalculationStudents // Send array of student IDs
     };
     console.log('Generating invoices with payload:', data); // Debug log
     this.feeService.generateInvoices(data).subscribe({
@@ -221,5 +228,6 @@ export class BulkInvoiceComponent implements OnInit {
     this.customSchedules = [];
     this.isGenerating = false;
     this.isExamMonth = false;
+    this.miscalculationStudents = []; // Reset miscalculation array
   }
 }

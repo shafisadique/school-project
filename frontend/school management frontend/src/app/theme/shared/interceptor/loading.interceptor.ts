@@ -1,23 +1,17 @@
-// src/app/theme/shared/interceptors/loading.interceptor.ts
-import { Injectable } from '@angular/core';
-import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { HttpInterceptorFn, HttpRequest, HttpHandlerFn } from '@angular/common/http';
+import { inject } from '@angular/core';
 import { finalize } from 'rxjs/operators';
 import { LoadingService } from '../service/loading.service';
 
-@Injectable()
-export class LoadingInterceptor implements HttpInterceptor {
-  constructor(private loadingService: LoadingService) {}
+export const loadingInterceptor: HttpInterceptorFn = (req: HttpRequest<unknown>, next: HttpHandlerFn) => {
+  const loadingService = inject(LoadingService);
+  console.log('Loading interceptor triggered for:', req.url); // Debug log
+  loadingService.show();
 
-  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    // Show loading indicator before the request
-    this.loadingService.show();
-
-    return next.handle(req).pipe(
-      finalize(() => {
-        // Hide loading indicator after the request completes (success or error)
-        this.loadingService.hide();
-      })
-    );
-  }
-}
+  return next(req).pipe(
+    finalize(() => {
+      console.log('Loading interceptor completed for:', req.url); // Debug log
+      loadingService.hide();
+    })
+  );
+};

@@ -7,9 +7,9 @@ import { ToastrService } from 'ngx-toastr';
 
 @Component({
   selector: 'app-auth-login',
-  standalone: true, // Mark the component as standalone
-  imports: [RouterModule, CommonModule, FormsModule, ReactiveFormsModule], // No need for HttpClientModule
-  providers: [], // Provide HttpClient here
+  standalone: true,
+  imports: [RouterModule, CommonModule, FormsModule, ReactiveFormsModule],
+  providers: [],
   templateUrl: './auth-login.component.html',
   styleUrl: './auth-login.component.scss'
 })
@@ -27,34 +27,61 @@ export class AuthLoginComponent {
     private toastrService: ToastrService
   ) {
     this.loginForm = this.fb.group({
-      username: ["", [Validators.required, Validators.email]],
-      password: ["", Validators.required],
+      username: ['', [Validators.required, Validators.email]],
+      password: ['', Validators.required],
     });
   }
 
   onLoggedin(e: Event) {
+    e.preventDefault();
     this.isLoading = true;
     this.isDisable = true;
 
     const { username, password } = this.loginForm.value;
-    // const transformedUsername = username.toUpperCase();
     this.authService.login(username, password).subscribe({
-      next: (res) => {
-        this.router.navigate(['/']);
-      },
-      error: (errorResponse) => {
-        console.log(errorResponse)
-        this.toastrService.error(errorResponse.error.message);
-        if (errorResponse.status === 0) {
-          this.toastrService.error('Network Error', 'Connection failed. Please check your network or try again later.');
-        } else if (errorResponse.status === 500) {
-          this.toastrService.error('Server Error', 'There is an issue on the server. Please try again later.');
+      next: (res: any) => {
+        console.log(res.message)
+        const role = this.authService.getUserRole();
+        if (role === 'superadmin') {
+          this.router.navigate(['/auth/register']);
+        } else if (role === 'admin') {
+          this.router.navigate(['/']);
+          // this.router.navigate(['/admin/dashboard']);
         } else {
-          this.toastrService.error('Unexpected Error', 'Something went wrong. Please try again.');
+          this.router.navigate(['/']);
         }
-        console.error('Login Error:', errorResponse);
-        this.serverErrors = errorResponse.error;
+        this.toastrService.success('Login Success', 'Welcome!');
+        this.isLoading = false;
+        this.isDisable = false;
       },
+    error: (errorResponse) => {
+        // Log full error response to console first
+        console.log('Backend Error Response:', JSON.stringify(errorResponse, null, 2));
+
+        // Extract error message, default to 'Login Failed'
+        const errorMessage = errorResponse.error?.message || 'Login Failed';
+
+        // Display specific error messages based on status and message
+        if (errorResponse.status === 403 && errorMessage === 'You are not part of the school') {
+          this.toastrService.error(errorMessage, 'Teacher Access Denied');
+        } else if (errorResponse.status === 401) {
+          this.toastrService.error(errorMessage, 'Authentication Failed');
+        } else if (errorResponse.status === 400) {
+          this.toastrService.error(errorMessage, 'Invalid Input');
+        } else if (errorResponse.status === 0) {
+          this.toastrService.error('Network Error', 'Connection Failed');
+        } else if (errorResponse.status === 500) {
+          this.toastrService.error('Server Error', 'Please try again later');
+        } else {
+          this.toastrService.error(errorMessage, 'Login Failed');
+        }
+
+        // Store error for template display
+        this.serverErrors = { message: errorMessage };
+        this.isLoading = false;
+        this.isDisable = false;
+      }
+     
     });
   }
 }

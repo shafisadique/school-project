@@ -3,7 +3,6 @@
     <app-card>
       <div class="teacher-container">
         <form [formGroup]="teacherForm" (ngSubmit)="onSubmit()" enctype="multipart/form-data">
-          
           <!-- Name & Username -->
           <div class="row">
             <div class="col-md-6 col-12">
@@ -14,7 +13,6 @@
                 <small *ngIf="submitted && f['name'].errors?.['minlength']" class="error">Minimum 3 characters required.</small>
               </div>
             </div>
-
             <div class="col-md-6 col-12">
               <div class="form-group">
                 <label>Username:</label>
@@ -24,7 +22,6 @@
               </div>
             </div>
           </div>
-
           <!-- Email & Password -->
           <div class="row">
             <div class="col-md-6 col-12">
@@ -35,17 +32,13 @@
                 <small *ngIf="submitted && f['email'].errors?.['email']" class="error">Enter a valid email.</small>
               </div>
             </div>
-
             <div class="col-md-6 col-12">
-              <div class="form-group">
+              <!-- <div class="form-group">
                 <label>Password:</label>
                 <input type="password" formControlName="password" class="form-control form-control-sm shadow-sm" />
-                <small *ngIf="submitted && f['password'].errors?.['required']" class="error">Password is required.</small>
-                <small *ngIf="submitted && f['password'].errors?.['minlength']" class="error">Password must be at least 6 characters.</small>
-              </div>
+              </div> -->
             </div>
           </div>
-
           <!-- Phone & Designation -->
           <div class="row">
             <div class="col-md-6 col-12">
@@ -56,7 +49,6 @@
                 <small *ngIf="submitted && f['phone'].errors?.['pattern']" class="error">Enter a valid 10-digit number.</small>
               </div>
             </div>
-
             <div class="col-md-6 col-12">
               <div class="form-group">
                 <label>Designation:</label>
@@ -65,7 +57,6 @@
               </div>
             </div>
           </div>
-
           <!-- Profile Picture Upload -->
           <div class="row">
             <div class="col-12">
@@ -75,16 +66,13 @@
                 <small *ngIf="submitted && fileError" class="error">{{ fileError }}</small>
               </div>
             </div>
-
-            <!-- Image Preview -->
             <div class="col-md-6 col-12">
               <div *ngIf="imagePreview" class="image-preview-container">
                 <label>Preview:</label>
-                <img [src]="imagePreview" alt="Profile Preview" class="img-thumbnail" />
+                <img [src]="imagePreview" crossorigin="anonymous" alt="Profile Preview" class="img-thumbnail" />
               </div>
             </div>
           </div>
-
           <!-- Subjects -->
           <div class="form-group">
             <label>Subjects:</label>
@@ -99,12 +87,10 @@
               [searchable]="true"
               class="custom-multiselect">
             </ng-select>
-            
             <small *ngIf="submitted && f['subjects'].errors?.['required']" class="error">
               Select at least one subject.
             </small>
           </div>
-
           <!-- Gender -->
           <div class="form-group">
             <label>Gender:</label>
@@ -116,15 +102,8 @@
             </select>
             <small *ngIf="submitted && f['gender'].errors?.['required']" class="error">Gender is required.</small>
           </div>
-
-          <!-- Server Errors -->
-          <div *ngIf="serverErrors" class="server-error">
-            <p *ngIf="serverErrors.message">{{ serverErrors.message }}</p>
-          </div>
-
           <!-- Submit Button -->
           <button type="submit" class="btn btn-primary">Add Teacher</button>
-
         </form>
       </div>
     </app-card>

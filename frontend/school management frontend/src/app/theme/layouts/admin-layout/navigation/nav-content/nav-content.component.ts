@@ -108,7 +108,37 @@ export class NavContentComponent implements OnInit {
 
   private updateNavigations() {
     const role = this.authService.getUserRole();
-   
+    if (role === 'superadmin') {
+    this.navigations = [
+      {
+        id: 'dashboard',
+        title: 'Dashboard',
+        type: 'group',
+        icon: 'dashboard',
+        children: [
+          { id: 'default-dash', title: 'Default', type: 'item', url: '/dashboard/default', icon: 'dashboard' }
+        ]
+      },
+      {
+        id: 'subscription',
+        title: 'Subscription Management',
+        type: 'group',
+        icon: 'credit-card',
+        children: [
+          { id: 'manage-subscription', title: 'Manage Subscriptions', type: 'item', url: '/subscription-management', icon: 'credit-card' }
+        ]
+      },
+      {
+        id: 'approve',
+        title: 'Approve',
+        type: 'group',
+        icon: 'check',
+        children: [
+          { id: 'approve-requests', title: 'Approve Requests', type: 'item', url: '/approve', icon: 'check' }
+        ]
+      }
+    ];
+  } 
     if (role === 'teacher') {
       
       // For teachers, show only Dashboard and Attendance

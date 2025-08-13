@@ -14,6 +14,9 @@ export class AttendanceService {
   markAttendance(attendanceData: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/attendance/mark`, attendanceData);
   }
+   editAttendance(data: any): Observable<any> {
+    return this.http.put(`${this.apiUrl}/api/attendance/edit/${data.attendanceId}`, data);
+  }
 
  getAttendanceHistory(classId: string, academicYearId: string, dateRange?: { startDate: string; endDate: string }): Observable<any[]> {
     let url = `${this.apiUrl}/api/attendance/history/${classId}?academicYearId=${academicYearId}`;

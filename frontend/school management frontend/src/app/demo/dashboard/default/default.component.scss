@@ -2,10 +2,14 @@
   .card-body.dashboard-card {
     padding: 18px;
     padding-bottom: 20px;
-
+    box-shadow: 30px;
   }
 }
-
+ .mb-3,.mb-2{
+      color: white;
+      font-family: 'Poppins',sans-serif;
+      font-weight: 500;
+    }
 // src/app/default.component.scss
 .chart-container {
   max-height: 250px; // Matches the chart height
@@ -17,13 +21,140 @@
   align-items: center; // Vertically centers the chart
 }
 
+.custom-modal {
+  .modal-content {
+    background: linear-gradient(135deg, #4a90e2, #50c9c3);
+    border-radius: 15px;
+    color: white;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    animation: slideIn 0.3s ease-out;
+  }
+  .modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    .modal-title {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+    }
+    .btn-close {
+      filter: invert(1);
+    }
+  }
+  .modal-body {
+    font-family: 'Poppins', sans-serif;
+    .plan-card {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      }
+      &.selected {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid #36a2eb;
+      }
+      .card-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+      }
+      .card-price {
+        font-size: 2rem;
+        color: #ffce56;
+        margin: 1rem 0;
+      }
+      .list-group-item {
+        background: transparent;
+        color: white;
+        border: none;
+        padding: 0.5rem 0;
+      }
+    }
+    .btn-group {
+      .btn {
+        font-family: 'Poppins', sans-serif;
+        &.btn-primary {
+          background-color: #36a2eb;
+          border-color: #36a2eb;
+        }
+        &.btn-outline-primary {
+          border-color: #36a2eb;
+          color: #36a2eb;
+          &:hover {
+            background-color: #36a2eb;
+            color: white;
+          }
+        }
+      }
+    }
+    .form-control {
+      background-color: #1a4a8c;
+      color: white;
+      border-color: #4a6fa5;
+      &:focus {
+        background-color: #1a4a8c;
+        border-color: #50c9c3;
+        box-shadow: 0 0 5px rgba(80, 201, 195, 0.5);
+      }
+    }
+  }
+  .modal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    .btn-primary {
+      background-color: #36a2eb;
+      border-color: #36a2eb;
+      &:hover {
+        background-color: #2a8ad0;
+      }
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+    .btn-secondary {
+      background-color: #6c757d;
+      border-color: #6c757d;
+    }
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+img{
+  margin-right: 10px;
+}
+.table{
+  thead{
+    tr{
+      box-shadow: 20px;
+      white-space: nowrap;
+      th{
+        background-color: #2C3E50;
+        font-family: 'Poppins',sans-serif;
+        font-weight: 600;
+        color:white;
+
+      }
+    }
+  }
+}
 
 apx-chart {
   width: 100% !important; // Overrides any default width
   height: 100% !important; // Ensures it respects the container height
-  max-width: 200px !important; // Limits the width to match height
+  color: white;
 }
 
+#monthlyTrendChart{
+  color: white;
+}
 .user-group {
   img {
     position: relative;

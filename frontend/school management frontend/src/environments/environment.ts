@@ -8,7 +8,8 @@ export const environment = {
   appVersion: packageInfo.version,
   production: false,
   apiUrl: 'http://localhost:5000', 
-  razorpayKey: 'rzp_test_xxxxxxxxxxxx' // Replace with your Razorpay test key
+  razorpayKey: 'rzp_test_xxxxxxxxxxxx', // Replace with your Razorpay test key
+  razorpayKeyId:''
 };
 
 /*

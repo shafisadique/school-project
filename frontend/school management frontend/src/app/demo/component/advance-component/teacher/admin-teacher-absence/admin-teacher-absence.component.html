@@ -1,64 +1,106 @@
-<div class="container">
-  <div class="filter-section">
-    <div class="filters">
-      <select [(ngModel)]="selectedStartDate" (ngModelChange)="loadPendingAbsences()" class="form-control">
-        <option value="">Start Date</option>
-        <!-- Populate with dynamic dates if needed -->
-      </select>
-      <select [(ngModel)]="selectedEndDate" (ngModelChange)="loadPendingAbsences()" class="form-control">
-        <option value="">End Date</option>
-        <!-- Populate with dynamic dates if needed -->
-      </select>
-      <input type="text" [(ngModel)]="teacherIdFilter" (ngModelChange)="loadPendingAbsences()" placeholder="Teacher ID/Name" class="form-control">
-      <button class="search-btn" (click)="loadPendingAbsences()">Search</button>
+<div class="container-fluid py-6 bg-gray-50 min-h-screen">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-10">
+      <div class="card bg-white shadow-xl rounded-xl overflow-hidden" [@slideInOut]>
+        <div class="card-header bg-gradient-to-r from-blue-600 to-blue-800 text-white p-2">
+          <h2 class="text-xl font-semibold" style="color: whitesmoke;">Manage Teacher Absences</h2>
+        </div>
+        <div class="card-body p-6">
+          <!-- Filter Section -->
+          <div class="filter-section mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div class="custom-input-wrapper">
+                <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input type="date" id="startDate" class="custom-input" [(ngModel)]="selectedStartDate" (ngModelChange)="loadPendingAbsences()">
+              </div>
+              <div class="custom-input-wrapper">
+                <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input type="date" id="endDate" class="custom-input" [(ngModel)]="selectedEndDate" (ngModelChange)="loadPendingAbsences()">
+              </div>
+              <div class="custom-input-wrapper">
+                <label for="teacherFilter" class="block text-sm font-medium text-gray-700 mb-1">Teacher ID/Name</label>
+                <input type="text" id="teacherFilter" class="custom-input" [(ngModel)]="teacherIdFilter" (ngModelChange)="loadPendingAbsences()" placeholder="Search by ID or Name">
+              </div>
+              <div class="flex items-end">
+                <button class="btn-primary w-full" (click)="loadPendingAbsences()">Search</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Absence Table -->
+          <div *ngIf="absences.length > 0; else noAbsences" class="data-grid-wrapper overflow-x-auto">
+            <table class="data-grid w-full">
+              <thead class="bg-blue-50 sticky top-0 z-10">
+                <tr style="background-color: #2C3E50 !important; color: white;">
+                  <th class="p-2">#</th>
+                  <th class="p-2">Teacher</th>
+                  <th class="p-2">Date</th>
+                  <th class="p-2">Reason</th>
+                  <th class="p-2">Type</th>
+                  <th class="p-2">Submitted</th>
+                  <th class="p-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let absence of absences; let i = index" class="hover:bg-gray-50 transition-colors">
+                  <td class="p-2">{{ i + 1 }}</td>
+                  <td class="p-2">
+                    <div class="profile-wrapper">
+                      <span class="teacher-name">{{ absence.teacherId.name || absence.teacherId }}</span>
+                    </div>
+                  </td>
+                  <td class="p-2">{{ absence.date | date:'mediumDate' }}</td>
+                  <td class="p-2">{{ absence.reason }}</td>
+                  <td class="p-2">{{ absence.isTeacherApplied ? 'Teacher-Applied' : 'Auto-Generated' }}</td>
+                  <td class="p-2">{{ absence.createdAt | date:'short' }}</td>
+                  <td class="p-2 actions">
+                    <button class="btn-confirm" (click)="openConfirmModal(absence, 'Approved')" title="Approve this absence (mark as Present if auto-generated)">Approve</button>
+                    <button class="btn-cancel" (click)="openConfirmModal(absence, 'Rejected')" title="Reject this absence (confirm absence if auto-generated)">Reject</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- No Absences Message -->
+          <ng-template #noAbsences>
+            <div class="text-center py-6 text-gray-500">
+              <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+              <p>No pending absence requests at this time.</p>
+            </div>
+          </ng-template>
+
+          <!-- Loading Overlay -->
+          <div *ngIf="loading" class="loading-overlay">
+            <div class="spinner"></div>
+          </div>
+
+          <!-- Error Message -->
+          <div *ngIf="errorMessage" class="alert alert-danger mb-4">
+            {{ errorMessage }}
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Absence Table -->
-  <div class="table-container">
-    <table class="professional-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Teacher</th>
-          <th>Date</th>
-          <th>Reason</th>
-          <th>Submitted</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let absence of absences; let i = index">
-          <td>{{ i + 1 }}</td>
-          <td class="profile-cell">
-            <div class="profile-wrapper">
-              <!-- <div *ngIf="!absence.teacherImage" class="avatar-placeholder">{{ absence.teacherId.toString().charAt(0) }}</div> -->
-              <span class="teacher-name">{{ absence.teacherId }}</span>
-            </div>
-          </td>
-          <td>{{ absence.date | date:'mediumDate' }}</td>
-          <td>{{ absence.reason }}</td>
-          <td>{{ absence.createdAt | date:'short' }}</td>
-          <td class="actions">
-            <button class="approve-btn" (click)="updateAbsence(absence._id, 'Approved')" title="Approve this teacher's absence request">Approve</button>
-            <button class="reject-btn" (click)="updateAbsence(absence._id, 'Rejected')" title="Reject this teacher's absence request">Reject</button>
-          </td>
-        </tr>
-        <tr *ngIf="absences.length === 0 && !loading">
-          <td colspan="6" class="no-absences">No pending absence requests at this time.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Loading State -->
-  <div *ngIf="loading" class="loading">
-    <div class="spinner"></div>
-    <p>Loading absence requests...</p>
-  </div>
-
-  <!-- Error Message -->
-  <div *ngIf="errorMessage" class="error-message">
-    {{ errorMessage }}
+  <!-- Confirmation Modal -->
+  <div class="modal fade" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmActionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-lg shadow-lg">
+        <div class="modal-header bg-blue-600 text-white">
+          <h5 class="modal-title font-semibold" id="confirmActionModalLabel">Confirm Action</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-gray-700" id="confirmActionModalBody"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn-cancel" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn-confirm" id="confirmActionButton" [disabled]="loading">
+            <span *ngIf="loading" class="spinner"></span>
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

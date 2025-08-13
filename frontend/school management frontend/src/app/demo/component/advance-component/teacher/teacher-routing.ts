@@ -8,8 +8,11 @@ import { AdminTeacherAbsenceComponent } from './admin-teacher-absence/admin-teac
 export const teacherRoutes: Routes = [
   { path: '', redirectTo: '/teacher/teacher-details', pathMatch: 'full' },
   { path: 'teacher-details', loadComponent: () => import('./teacher-details/teacher-details.component').then(m => m.TeacherDetailsComponent) },
-  { path: 'teacher-create', loadComponent: () => import('./teacher-create/teacher-create.component').then(m => m.TeacherCreateComponent) },
-  { path: 'teacher-create/:teacherId', loadComponent: () => import('./teacher-create/teacher-create.component').then(m => m.TeacherCreateComponent) },
+  { path: 'teacher-create',canActivate: [AuthGuard],
+    data: { roles: ['admin'] },  loadComponent: () => import('./teacher-create/teacher-create.component').then(m => m.TeacherCreateComponent) },
+  { path: 'teacher-update/:teacherId',canActivate: [AuthGuard],
+    data: { roles: ['admin'] },loadComponent: () => import('./teacher-update/teacher-update.component').then(m => m.TeacherUpdateComponent)},
+  
   {
     path: 'apply-leave',
     component: TeacherApplyLeaveComponent,

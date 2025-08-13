@@ -26,7 +26,7 @@ selectedDate: string = new Date().toISOString().split('T')[0]; // July 20, 2025
   isHoliday: boolean = false;
   weeklyHolidayDay: string = 'Sunday'; // Default, will be fetched
   minDate: string = new Date().toISOString().split('T')[0]; // Restrict to today or past
-
+  
   statuses = ['Present', 'Absent', 'On Leave', 'Holiday'];
   leaveTypes = ['Casual', 'Sick', 'Unpaid', null];
 
@@ -112,6 +112,11 @@ loadWeeklyHolidayDay(): void {
   }
 
   onSubmit() {
+    const activeAcademicYearId = this.authService.getActiveAcademicYearId();
+    if (!activeAcademicYearId) {
+      this.errorMessage = 'No active academic year found. Please contact administrator.';
+      return;
+    }
     if ((this.isHoliday || this.isWeeklyHoliday()) && this.selectedStatus !== 'Holiday') {
       this.errorMessage = 'Cannot mark attendance as Present/Absent/On Leave on a holiday or weekly holiday.';
       return;
@@ -120,6 +125,7 @@ loadWeeklyHolidayDay(): void {
     const payload = {
       teacherId: this.authService.getUserId(),
       schoolId: this.authService.getSchoolId(),
+      academicYearId: activeAcademicYearId,
       date: this.selectedDate,
       status: this.selectedStatus,
       leaveType: this.selectedStatus === 'On Leave' ? this.leaveType : null,

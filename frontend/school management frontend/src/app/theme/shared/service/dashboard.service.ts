@@ -1,6 +1,5 @@
-// src/app/services/dashboard.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
 
@@ -9,14 +8,56 @@ import { environment } from 'src/environments/environment';
 })
 export class DashboardService {
   private apiUrl = `${environment.apiUrl}/api/admin`;
+  private baseUrl = `${environment.apiUrl}/api/subscriptions`;
 
   constructor(private http: HttpClient) {}
 
-  getStudentAttendance(classId?: string): Observable<any> {
+  getSubscription(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/current`, { withCredentials: true });
+  }
+
+  upgradeSubscription(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/upgrade`, data, { withCredentials: true });
+  }
+
+  verifyPayment(data: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/subscriptions/verify`, data, { withCredentials: true });
+  }
+
+  uploadPaymentProof(subscriptionId: string, file: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('paymentProof', file);
+    return this.http.post(`${this.baseUrl}/subscriptions/upload-proof`, formData, { withCredentials: true });
+  }
+
+
+  getStudentAttendance(params: { classId?: string; academicYearId?: string }): Observable<any> {
     let url = `${this.apiUrl}/student-attendance`;
-    if (classId) {
-      url += `?classId=${classId}`;
+    let queryParams = new HttpParams();
+    if (params.classId) {
+      queryParams = queryParams.set('classId', params.classId);
     }
-    return this.http.get(url, { withCredentials: true }); // Ensure auth token is sent
+    if (params.academicYearId) {
+      queryParams = queryParams.set('academicYearId', params.academicYearId);
+    }
+    return this.http.get(url, { params: queryParams, withCredentials: true });
+  }
+
+  getTeacherDashboard(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/teacher-dashboard`, { withCredentials: true });
+  }
+
+  getFeeDashboard(params: { month?: string; classId?: string; academicYearId: string }): Observable<any> {
+    let queryParams = new HttpParams();
+    if (params.month) {
+      queryParams = queryParams.set('month', params.month);
+    }
+    if (params.classId) {
+      queryParams = queryParams.set('classId', params.classId);
+    }
+    if (params.academicYearId) {
+      queryParams = queryParams.set('academicYearId', params.academicYearId);
+    }
+    return this.http.get(`${this.apiUrl}/fee-dashboard`, { params: queryParams, withCredentials: true });
   }
 }
