@@ -34,7 +34,7 @@ const teacherAbsenceSchema = new mongoose.Schema(
     },
     leaveType: {
       type: String,
-      enum: ['Casual', 'Sick', 'Unpaid', null],
+      enum: ['Casual', 'Sick', 'Unpaid','Holiday', null],
       default: null,
     },
     isTeacherApplied: { type: Boolean, default: true }, // Ensure this is set

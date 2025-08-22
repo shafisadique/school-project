@@ -16,9 +16,11 @@ import { ToastrService } from 'ngx-toastr';
 export class AuthLoginComponent {
   serverErrors: any = {};
   public loginForm: FormGroup;
+  public forgotPasswordForm: FormGroup;
   validationError = false;
   isLoading = false;
   isDisable = false;
+  showForgotPassword = false;
 
   constructor(
     private fb: FormBuilder,
@@ -30,6 +32,16 @@ export class AuthLoginComponent {
       username: ['', [Validators.required, Validators.email]],
       password: ['', Validators.required],
     });
+
+    this.forgotPasswordForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email]],
+    });
+  }
+
+  toggleForgotPassword() {
+    this.showForgotPassword = !this.showForgotPassword;
+    this.serverErrors = {};
+    this.forgotPasswordForm.reset();
   }
 
   onLoggedin(e: Event) {
@@ -46,7 +58,6 @@ export class AuthLoginComponent {
           this.router.navigate(['/auth/register']);
         } else if (role === 'admin') {
           this.router.navigate(['/']);
-          // this.router.navigate(['/admin/dashboard']);
         } else {
           this.router.navigate(['/']);
         }
@@ -54,14 +65,10 @@ export class AuthLoginComponent {
         this.isLoading = false;
         this.isDisable = false;
       },
-    error: (errorResponse) => {
-        // Log full error response to console first
+      error: (errorResponse) => {
         console.log('Backend Error Response:', JSON.stringify(errorResponse, null, 2));
-
-        // Extract error message, default to 'Login Failed'
         const errorMessage = errorResponse.error?.message || 'Login Failed';
 
-        // Display specific error messages based on status and message
         if (errorResponse.status === 403 && errorMessage === 'You are not part of the school') {
           this.toastrService.error(errorMessage, 'Teacher Access Denied');
         } else if (errorResponse.status === 401) {
@@ -76,12 +83,54 @@ export class AuthLoginComponent {
           this.toastrService.error(errorMessage, 'Login Failed');
         }
 
-        // Store error for template display
         this.serverErrors = { message: errorMessage };
         this.isLoading = false;
         this.isDisable = false;
       }
-     
+    });
+  }
+
+  onForgotPassword() {
+    if (this.forgotPasswordForm.invalid) {
+      this.forgotPasswordForm.markAllAsTouched();
+      return;
+    }
+
+    this.isLoading = true;
+    this.isDisable = true;
+
+    const { email } = this.forgotPasswordForm.value;
+    this.authService.forgotPassword(email.trim()).subscribe({
+      next: (res: any) => {
+        this.toastrService.success('Password reset link sent to your email', 'Success');
+        this.isLoading = false;
+        this.isDisable = false;
+        this.toggleForgotPassword(); // Return to login after success
+      },
+      error: (errorResponse) => {
+        console.error('Forgot Password Error:', JSON.stringify(errorResponse, null, 2));
+        const errorMessage = errorResponse.error?.message || 'Failed to send reset link';
+
+        if (errorResponse.status === 404) {
+          this.toastrService.error('Email not found in our records', 'Error');
+          this.serverErrors = { email: 'Email not found in our records' };
+        } else if (errorResponse.status === 400) {
+          this.toastrService.error(errorMessage, 'Invalid Input');
+          this.serverErrors = { email: errorMessage };
+        } else if (errorResponse.status === 429) {
+          this.toastrService.error('Too many requests, please try again later', 'Rate Limit Exceeded');
+          this.serverErrors = { email: 'Too many requests, please try again later' };
+        } else if (errorResponse.status === 0) {
+          this.toastrService.error('Network Error', 'Connection Failed');
+          this.serverErrors = { email: 'Network error, please check your connection' };
+        } else {
+          this.toastrService.error('An unexpected error occurred', 'Error');
+          this.serverErrors = { email: 'An unexpected error occurred' };
+        }
+
+        this.isLoading = false;
+        this.isDisable = false;
+      }
     });
   }
 }

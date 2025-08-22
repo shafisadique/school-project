@@ -29,8 +29,7 @@ const studentSchema = new mongoose.Schema({
     default: ''
   },
   phone: { 
-    type: String, 
-    required: true, 
+    type: String,  
     trim: true,
     validate: {
       validator: (v) => /^\d{10}$/.test(v),

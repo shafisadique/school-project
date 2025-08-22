@@ -40,7 +40,6 @@ export class AttendanceComponent implements OnInit {
   ngOnInit(): void {
     this.selectedSchoolId = localStorage.getItem('schoolId') || '';
     this.selectedAcademicYearId = localStorage.getItem('activeAcademicYearId') || '';
-    const teacherId = localStorage.getItem('teacherId') || '';
     this.validateSession();
     this.initForms();
     this.loadTeacherAssignments();

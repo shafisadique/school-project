@@ -20,6 +20,10 @@ export class DashboardService {
     return this.http.post(`${this.baseUrl}/upgrade`, data, { withCredentials: true });
   }
 
+  getPlans(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/plans`);
+  }
+
   verifyPayment(data: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/subscriptions/verify`, data, { withCredentials: true });
   }

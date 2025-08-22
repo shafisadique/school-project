@@ -6,6 +6,7 @@ import { RouterModule, Routes } from '@angular/router';
 import { AdminComponent } from './theme/layouts/admin-layout/admin-layout.component';
 import { GuestLayoutComponent } from './theme/layouts/guest-layout/guest-layout.component';
 import { AuthGuard } from './theme/shared/guard/auth.guard';
+import { PageNotFoundComponent } from './theme/shared/page-not-found/page-not-found.component';
 
 export const routes: Routes = [
   {
@@ -13,7 +14,7 @@ export const routes: Routes = [
     loadComponent: () => import('./demo/pages/authentication/auth-login/auth-login.component').then((c) => c.AuthLoginComponent)
   },
   {
-    path: 'auth/register',
+    path: 'auth/register',data: { roles: ['superadmin'] },canActivate:[AuthGuard],
     loadComponent: () => import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
   },
   {
@@ -111,26 +112,22 @@ export const routes: Routes = [
       },
       {
         path: 'holiday-calendar',
-        canActivate: [AuthGuard],
+        canActivate: [AuthGuard],data: { roles: ['admin'] },
         loadComponent: () => import('./demo/component/advance-component/holidays/holiday-calendar/holiday-calendar.component').then(c => c.HolidayCalendarComponent)
       },
+      {
+        path: 'assignment', // Define the assignment route
+        canActivate: [AuthGuard],
+        loadComponent: () => import('./demo/component/advance-component/assignment-management/assignment-management.component').then(c => c.AssignmentManagementComponent)
+      }
     ]
   },
   {
     path: '',
     component: GuestLayoutComponent,
-    children: [
-      // {
-      //   path: 'login',
-      //   loadComponent: () => import('./demo/pages/authentication/auth-login/auth-login.component').then((c) => c.AuthLoginComponent)
-      // },
-      // {
-      //   path: 'register',
-      //   loadComponent: () =>
-      //     import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
-      // }
-    ]
-  }
+    children: []
+  },
+  { path: '**', component: PageNotFoundComponent }
 ];
 
 @NgModule({

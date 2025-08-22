@@ -1,10 +1,12 @@
 const Holiday = require('../../models/holiday');
 const TeacherAbsence = require('../../models/teacherAbsence');
+const TeacherAttendance =require('../../models/teacherAttendance')
 const Teacher = require('../../models/teacher');
 const APIError = require('../../utils/apiError');
 const mongoose = require('mongoose')
 
 exports.addHoliday = async (req, res, next) => {
+  console.log(req.user)
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -46,6 +48,7 @@ exports.addHoliday = async (req, res, next) => {
         date: holidayDate,
         status: 'Holiday',
         remarks: `Holiday: ${title}`,
+        academicYearId:req.user.activeAcademicYear,
         recordedBy: req.user.id
       }));
 

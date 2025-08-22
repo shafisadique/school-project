@@ -7,6 +7,7 @@ import { routes } from './app-routing.module';
 import { tokenInterceptor } from './theme/shared/interceptor/token.interceptor';
 import { RazorpayService } from './theme/shared/service/razorpay.service';
 import { loadingInterceptor } from './theme/shared/interceptor/loading.interceptor';
+import { authInterceptor } from './theme/shared/interceptor/auth.interceptor';
 
 // Factory function to initialize Razorpay
 const initializeRazorpay = (razorpayService: RazorpayService) => () =>
@@ -23,7 +24,7 @@ export const appConfig: ApplicationConfig = {
       closeButton: true
     }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([tokenInterceptor,loadingInterceptor])),
+    provideHttpClient(withInterceptors([tokenInterceptor,loadingInterceptor,authInterceptor])),
     {
       provide: APP_INITIALIZER,
       useFactory: initializeRazorpay,

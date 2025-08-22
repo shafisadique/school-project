@@ -142,7 +142,7 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   private dashboardService = inject(DashboardService);
   private academicYearService = inject(AcademicYearService);
   private classSubjectService = inject(ClassSubjectService);
-  private authService = inject(AuthService);
+  public authService = inject(AuthService);
   public modalService = inject(NgbModal);
   subscriptionData: any = {};
   isExpiringSoon: boolean = false;
@@ -195,9 +195,9 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   academicYears: AcademicYear[] = [];
   selectedMonth: string = '';
   selectedAcademicYearId: string = '';
-  selectedPaymentMethod: string = 'razorpay';
-  paymentProof: File | null = null;
-  bankDetails: any = null;
+    selectedPaymentMethod: string = 'razorpay';
+    paymentProof: File | null = null;
+    bankDetails: any = null;
   subscriptionId: string | null = null;
   paymentMethodChart = viewChild<ChartComponent>('paymentMethodChart');
   monthlyTrendChart = viewChild<ChartComponent>('monthlyTrendChart');
@@ -232,13 +232,17 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   }
 
   openUpgradeModal(template: TemplateRef<any>) {
-    this.modalService.open(template, {
-      centered: true,
-      size: 'lg',
-      windowClass: 'custom-modal', // For custom styling
-      backdrop: 'static' // Prevent closing on backdrop click
-    });
-  }
+      this.selectedPaymentMethod = 'razorpay'; // Reset to default payment method
+      this.paymentProof = null; // Reset file
+      this.bankDetails = null; // Reset bank details
+      this.subscriptionId = null; // Reset subscription ID
+      this.modalService.open(template, {
+        centered: true,
+        size: 'lg',
+        windowClass: 'custom-modal',
+        backdrop: 'static'
+      });
+    }
 
   onFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -384,6 +388,7 @@ export class DefaultComponent implements OnInit, AfterViewInit {
 
   fetchStudentAttendance(classId: string = '') {
   const params = this.selectedAcademicYearId ? { classId, academicYearId: this.selectedAcademicYearId } : { classId };
+  if (this.authService.getUserRole() === 'admin')
   this.dashboardService.getStudentAttendance(params).subscribe({
     next: (data: StudentAttendanceData) => {
       this.studentAttendanceData = data || {};

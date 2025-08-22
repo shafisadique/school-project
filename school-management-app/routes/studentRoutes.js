@@ -25,6 +25,7 @@ router.post('/assign-roll-numbers', authMiddleware, studentController.assignRoll
 router.post('/assign-roll-numbers-alphabetically', authMiddleware, studentController.assignRollNumbersAlphabetically);
 router.get('/get-student-by-class/:classId', authMiddleware, studentController.getStudentsByClass);
 router.post('/promote', authMiddleware, studentController.promoteStudents);
+router.post('/create-portal',authMiddleware, studentController.createStudentPortal);
 
 // New route for parent validation
 router.get('/validate-parent/:studentId', authMiddleware, studentController.validateParent);

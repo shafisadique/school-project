@@ -62,6 +62,38 @@ router.post('/approve-bank-transfer', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/plans', authMiddleware, (req, res) => {
+  const plans = {
+    basic: [
+      { 
+        value: 'basic_monthly', 
+        name: 'Basic', 
+        price: 700, 
+        features: ['Personal school data access', 'Basic reporting tools', '1 month support'] 
+      },
+    ],
+    premium: [
+      { 
+        value: 'premium_halfyearly', 
+        name: 'Premium', 
+        price: 6400, 
+        originalPrice: 7200, 
+        discount: 800, 
+        features: ['Personal school data access', 'Advanced reporting', '6 months priority support'] 
+      },
+      { 
+        value: 'premium_yearly', 
+        name: 'Premium', 
+        price: 12000, 
+        originalPrice: 14400, 
+        discount: 2400, 
+        features: ['Personal school data access', 'Advanced reporting', '12 months priority support', 'Exclusive updates'] 
+      },
+    ]
+  };
+  res.status(200).json(plans);
+});
+
 // GET /api/subscriptions/current
 router.get('/current', authMiddleware, async (req, res) => {
   try {
@@ -106,7 +138,16 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
     }
 
     const { planType, paymentMethod } = req.body;
-    if (!['basic', 'premium'].includes(planType)) {
+    const availablePlans = {
+      basic_monthly: { originalAmount: 700, durationDays: 30, discountAmount: 0, finalAmount: 700 },
+      basic_halfyearly: { originalAmount: 4200, durationDays: 180, discountAmount: 500, finalAmount: 3700 },
+      basic_yearly: { originalAmount: 7000, durationDays: 365, discountAmount: 1000, finalAmount: 6000 },
+      premium_monthly: { originalAmount: 1200, durationDays: 30, discountAmount: 0, finalAmount: 1200 },
+      premium_halfyearly: { originalAmount: 7200, durationDays: 180, discountAmount: 800, finalAmount: 6400 },
+      premium_yearly: { originalAmount: 12000, durationDays: 365, discountAmount: 2000, finalAmount: 10000 }
+    };
+
+    if (!availablePlans[planType]) {
       return res.status(400).json({ message: 'Invalid plan type' });
     }
     if (!['razorpay', 'phonepe', 'bank_transfer'].includes(paymentMethod)) {
@@ -121,21 +162,22 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
       return res.status(404).json({ message: 'No subscription to upgrade' });
     }
 
-    const plans = {
-      basic: { amount: 50000, durationDays: 365 }, // ₹500, 1 year (in paise)
-      premium: { amount: 100000, durationDays: 365 } // ₹1000, 1 year
-    };
-    const { amount, durationDays } = plans[planType];
-
+    const plan = availablePlans[planType];
+    const { originalAmount, durationDays, discountAmount, finalAmount } = plan;
+    console.log(paymentMethod)
+    return
+    
     if (paymentMethod === 'bank_transfer') {
-      // Update subscription to pending
       currentSub.planType = planType;
       currentSub.paymentMethod = 'bank_transfer';
       currentSub.status = 'pending';
+      currentSub.durationDays = durationDays;
+      currentSub.originalAmount = originalAmount;
+      currentSub.discountAmount = discountAmount;
+      currentSub.finalAmount = finalAmount;
       currentSub.updatedAt = new Date();
       await currentSub.save();
 
-      // Return bank details
       return res.status(200).json({
         message: 'Bank transfer initiated. Please upload payment proof.',
         bankDetails: {
@@ -149,12 +191,11 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
       });
     }
 
-    // Razorpay or PhonePe (UPI)
     const order = await rzp.orders.create({
-      amount,
+      amount: finalAmount * 100, // In paise
       currency: 'INR',
       receipt: `sub_${currentSub._id}`,
-      notes: { schoolId: req.user.schoolId.toString(), planType, durationDays, paymentMethod }
+      notes: { schoolId: req.user.schoolId.toString(), planType, durationDays, paymentMethod, originalAmount, discountAmount, finalAmount }
     });
 
     res.status(200).json({ order });

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { addSchool, getSchoolById, updateSchool, setAcademicYear, getSchoolByUser, uploadSchoolLogo, getSchools, updateSchoolStatus } = require('../controllers/school/schoolController');
-const { isAdmin, isSuperAdmin } = require('../middleware/roleMiddleware');
+const { addSchool, getSchoolById, updateSchool, setAcademicYear, getSchoolByUser, uploadSchoolLogo, getSchools, updateSchoolStatus, getSchoolByTeacher } = require('../controllers/school/schoolController');
+const { isAdmin, isSuperAdmin, isTeacher } = require('../middleware/roleMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
 
@@ -17,5 +17,7 @@ router.post('/academic-year',isAdmin, authMiddleware, setAcademicYear); // Set a
 router.get('/user/:userId',isAdmin, authMiddleware, getSchoolByUser); // Fetch school by user ID
 router.post('/:id/logo', [authMiddleware, upload.single('logo')], uploadSchoolLogo); // Upload school logo
 router.put('/status/:id', isAdmin, updateSchoolStatus);
+
+router.get('/teacher/:id', [authMiddleware, isTeacher],getSchoolByTeacher);
 
 module.exports = router;

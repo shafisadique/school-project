@@ -1,7 +1,7 @@
 // src/app/theme/shared/service/auth.service.ts
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject, Injectable, signal } from '@angular/core';
-import { BehaviorSubject, Observable, catchError, map, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, map, of, throwError } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { ToastrService } from 'ngx-toastr';
 import { Router } from '@angular/router';
@@ -48,7 +48,7 @@ export class AuthService {
   }
 
   forgotPassword(email: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/user/forgot-password`, { email }).pipe(
+    return this.http.post(`${this.baseUrl}/api/auth/user/forgot-password`, { email }).pipe(
       map(() => {
         this.toastr.success('Password reset link sent to your email');
         return true;
@@ -129,12 +129,12 @@ export class AuthService {
     return !!localStorage.getItem('token');
   }
 
-  logOut(): void {
+  logOut(): Observable<void> {
     localStorage.clear();
     this.isLoggedIn.next(false);
     this.currentSchoolId.set(null);
     this.toastr.success('Logout Success', 'You have been logged out.');
-    this.router.navigate(['/auth/login']);
+    return of(void 0);
   }
 
   setUser(user: AuthResponse): void {

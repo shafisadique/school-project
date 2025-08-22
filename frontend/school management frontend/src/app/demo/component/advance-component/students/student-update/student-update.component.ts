@@ -53,7 +53,8 @@ export class StudentUpdateComponent implements OnInit {
     this.studentForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       email: [''],
-      phone: ['', [Validators.required, Validators.pattern('^(?:\\+91)?[0-9]{10}$')]],
+      phone: [''],
+      // [Validators.required, Validators.pattern('^(?:\\+91)?[0-9]{10}$')]
       dateOfBirth: ['', Validators.required],
       city: ['', Validators.required],
       state: ['', Validators.required],
@@ -112,6 +113,7 @@ export class StudentUpdateComponent implements OnInit {
     if (this.studentId) {
       this.studentService.getStudentById(this.studentId).subscribe({
         next: (student) => {
+          console.log(student)
           this.studentForm.patchValue({
             name: student.name,
             email: student.email,
@@ -124,8 +126,8 @@ export class StudentUpdateComponent implements OnInit {
             section: student.section[0], // Assuming section is an array
             address: student.address,
             gender: student.gender,
-            usesTransport: student.usesTransport,
-            usesHostel: student.usesHostel,
+            usesTransport: student.feePreferences.usesTransport,
+            usesHostel: student.feePreferences.usesHostel,
             fatherName: student.parents?.fatherName || '',
             motherName: student.parents?.motherName || '',
             fatherPhone: student.parents?.fatherPhone || '',
@@ -217,11 +219,11 @@ export class StudentUpdateComponent implements OnInit {
             this.studentService.uploadStudentPhoto(this.studentId!, formData).subscribe({
               next: () => {
                 this.toastr.success('Student updated successfully!', 'Success');
-                this.router.navigate(['/student/details']);
+                this.router.navigate(['/student/student-details']);
               },
               error: (err) => {
                 this.toastr.error('Student updated, but failed to upload profile picture', 'Warning');
-                this.router.navigate(['/student/details']);
+                this.router.navigate(['/student/student-details']);
               }
             });
           } else {

@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from 'src/environments/environment';
@@ -43,6 +43,13 @@ export class StudentService {
       params: { academicYearId }
     });
   }
+
+  createPortal(studentId: string, role: 'student' | 'parent'): Observable<any> {
+    const headers = new HttpHeaders({ 'Content-Type': 'application/json' });
+    const body = { studentId, role };
+    return this.http.post(`${this.apiUrl}/api/students/create-portal`, body, { headers });
+  }
+  
 
   fetchStudentsByClassForInvoices(classId: string, academicYearId: string): Observable<any[]> {
     return this.http.get(`${this.apiUrl}/api/students/get-student-by-class/${classId}`, {

@@ -46,7 +46,8 @@ export class StudentCreateComponent implements OnInit {
     this.studentForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       email: [''],
-      phone: ['', [Validators.required, Validators.pattern('^(?:\\+91)?[0-9]{10}$')]],
+      phone: [''],
+      // [Validators.required, Validators.pattern('^(?:\\+91)?[0-9]{10}$')]
       dateOfBirth: ['', Validators.required],
       city: ['', Validators.required],
       state: ['', Validators.required],
@@ -155,10 +156,6 @@ export class StudentCreateComponent implements OnInit {
 
   onSubmit() {
     this.submitted = true;
-
-    console.log('Form Valid:', this.studentForm.valid);
-    console.log('Form Values:', this.studentForm.value);
-
     if (this.studentForm.invalid || !this.selectedFile) {
       this.fileError = !this.selectedFile ? 'Profile picture is required.' : null;
       return;
@@ -207,7 +204,6 @@ export class StudentCreateComponent implements OnInit {
     this.studentService.getActiveAcademicYear(schoolId).subscribe({
       next: (activeYear) => {
         formData.append('academicYearId', activeYear._id);
-
         this.studentService.createStudent(formData).subscribe({
           next: (res) => {
             this.toastr.success('Student added successfully!', 'Success');

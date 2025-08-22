@@ -1,12 +1,9 @@
 // Angular import
 import { CommonModule } from '@angular/common';
-import { Component, inject, input, output } from '@angular/core';
-
-// project import
-
-// icons
+import { Component, inject, input, output, TemplateRef } from '@angular/core';
 import { IconService, IconDirective } from '@ant-design/icons-angular';
 import { MenuUnfoldOutline, MenuFoldOutline, SearchOutline } from '@ant-design/icons-angular/icons';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-nav-left',
@@ -16,6 +13,8 @@ import { MenuUnfoldOutline, MenuFoldOutline, SearchOutline } from '@ant-design/i
 })
 export class NavLeftComponent {
   private iconService = inject(IconService);
+  ;
+
 
   // public props
   navCollapsed = input.required<boolean>();
@@ -33,4 +32,6 @@ export class NavLeftComponent {
   navCollapse() {
     this.NavCollapse.emit();
   }
+
+ 
 }

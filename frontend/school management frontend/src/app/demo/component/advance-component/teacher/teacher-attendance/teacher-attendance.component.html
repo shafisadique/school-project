@@ -1,65 +1,65 @@
-<!-- src/app/teacher-attendance/teacher-attendance.component.html -->
-<div class="container mt-4">
-  <!-- <h2>Mark Your Attendance</h2> -->
-  <form (ngSubmit)="onSubmit()" #attendanceForm="ngForm">
-    <div class="form-group">
-      <label for="date">Date</label>
-      <input
-        type="date"
-        id="date"
-        class="form-control"
-        [(ngModel)]="selectedDate"
-        name="date"
-        (ngModelChange)="onDateChange()"
-        [min]="minDate"
-        required
-      />
-      <div *ngIf="attendanceForm.controls['date']?.invalid && attendanceForm.controls['date']?.touched" class="text-danger">
-        Date is required.
+  <!-- src/app/teacher-attendance/teacher-attendance.component.html -->
+  <div class="container mt-4">
+    <!-- <h2>Mark Your Attendance</h2> -->
+    <form (ngSubmit)="onSubmit()" #attendanceForm="ngForm">
+      <div class="form-group">
+        <label for="date">Date</label>
+        <input
+          type="date"
+          id="date"
+          class="form-control"
+          [(ngModel)]="selectedDate"
+          name="date"
+          (ngModelChange)="onDateChange()"
+          [min]="minDate"
+          required
+        />
+        <div *ngIf="attendanceForm.controls['date']?.invalid && attendanceForm.controls['date']?.touched" class="text-danger">
+          Date is required.
+        </div>
       </div>
-    </div>
-    <div class="form-group">
-      <label for="status">Status</label>
-      <select
-        id="status"
-        class="form-control"
-        [(ngModel)]="selectedStatus"
-        name="status"
-        required
-        [disabled]="(isHoliday || isWeeklyHoliday()) && selectedStatus !== 'Holiday'"
-      >
-        <option *ngFor="let status of statuses" [value]="status">{{ status }}</option>
-      </select>
-    </div>
-    <div class="form-group" *ngIf="selectedStatus === 'On Leave' && !isHoliday && !isWeeklyHoliday()">
-      <label for="leaveType">Leave Type</label>
-      <select
-        id="leaveType"
-        class="form-control"
-        [(ngModel)]="leaveType"
-        name="leaveType"
-        required
-      >
-        <option *ngFor="let type of leaveTypes" [value]="type">{{ type || 'None' }}</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="remarks">Remarks (Optional)</label>
-      <textarea
-        id="remarks"
-        class="form-control"
-        [(ngModel)]="remarks"
-        name="remarks"
-        maxlength="500"
-      ></textarea>
-    </div>
-    <button type="submit" class="btn btn-primary" [disabled]="!attendanceForm.valid || (isHoliday && selectedStatus !== 'Holiday') || (isWeeklyHoliday() && selectedStatus !== 'Holiday')">
-      Submit
-    </button>
-    <div *ngIf="errorMessage" class="alert alert-danger mt-2">{{ errorMessage }}</div>
-    <div *ngIf="successMessage" class="alert alert-success mt-2">{{ successMessage }}</div>
-    <div *ngIf="isHoliday || isWeeklyHoliday()" class="alert alert-warning mt-2">
-      This is a {{ isHoliday ? 'holiday' : 'weekly holiday' }}.
-    </div>
-  </form>
-</div>
+      <div class="form-group">
+        <label for="status">Status</label>
+        <select
+          id="status"
+          class="form-control"
+          [(ngModel)]="selectedStatus"
+          name="status"
+          required
+          [disabled]="(isHoliday || isWeeklyHoliday()) && selectedStatus !== 'Holiday'"
+        >
+          <option *ngFor="let status of statuses" [value]="status">{{ status }}</option>
+        </select>
+      </div>
+      <div class="form-group" *ngIf="selectedStatus === 'On Leave' && !isHoliday && !isWeeklyHoliday()">
+        <label for="leaveType">Leave Type</label>
+        <select
+          id="leaveType"
+          class="form-control"
+          [(ngModel)]="leaveType"
+          name="leaveType"
+          required
+        >
+          <option *ngFor="let type of leaveTypes" [value]="type">{{ type || 'None' }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="remarks">Remarks (Optional)</label>
+        <textarea
+          id="remarks"
+          class="form-control"
+          [(ngModel)]="remarks"
+          name="remarks"
+          maxlength="500"
+        ></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary" [disabled]="!attendanceForm.valid || (isHoliday && selectedStatus !== 'Holiday') || (isWeeklyHoliday() && selectedStatus !== 'Holiday')">
+        Submit
+      </button>
+      <div *ngIf="errorMessage" class="alert alert-danger mt-2">{{ errorMessage }}</div>
+      <div *ngIf="successMessage" class="alert alert-success mt-2">{{ successMessage }}</div>
+      <div *ngIf="isHoliday || isWeeklyHoliday()" class="alert alert-warning mt-2">
+        This is a {{ isHoliday ? 'holiday' : 'weekly holiday' }}.
+      </div>
+    </form>
+  </div>

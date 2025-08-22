@@ -1,0 +1,29 @@
+.card {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+
+  &.loading {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .card-body {
+    padding: 20px;
+  }
+
+  .form-control {
+    width: 100%;
+  }
+
+  .list-group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+}

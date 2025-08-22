@@ -33,17 +33,22 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
     .modal-title {
       font-family: 'Poppins', sans-serif;
+      color: white;
       font-weight: 700;
     }
     .btn-close {
       filter: invert(1);
     }
   }
+  h5{
+    color: white;
+  }
   .modal-body {
     font-family: 'Poppins', sans-serif;
     .plan-card {
       background: rgba(255, 255, 255, 0.1);
       border-radius: 10px;
+      box-shadow: 20px;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
       &:hover {
         transform: translateY(-5px);

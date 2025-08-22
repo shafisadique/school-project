@@ -83,7 +83,7 @@ const getClassesBySchool = async (req, res, next) => {
           select: 'name',
         });
     } else if (req.user.role === 'teacher') {
-      console.log('Fetching classes for teacher with ID:', req.user.id);
+
       // Check both teacherAssignments and teachers array
       const subjects = await Subject.find({
         schoolId: req.user.schoolId,
@@ -291,7 +291,6 @@ const getAssignmentsByTeacher = async (req, res) => {
         }
       }
     }
-
     // If a date is provided, filter assignments (optional logic if timetable includes day/time)
     if (date) {
       const selectedDate = new Date(date);

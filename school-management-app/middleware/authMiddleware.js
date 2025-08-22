@@ -5,6 +5,10 @@ const Subscription = require('../models/subscription');
 
 const authMiddleware = async (req, res, next) => {
   try {
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: 'Server configuration error: Missing JWT_SECRET' });
+    }
+
     const token = req.header('Authorization')?.replace('Bearer ', '');
     if (!token) {
       return res.status(401).json({ message: 'Access denied. No token provided.' });
@@ -30,7 +34,7 @@ const authMiddleware = async (req, res, next) => {
             { _id: subscription._id },
             { status: 'expired', updatedAt: new Date() }
           );
-          subscription.status = 'expired';
+          subscription = subscription ? { ...subscription, status: 'expired' } : null;
         }
         if (req.method !== 'GET') {
           return res.status(403).json({
@@ -41,7 +45,7 @@ const authMiddleware = async (req, res, next) => {
         }
       }
 
-      school = await School.findById(user.schoolId).select('activeAcademicYear').lean();
+      school = await School.findById(user.schoolId).select('activeAcademicYear weeklyHolidayDay').lean();
       if (!school || !school.activeAcademicYear) {
         return res.status(400).json({ message: 'No active academic year set for this school' });
       }

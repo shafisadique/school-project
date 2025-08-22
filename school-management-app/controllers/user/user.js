@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const User = require('../../models/user');
 const nodemailer = require('nodemailer');
+const teacherSchema = require('../../models/teacher');
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -52,8 +53,9 @@ const forgotPassword = async (req, res) => {
     user.resetToken = resetToken;
     user.resetTokenExpires = resetTokenExpires;
     await user.save();
-
-    const resetUrl = `http://your-frontend-url/reset-password?token=${resetToken}`;
+    console.log('here we reached')
+    const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
+    console.log('here we reached,',resetUrl)
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
@@ -96,22 +98,63 @@ const resetPassword = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const requestedUserId = req.params.userId;
-    // Check if the requested userId matches the authenticated user or if the user is an admin
-    if (req.user.userId !== requestedUserId && req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Unauthorized access' });
+
+    // Ensure requestedUserId is a valid ObjectId
+    const { isValidObjectId } = require('mongoose');
+    if (!isValidObjectId(requestedUserId)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
     }
 
-    const user = await User.findById(requestedUserId).select('name email username additionalInfo');
+    // Check if the user is authorized: must be requesting their own profile or be an admin
+    if (req.user.id !== requestedUserId && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Unauthorized: You can only view your own profile or must be an admin' });
+    }
+
+    // Fetch the user with selected fields
+    const user = await User.findById(requestedUserId).select('name email username additionalInfo role schoolId').lean();
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.status(200).json({ message: 'Profile retrieved successfully', data: user });
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching profile', error: err.message });
+    // Initialize response data
+    let responseData = { ...user };
+
+    // If the user is a teacher, fetch additional teacher data
+    if (user.role === 'teacher') {
+      const teacher = await teacherSchema.findOne({ userId: requestedUserId, schoolId: user.schoolId })
+        .select('name email phone designation gender subjects schoolId academicYearId profileImage status')
+        .populate('subjects', 'name code') // Populate subject details
+        .populate('schoolId', 'name') // Populate school name
+        .populate('academicYearId', 'year') // Populate academic year
+        .lean();
+
+      if (!teacher) {
+        return res.status(404).json({ message: 'Teacher profile not found' });
+      }
+
+      // Merge teacher data into the response
+      responseData = {
+        ...responseData,
+        teacherDetails: {
+          phone: teacher.phone,
+          designation: teacher.designation,
+          gender: teacher.gender,
+          subjects: teacher.subjects,
+          school: teacher.schoolId,
+          academicYear: teacher.academicYearId,
+          profileImage: teacher.profileImage,
+          status: teacher.status
+        }
+      };
     }
-  };
-  
+
+    res.status(200).json({ message: 'Profile retrieved successfully', data: responseData });
+  } catch (err) {
+    console.error('Error in getProfile:', err);
+    res.status(500).json({ message: 'Error fetching profile', error: err.message });
+  }
+};
+
 const updateProfile = async (req, res) => {
   try {
     const { name, email, additionalInfo } = req.body;

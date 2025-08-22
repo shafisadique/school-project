@@ -8,10 +8,11 @@ const Teacher = require('../../models/teacher'); // Added for getStudentsByClass
 const mongoose = require('mongoose'); // Added for getStudentsByClass
 const multer = require('multer');
 const { paginate } = require('../../utils/paginationHelper'); // Adjust path as needed
-const Result = require('../../models/result');
 const Route = require('../../models/route');
-const exam = require('../../models/exam');
-const { getAllResultsForClass } = require('../../controllers/result/resultController');
+const User = require('../../models/user');
+const bcrypt = require('bcrypt');
+const subscriptionSchema = require('../../models/subscription');
+const crypto = require('crypto');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -24,6 +25,43 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+
+
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32); // 32 bytes for AES-256
+const IV_LENGTH = 16; // Initialization vector length for AES
+
+// Function to encrypt password
+const encryptPassword = (text) => {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted; // Store IV with encrypted data
+};
+
+// Function to decrypt password with validation
+const decryptPassword = (encryptedText) => {
+  if (!encryptedText || typeof encryptedText !== 'string') return '';
+  const [ivHex, encrypted] = encryptedText.split(':');
+  if (!ivHex || !encrypted || ivHex.length !== 32) { // 32 hex chars = 16 bytes
+    console.error('Invalid encrypted text format:', encryptedText);
+    return '';
+  }
+  try {
+    const iv = Buffer.from(ivHex, 'hex');
+    if (iv.length !== IV_LENGTH) {
+      console.error('Invalid IV length:', iv.length);
+      return '';
+    }
+    const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (error) {
+    console.error('Decryption error:', error.message, 'for encrypted text:', encryptedText);
+    return '';
+  }
+};
 
 // Moved getStudentsByClass from attendanceControllers.js
 const getStudentsByClass = async (req, res, next) => {
@@ -184,87 +222,6 @@ const validateParent = async (req, res) => {
   }
 };
 
-// Create a new student
-// const createStudent = async (req, res) => {
-//   try {
-//     if (!req.user || (!req.user._id && !req.user.id)) {
-//       return res.status(401).json({ message: 'User not authenticated, ID missing' });
-//     }
-
-//     const userId = req.user._id || req.user.id;
-//     if (!mongoose.Types.ObjectId.isValid(userId)) {
-//       return res.status(400).json({ message: 'Invalid user ID format' });
-//     }
-
-//     const {
-//       name,
-//       email,
-//       phone,
-//       dateOfBirth,
-//       city,
-//       state,
-//       country,
-//       classId,
-//       section,
-//       address,
-//       gender,
-//       usesTransport,
-//       usesHostel,
-//       usesLibrary,
-//       needsDress,
-//       usesLab,
-//       needsExamFee,
-//       parents,
-//       academicYearId
-//     } = req.body;
-
-//     const parsedSection = typeof section === 'string' ? JSON.parse(section) : section;
-//     const parsedParents = typeof parents === 'string' ? JSON.parse(parents) : parents;
-
-//     const schoolId = req.user.schoolId;
-//     const admissionNo = await generateAdmissionNo(schoolId, academicYearId);
-
-//     // Construct feePreferences map
-//     const feePreferences = new Map();
-//     feePreferences.set('usesTransport', usesTransport === 'true');
-//     feePreferences.set('usesHostel', usesHostel === 'true');
-//     feePreferences.set('usesLibrary', usesLibrary === 'true');
-//     feePreferences.set('needsDress', needsDress === 'true');
-//     feePreferences.set('usesLab', usesLab === 'true');
-//     feePreferences.set('needsExamFee', needsExamFee === 'true');
-
-//     const newStudent = new Student({
-//       admissionNo,
-//       name,
-//       email,
-//       phone,
-//       dateOfBirth,
-//       city,
-//       state,
-//       country,
-//       classId,
-//       section: parsedSection,
-//       address,
-//       gender,
-//       schoolId,
-//       academicYearId,
-//       feePreferences,
-//       parents: parsedParents,
-//       createdBy: userId,
-//       profileImage: req.file ? `/uploads/${req.file.filename}` : '',
-//       status: true
-//     });
-
-//     await newStudent.save();
-
-//     res.status(201).json({ message: 'Student created successfully', student: newStudent });
-//   } catch (error) {
-//     console.error('Error creating student:', error);
-//     res.status(400).json({ message: 'Error creating student', error: error.message });
-//   }
-// };
-
-
 
 const createStudent = async (req, res) => {
   try {
@@ -334,7 +291,7 @@ const createStudent = async (req, res) => {
       admissionNo,
       name,
       email,
-      phone,
+      phone:phone||undefined,
       dateOfBirth,
       city,
       state,
@@ -361,9 +318,6 @@ const createStudent = async (req, res) => {
     res.status(400).json({ message: 'Error creating student', error: error.message });
   }
 };
-
-
-
 
 const bulkCreateStudents = async (req, res, next) => {
   try {
@@ -472,11 +426,64 @@ const bulkCreateStudents = async (req, res, next) => {
   }
 };
 
+// const getStudents = async (req, res, next) => {
+//   try {
+//     const { page = 1, limit = 25, classId, academicYearId, search } = req.query;
+//     const query = { schoolId: req.user.schoolId }; // Removed status: true in previous fix
+
+
+//     if (search) {
+//       query.$or = [
+//         { name: new RegExp(search, 'i') },
+//         { admissionNo: new RegExp(search, 'i') }
+//       ];
+//     }
+
+//     if (classId) {
+//       if (!mongoose.Types.ObjectId.isValid(classId)) {
+//         throw new APIError('Invalid class ID format', 400);
+//       }
+//       query.classId = new mongoose.Types.ObjectId(classId);
+//     }
+
+//     if (academicYearId) {
+//       if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
+//         throw new APIError('Invalid academic year ID format', 400);
+//       }
+//       query.academicYearId = new mongoose.Types.ObjectId(academicYearId);
+//     }
+
+
+//     const pageNum = parseInt(page);
+//     const limitNum = parseInt(limit);
+//     const skip = (pageNum - 1) * limitNum;
+
+//     const students = await Student.find(query)
+//       .populate('classId', 'name')
+//       .populate('academicYearId', 'name')
+//       .sort({ name: 1 })
+//       .skip(skip)
+//       .limit(limitNum);
+
+//     const total = await Student.countDocuments(query);
+
+//     res.status(200).json({
+//       students,
+//       total,
+//       page: pageNum,
+//       limit: limitNum,
+//       totalPages: Math.ceil(total / limitNum)
+//     });
+//   } catch (error) {
+//     console.error('Error in getStudents:', error);
+//     next(error);
+//   }
+// };
+
 const getStudents = async (req, res, next) => {
   try {
     const { page = 1, limit = 25, classId, academicYearId, search } = req.query;
-    const query = { schoolId: req.user.schoolId }; // Removed status: true in previous fix
-
+    const query = { schoolId: req.user.schoolId };
 
     if (search) {
       query.$or = [
@@ -499,7 +506,6 @@ const getStudents = async (req, res, next) => {
       query.academicYearId = new mongoose.Types.ObjectId(academicYearId);
     }
 
-
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
@@ -513,8 +519,24 @@ const getStudents = async (req, res, next) => {
 
     const total = await Student.countDocuments(query);
 
+    // Fetch portal details for admin users
+    let studentsWithPortals = students;
+    if (req.user && req.user.role === 'admin') {
+      studentsWithPortals = await Promise.all(students.map(async (student) => {
+        const portalUser = await User.findOne({ 
+          'additionalInfo.studentId': student._id, 
+          role: 'student' 
+        });
+        return {
+          ...student.toObject(),
+          portalUsername: portalUser ? portalUser.username : '',
+          portalPassword: portalUser ? decryptPassword(portalUser.password) : ''
+        };
+      }));
+    }
+
     res.status(200).json({
-      students,
+      students: studentsWithPortals,
       total,
       page: pageNum,
       limit: limitNum,
@@ -525,7 +547,6 @@ const getStudents = async (req, res, next) => {
     next(error);
   }
 };
-
 const getStudent = async (req, res, next) => {
   try {
     const student = await Student.findById(req.params.id);
@@ -537,56 +558,6 @@ const getStudent = async (req, res, next) => {
     next(error);
   }
 };
-
-
-
-// const updateStudent = async (req, res, next) => {
-//   try {
-//     const studentId = req.params.id;
-//     const updateData = req.body;
-
-//     // Validate student ID
-//     if (!mongoose.Types.ObjectId.isValid(studentId)) {
-//       throw new APIError('Invalid student ID format', 400);
-//     }
-
-//     // Ensure the student belongs to the user's school
-//     const student = await Student.findOne({ _id: studentId, schoolId: req.user.schoolId });
-//     if (!student) {
-//       throw new APIError('Student not found or you are not authorized to update this student', 404);
-//     }
-
-//     // Validate status if provided
-//     if (updateData.status !== undefined) {
-//       if (typeof updateData.status !== 'boolean') {
-//         throw new APIError('Status must be a boolean value (true/false)', 400);
-//       }
-//     }
-
-//     // Prevent updating immutable fields (e.g., admissionNo, schoolId, createdBy)
-//     delete updateData.admissionNo;
-//     delete updateData.schoolId;
-//     delete updateData.createdBy;
-
-//     // Update the student
-//     const updatedStudent = await Student.findByIdAndUpdate(
-//       studentId,
-//       { $set: updateData },
-//       { new: true, runValidators: true }
-//     );
-
-//     if (!updatedStudent) {
-//       throw new APIError('Failed to update student', 500);
-//     }
-
-//     res.status(200).json({ success: true, data: updatedStudent });
-//   } catch (error) {
-//     console.error('Error in updateStudent:', error);
-//     next(error);
-//   }
-// };
-
-
 
 const updateStudent = async (req, res, next) => {
   try {
@@ -625,11 +596,19 @@ const updateStudent = async (req, res, next) => {
     delete updateData.schoolId;
     delete updateData.createdBy;
 
-    // Update the student
+    // Handle phone field separately to bypass validation
+    let updatedData = { ...updateData }; // Create a copy to modify
+    if (updatedData.phone !== undefined) {
+      updatedData.phone = updatedData.phone || null; // Allow any value or null
+    } else {
+      delete updatedData.phone; // Remove phone from update if not provided
+    }
+
+    // Perform update without validation to avoid phone validation error
     const updatedStudent = await Student.findByIdAndUpdate(
       studentId,
-      { $set: updateData },
-      { new: true, runValidators: true }
+      { $set: updatedData },
+      { new: true, runValidators: false } // Disable all validators to bypass phone validation
     );
 
     if (!updatedStudent) {
@@ -818,54 +797,7 @@ const getActiveAcademicYearId = async (schoolId) => {
   }
   return academicYear._id;
 };
-// older code
-// const promoteStudents = async (req, res, next) => {
-//   try {
-//     const { classId, academicYearId, nextAcademicYearId, nextClassId, isPromotedManually = false } = req.body;
-//     const schoolId = req.user.schoolId;
 
-//     const currentClass = await Class.findOne({ _id: classId, schoolId });
-//     if (!currentClass) {
-//       throw new APIError('Class not found', 404);
-//     }
-
-//     if (!nextClassId) {
-//       throw new APIError('Next class is required', 400);
-//     }
-
-//     const targetClass = await Class.findOne({ _id: nextClassId, schoolId });
-//     if (!targetClass) {
-//       throw new APIError('Target class not found', 404);
-//     }
-
-//     const students = await Student.find({ classId, academicYearId, schoolId });
-//     const promotedStudents = [];
-//     const failedStudents = [];
-
-//     for (const student of students) {
-//       const studentIdStr = student._id.toString();
-//       if (isPromotedManually) {
-//         await Student.findByIdAndUpdate(student._id, {
-//           classId: nextClassId,
-//           academicYearId: nextAcademicYearId,
-//           rollNo: '',
-//         }, { new: true });
-//         promotedStudents.push({ studentId: student._id, name: student.name });
-//         console.log(`Promoted ${student.name} to ${targetClass.name}`);
-//       } else {
-//         failedStudents.push({ studentId: student._id, name: student.name });
-//       }
-//     }
-
-//     res.status(200).json({
-//       success: true,
-//       data: { promotedStudents, failedStudents, nextClass: targetClass.name, nextAcademicYear: nextAcademicYearId },
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-// new code
 const promoteStudents = async (req, res, next) => {
   try {
     const { classId, academicYearId, nextAcademicYearId, nextClassId, studentIds, isPromotedManually = false } = req.body;
@@ -977,11 +909,112 @@ const promoteStudents = async (req, res, next) => {
   }
 };
 
+const createStudentPortal = async (req, res) => {
+  try {
+    // Check if the logged-in user is an admin
+    if (!req.user || req.user.role !== 'admin') {
+      throw new APIError('Only admins can create portals', 403);
+    }
+
+    // Check if the admin's school has an active subscription
+    const currentDate = new Date();
+    const subscription = await subscriptionSchema.findOne({
+      schoolId: req.user.schoolId,
+      status: 'active'
+    }).select('expiresAt status');
+
+    if (!subscription || new Date(subscription.expiresAt) < currentDate) {
+      throw new APIError('Admin subscription has expired or is not active. Cannot create portals.', 403);
+    }
+
+    const { studentId, role } = req.body; // role: 'student' or 'parent'
+    const schoolId = req.user.schoolId;
+
+    // Verify student exists and belongs to the admin's school
+    const student = await Student.findOne({ _id: studentId, schoolId });
+    if (!student) {
+      throw new APIError('Student not found or does not belong to your school', 404);
+    }
+
+    let username;
+    let name;
+    let email;
+    let phoneNumber;
+    let additionalInfo;
+
+    if (role === 'student') {
+      username = `${student.admissionNo}-student`;
+      name = student.name;
+      email = student.email || null;
+      phoneNumber = student.phone || null;
+      additionalInfo = { studentId: student._id };
+    } else if (role === 'parent') {
+      username = `${student.admissionNo}-parent`;
+      name = student.parents.fatherName || student.parents.motherName || 'Parent';
+      email = null;
+      phoneNumber = (student.parents.fatherPhone || student.parents.motherPhone) || null;
+      additionalInfo = { parentOfStudentId: student._id };
+    } else {
+      throw new APIError('Invalid role. Must be "student" or "parent"', 400);
+    }
+
+    // Check for existing user with the same username
+    let baseUsername = username;
+    let suffix = 0;
+    while (true) {
+      const existingUser = await User.findOne({ username });
+      if (!existingUser) {
+        break;
+      }
+      suffix++;
+      username = `${baseUsername}-${suffix}`;
+    }
+
+    // Use fixed password and encrypt it
+    const plainPassword = '112233';
+    const encryptedPassword = encryptPassword(plainPassword);
+
+    // Create User with schoolId from admin
+    const newUser = new User({
+      username,
+      password: encryptedPassword, // Store encrypted password
+      role,
+      name,
+      email,
+      schoolId,
+      status: true,
+      additionalInfo
+    });
+
+    await newUser.save();
+
+    // Return decrypted password to admin in response
+    const decryptedPassword = decryptPassword(encryptedPassword);
+
+    res.status(201).json({
+      message: `${role.charAt(0).toUpperCase() + role.slice(1)} portal created successfully`,
+      user: {
+        username,
+        role,
+        name,
+        email,
+        schoolId,
+        additionalInfo,
+        password: decryptedPassword // Return decrypted password for admin
+      }
+    });
+  } catch (error) {
+    console.error('Error creating portal:', error);
+    res.status(error.status || 400).json({ message: 'Error creating portal', error: error.message });
+  }
+};
+
 // Export all functions, including getStudentsByClass
 module.exports = {
   upload,
   createStudent,
   promoteStudents,
+  createStudentPortal,
   bulkCreateStudents,
   getStudents,
   getStudent,

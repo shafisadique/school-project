@@ -23,20 +23,7 @@ export class SchoolService {
   }
 
   loadWeeklyHolidayDay(schoolId: string): Observable<string> {
-    return new Observable(observer => {
-      this.getSchoolById(schoolId).subscribe(
-        (response: any) => {
-          const weeklyHolidayDay = response.weeklyHolidayDay || 'Sunday';
-          observer.next(weeklyHolidayDay);
-          observer.complete();
-        },
-        (error) => {
-          const errorMessage = error.message || 'Error loading school holiday day';
-          this.toastr.error(errorMessage);
-          observer.error(error);
-        }
-      );
-    });
+    return this.http.get<string>(`${this.baseUrl}/teacher/${schoolId}`, { responseType: 'text' as 'json' });
   }
 
   updateSchool(schoolId: string, schoolData: any): Observable<any> {

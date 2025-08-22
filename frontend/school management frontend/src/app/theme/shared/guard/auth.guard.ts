@@ -3,16 +3,15 @@ import { ActivatedRouteSnapshot, RouterStateSnapshot, Router, CanActivateFn } fr
 import { Observable, of } from 'rxjs';
 import { catchError, map, take } from 'rxjs/operators';
 import { AuthService } from '../service/auth.service';
-import { ToastrService } from 'ngx-toastr'; // Import Toastr for notifications
+import { ToastrService } from 'ngx-toastr';
 
-// Use CanActivateFn instead of class-based guard for simplicity with inject
 export const AuthGuard: CanActivateFn = (
   route: ActivatedRouteSnapshot,
   state: RouterStateSnapshot
 ): Observable<boolean> | boolean => {
   const authService = inject(AuthService);
   const router = inject(Router);
-  const toastr = inject(ToastrService); // Inject Toastr for user feedback
+  const toastr = inject(ToastrService);
 
   return authService.isLoggedIn$.pipe(
     take(1),
@@ -23,7 +22,6 @@ export const AuthGuard: CanActivateFn = (
         return false;
       }
 
-      // Get the user's role
       const userRole = authService.getUserRole();
       if (!userRole) {
         toastr.error('User role not found');
@@ -31,20 +29,19 @@ export const AuthGuard: CanActivateFn = (
         return false;
       }
 
-      // Check if the route has required roles
       const requiredRoles = route.data?.['roles'] as string[] | undefined;
       if (requiredRoles && !requiredRoles.includes(userRole)) {
         toastr.error('You do not have permission to access this page');
-        router.navigate(['/dashboard/default']); // Redirect to a safe page for unauthorized access
+        router.navigate(['/dashboard/default']);
         return false;
       }
 
       return true;
     }),
-    catchError((error) => {
+    catchError(error => {
       console.error('Authorization error:', error);
       toastr.error('An error occurred during authorization');
-      router.navigate(['/error']);
+      router.navigate(['/error']); // Add error page if needed
       return of(false);
     })
   );

@@ -190,6 +190,15 @@ export class NavContentComponent implements OnInit {
         //   ]
         // },
         {
+          id: 'Assignment',
+          title: 'Assignment',
+          type: 'group',
+          icon: 'team',
+          children: [
+            { id: 'assignment', title: 'Create Assignment', type: 'item', url: '/assignment', icon: 'user' },
+          ]
+        },
+        {
           id: 'result',
           title: 'Result',
           type: 'group',

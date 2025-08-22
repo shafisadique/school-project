@@ -380,6 +380,24 @@ const updateSchoolStatus = async (req, res) => {
   }
 };
 
+const getSchoolByTeacher = async (req,res)=>{
+   try {
+    const schoolId = req.params.id;
+    if (req.user.schoolId !== schoolId) {
+      return res.status(403).json({ message: 'Access denied. You can only view your assigned school.' });
+    }
+
+    const school = await School.findById(schoolId).select('weeklyHolidayDay activeAcademicYear name');
+    if (!school) {
+      return res.status(404).json({ message: 'School not found' });
+    }
+
+    res.status(200).json(school);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching school data', error: err.message });
+  }
+}
+
 module.exports = { 
   addSchool, 
   getSchoolByUser,
@@ -391,5 +409,6 @@ module.exports = {
   updateSchoolStatus,
   approveSchoolRequest,
   requestSchool,
-  updateSubscription
+  updateSubscription,
+  getSchoolByTeacher
 };

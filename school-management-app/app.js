@@ -18,6 +18,9 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+require('./utils/attendanceCron');
+// const { generateMonthlyInvoices } = require('./utils/invoiceUtils');
+// generateMonthlyInvoices();
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 40, 
@@ -102,6 +105,8 @@ const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
 const studentDashboard = require('./routes/admin-dashboard/dashboard.routes');
 const { isAdmin } = require('./middleware/roleMiddleware');
+const assignmentRoutes = require('./routes/assignmentRoutes');
+
 // ✅ API Endpoints
 app.use('/api/auth', authRoutes); 
 app.use('/api/schools', authMiddleware, schoolRoutes);
@@ -113,14 +118,15 @@ app.use('/api/holidays', authMiddleware,holidayRoutes);
 app.use('/api/timetable',authMiddleware, timetableRoutes);
 app.use('/api/academicyear',authMiddleware, academicYearRoute);
 app.use('/api/teachers', authMiddleware, teacherRoutes);
-app.use('/api/attendance', StudentAttendanceRoutes);
-app.use('/api/teacher-absences', teacherAbsenceRoutes);
-app.use('/api/teacher-attendance',teacherAttendanceRoutes);
+app.use('/api/attendance',authMiddleware, StudentAttendanceRoutes);
+app.use('/api/teacher-absences',authMiddleware, teacherAbsenceRoutes);
+app.use('/api/teacher-attendance',authMiddleware,teacherAttendanceRoutes);
 app.use('/api/exams',authMiddleware, exam);
 app.use('/api/subscriptions', authMiddleware, subscriptionRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/routes',transporatationRoute);
 app.use('/api/admin', studentDashboard);
+app.use('/api/assignments', authMiddleware, assignmentRoutes);
 
 // After all routes
 app.use((err, req, res, next) => {

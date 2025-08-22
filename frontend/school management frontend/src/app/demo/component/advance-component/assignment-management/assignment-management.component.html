@@ -1,0 +1,92 @@
+<div class="card" [class.loading]="isLoading">
+  <div class="card-header">
+    <h4 class="card-title">Create New Assignment</h4>
+  </div>
+  <div class="card-body">
+    <form [formGroup]="assignmentForm" (ngSubmit)="handleUpload()" class="needs-validation" novalidate>
+      <div class="row mb-3">
+        <label for="title" class="col-sm-2 col-form-label required">Title</label>
+        <div class="col-sm-10">
+          <input type="text" class="form-control" id="title" formControlName="title" placeholder="Enter assignment title" required>
+          <div *ngIf="assignmentForm.get('title')?.invalid && assignmentForm.get('title')?.touched" class="invalid-feedback">
+            Title is required.
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <label for="description" class="col-sm-2 col-form-label required">Description</label>
+        <div class="col-sm-10">
+          <textarea class="form-control" id="description" formControlName="description" placeholder="Enter assignment description" required></textarea>
+          <div *ngIf="assignmentForm.get('description')?.invalid && assignmentForm.get('description')?.touched" class="invalid-feedback">
+            Description is required.
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <label for="dueDate" class="col-sm-2 col-form-label required">Due Date</label>
+        <div class="col-sm-10">
+            <input type="datetime-local" class="form-control" id="dueDate" formControlName="dueDate" required>          <div *ngIf="assignmentForm.get('dueDate')?.invalid && assignmentForm.get('dueDate')?.touched" class="invalid-feedback">
+            Due date is required.
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <label for="classId" class="col-sm-2 col-form-label required">Class</label>
+        <div class="col-sm-10">
+          <select class="form-select" id="classId" formControlName="classId" (change)="onClassChange()" required>
+            <option value="">Select a class</option>
+            <option *ngFor="let class of classes" [value]="class._id">{{ class.name }}</option>
+          </select>
+          <div *ngIf="assignmentForm.get('classId')?.invalid && assignmentForm.get('classId')?.touched" class="invalid-feedback">
+            Class is required.
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <label for="subjectId" class="col-sm-2 col-form-label required">Subject</label>
+        <div class="col-sm-10">
+          <select class="form-select" id="subjectId" formControlName="subjectId" required>
+            <option value="">Select a subject</option>
+            <option *ngFor="let subject of selectedSubjects" [value]="subject._id">{{ subject.name }}</option>
+          </select>
+          <div *ngIf="assignmentForm.get('subjectId')?.invalid && assignmentForm.get('subjectId')?.touched" class="invalid-feedback">
+            Subject is required.
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <label for="assignedTo" class="col-sm-2 col-form-label">Assign to Students</label>
+        <div class="col-sm-10">
+          <select class="form-select" id="assignedTo" formControlName="assignedTo" multiple>
+            <option *ngFor="let student of students" [value]="student._id">{{ student.name }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <label for="attachments" class="col-sm-2 col-form-label">Attachments</label>
+        <div class="col-sm-10">
+          <input type="file" #fileInput class="form-control" id="attachments" (change)="onFileChange($event)" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
+          <div *ngIf="fileList.length > 0" class="mt-2">
+            <ul class="list-group">
+              <li class="list-group-item" *ngFor="let file of fileList; let i = index">
+                {{ file.name }} <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(i)">Remove</button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-sm-10 offset-sm-2">
+          <button type="submit" class="btn btn-primary" [disabled]="!assignmentForm.valid || isLoading">Create Assignment</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>

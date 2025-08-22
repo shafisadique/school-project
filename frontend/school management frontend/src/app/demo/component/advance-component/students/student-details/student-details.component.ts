@@ -8,6 +8,7 @@ import { AcademicYearService } from '../../academic-year/academic-year.service';
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { Subscription } from 'rxjs';
 import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
+import { ToastrService } from 'ngx-toastr';
 
 interface Student {
   _id: string;
@@ -17,9 +18,20 @@ interface Student {
   phone: string;
   gender: string;
   profileImage: string;
-  status:boolean
+  dateOfBirth:any;
+  address:string;
+  status:boolean;
+  rollNo:string;
+  portalUsername:string;
+  portalPassword:string;
+  parents: parentsDetails
 }
-
+interface parentsDetails{
+fatherName:string;
+fatherPhone:number;
+motherName:string;
+motherPhone:number;
+}
 interface Class {
   _id: string;
   name: string;
@@ -61,12 +73,14 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   selectedSession = '';
   searchQuery = '';
   schoolId = '';
-
+  isSidebarVisible = false;
+  selectedStudent: Student | null = null;
   private queryParamsSubscription?: Subscription;
 
   constructor(
     private studentService: StudentService,
     private classService: ClassSubjectService,
+    private toastr:ToastrService,
     private academicYearService: AcademicYearService,
     private route: ActivatedRoute,
     private router: Router,
@@ -163,6 +177,22 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     });
   }
 
+  
+
+  createPortal(studentId: string, role: 'student' | 'parent') {
+    // Assume admin role is checked by backend
+    this.studentService.createPortal(studentId, role).subscribe({
+      next: (res) => {
+        this.toastr.success(`${res.message}`, 'Success');
+        console.log('Portal Details:', res.user); // Admin can copy username/password
+        // Optionally, show a modal with credentials for admin to print/share
+      },
+      error: (err) => {
+        this.toastr.error(err.error.message || 'Error creating portal', 'Error');
+      }
+    });
+  }
+
   onSearch(): void {
     this.currentPage = 1;
     this.loadStudents();
@@ -171,6 +201,19 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   onFilterChange(): void {
     this.currentPage = 1;
     this.loadStudents();
+  }
+
+  toggleSidebar(studentId: string): void {
+    if (this.isSidebarVisible && !studentId) {
+      // Hide sidebar if clicking "Hide Details"
+      this.isSidebarVisible = false;
+      this.selectedStudent = null;
+    } else if (studentId) {
+      // Show sidebar and load selected student details
+    this.isSidebarVisible = true;
+    this.selectedStudent = this.students.find(student => student._id === studentId) || null;
+    console.log('Selected Student:', this.selectedStudent); // Debug log
+    }
   }
 
   onPageChange(page: number): void {

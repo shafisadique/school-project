@@ -5,7 +5,6 @@ const School = require('../../models/school');
 const mongoose =require('mongoose');
 const teacherSchema = require('../../models/teacher');
 const teacherAttendance = require('../../models/teacherAttendance');
-
 exports.addAbsence = async (req, res, next) => {
   try {
     const { teacherId, date, reason, substituteTeacherId, status } = req.body;
@@ -253,7 +252,7 @@ exports.updateAbsence = async (req, res, next) => {
             { new: true, runValidators: true, session }
           );
 
-          const teacher = await Teacher.findById(absence.teacherId).session(session);
+          const teacher = await teacherSchema.findById(absence.teacherId).session(session);
           if (!teacher) throw new APIError('Teacher not found', 404);
 
           const leaveDays = 1;
@@ -463,7 +462,7 @@ exports.getPendingAutoAbsences = async (req, res, next) => {
       throw new APIError('Valid schoolId is required', 400);
     }
 
-    const matchStage = { 
+    const matchStage = {  
       schoolId: new mongoose.Types.ObjectId(schoolId), 
       status: 'Pending',
       isTeacherApplied: false // Only auto-generated absences
