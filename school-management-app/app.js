@@ -110,7 +110,7 @@ app.get('/api/proxy-image/*', async (req, res) => {
     res.setHeader('Content-Length', response.ContentLength);
     res.setHeader('Last-Modified', response.LastModified.toUTCString());
     res.setHeader('ETag', response.ETag);
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4300'); // Allow your frontend
+    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4200'); // Allow your frontend
 
     response.Body.pipe(res);
   } catch (error) {
