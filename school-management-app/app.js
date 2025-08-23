@@ -34,10 +34,10 @@ const storage = multer.memoryStorage(); // Store file in memory for R2 upload
 const upload = multer({ storage: storage });
 
 
-const uploadsDir = path.join(__dirname, 'Uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+// const uploadsDir = path.join(__dirname, 'Uploads');
+// if (!fs.existsSync(uploadsDir)) {
+//   fs.mkdirSync(uploadsDir, { recursive: true });
+// }
 
 require('./utils/attendanceCron');
 const authLimiter = rateLimit({
