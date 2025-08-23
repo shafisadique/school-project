@@ -62,7 +62,7 @@
                   </thead>
                   <tbody>
                     <tr *ngFor="let paper of exam.examPapers">
-                      <td>{{ paper.subjectId }}</td>
+                      <td>{{ paper.subjectId.name }}</td>
                       <td>{{ paper.subjectType }}</td>
                       <td>{{ paper.maxMarks }}</td>
                       <td>{{ paper.minMarks }}</td>

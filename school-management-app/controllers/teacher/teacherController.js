@@ -8,11 +8,35 @@ const APIError = require('../../utils/apiError');
 const nodemailer = require('nodemailer');
 const Class = require('../../models/class');
 const Subject = require('../../models/subject');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const multer = require('multer');
+
 // Constants
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_FILE_TYPES = ['image/png', 'image/jpg', 'image/jpeg'];
 
-// File Upload Configuration
+// R2 Configuration
+const s3Client = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID,
+    secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY,
+  },
+});
+
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: (req, file, cb) => {
+    if (!ALLOWED_FILE_TYPES.includes(file.mimetype)) {
+      return cb(new APIError('Only PNG, JPG, and JPEG files are allowed.', 400));
+    }
+    cb(null, true);
+  },
+}).single('profileImage');
+// // File Upload Configuration
 exports.upload = createUploadMiddleware(
   'teachers',
   MAX_FILE_SIZE,  
@@ -81,75 +105,96 @@ exports.upload = createUploadMiddleware(
  * @route   POST /api/teachers/add
  * @access  Private/Admin
  */
-  exports.addTeacher = async (req, res, next) => {
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        const { schoolId } = req.user;
-        const teacherData = await validateTeacherInput(req.body);
+  // controllers/teacher/teacherController.js
+exports.addTeacher = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const { schoolId } = req.user;
+      const teacherData = await validateTeacherInput(req.body);
 
-        const existingUser = await User.findOne({
-          $or: [{ email: teacherData.email }, { username: teacherData.username }]
-        }).session(session);
-        if (existingUser) throw new APIError('User with this email or username already exists', 409);
+      const existingUser = await User.findOne({
+        $or: [{ email: teacherData.email }, { username: teacherData.username }],
+      }).session(session);
+      if (existingUser) throw new APIError('User with this email or username already exists', 409);
 
-        const hashedPassword = bcrypt.hashSync(teacherData.password, 10);
-        const newUser = new User({
-          name: teacherData.name,
-          username: teacherData.username,
-          email: teacherData.email,
-          password: hashedPassword,
-          role: 'teacher',
-          schoolId
-        });
-        await newUser.save({ session });
-
-        const teacher = await Teacher.create([{
-          userId: newUser._id,
-          name: teacherData.name,
-          email: teacherData.email,
-          phone: teacherData.phone,
-          designation: teacherData.designation,
-          gender: teacherData.gender,
-          subjects: teacherData.subjects,
-          schoolId,
-          academicYearId: await getActiveAcademicYearId(schoolId),
-          createdBy: req.user.id,
-          profileImage: req.file?.path.replace(/\\/g, '/').split('uploads/')[1] || ''
-        }], { session });
-
-        const school = await School.findById(schoolId).select('email').lean().orFail(new APIError('School not found', 404));
-        const schoolEmail = school.email;
-
-        const transporter = await createTransporter(schoolId);
-        const mailOptions = {
-          from: schoolEmail,
-          to: teacherData.email,
-          subject: 'Welcome to Our School!',
-          html: `
-            <h1>Welcome, ${teacherData.name}!</h1>
-            <p>You have been successfully added as a teacher at our school. We are thrilled to have you on board!</p>
-            <p>Your password is: <strong>${teacherData.password}</strong> (Please change it after logging in for security.)</p>
-            <p>Best regards,<br>The ${schoolEmail} Team</p>
-          `
-        };
-
-        await transporter.sendMail(mailOptions);
-
-        res.status(201).json({
-          success: true,
-          message: 'Teacher added successfully and email sent',
-          data: teacher[0],
-          userId: newUser._id
-        });
+      const hashedPassword = bcrypt.hashSync(teacherData.password, 10);
+      const newUser = new User({
+        name: teacherData.name,
+        username: teacherData.username,
+        email: teacherData.email,
+        password: hashedPassword,
+        role: 'teacher',
+        schoolId,
       });
-    } catch (error) {
-      console.error('Error in addTeacher:', error);
-      next(error);
-    } finally {
-      await session.endSession();
-    }
-  };
+      await newUser.save({ session });
+
+      let profileImageUrl = '';
+      if (req.file) {
+        const fileBuffer = req.file.buffer;
+        const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const params = {
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: `teachers/${fileName}`, // Add prefix
+          Body: fileBuffer,
+          ContentType: req.file.mimetype,
+        };
+        const command = new PutObjectCommand(params);
+        await s3Client.send(command);
+        profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/teachers/${fileName}`;
+      }
+
+      const teacher = await Teacher.create(
+        [
+          {
+            userId: newUser._id,
+            name: teacherData.name,
+            email: teacherData.email,
+            phone: teacherData.phone,
+            designation: teacherData.designation,
+            gender: teacherData.gender,
+            subjects: teacherData.subjects,
+            schoolId,
+            academicYearId: await getActiveAcademicYearId(schoolId),
+            createdBy: req.user.id,
+            profileImage: profileImageUrl,
+          },
+        ],
+        { session }
+      );
+
+      const school = await School.findById(schoolId).select('email').lean().orFail(new APIError('School not found', 404));
+      const schoolEmail = school.email;
+
+      const transporter = await createTransporter(schoolId);
+      const mailOptions = {
+        from: schoolEmail,
+        to: teacherData.email,
+        subject: 'Welcome to Our School!',
+        html: `
+          <h1>Welcome, ${teacherData.name}!</h1>
+          <p>You have been successfully added as a teacher at our school. We are thrilled to have you on board!</p>
+          <p>Your password is: <strong>${teacherData.password}</strong> (Please change it after logging in for security.)</p>
+          <p>Best regards,<br>The ${schoolEmail} Team</p>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      res.status(201).json({
+        success: true,
+        message: 'Teacher added successfully and email sent',
+        data: teacher[0],
+        userId: newUser._id,
+      });
+    });
+  } catch (error) {
+    console.error('Error in addTeacher:', error);
+    next(error);
+  } finally {
+    await session.endSession();
+  }
+};
 
 /**
  * @desc    Get all teachers for current school
@@ -212,12 +257,14 @@ exports.upload = createUploadMiddleware(
     next(error);
   }
 };
+
+
 /**
  * @desc    Update teacher
  * @route   PUT /api/teachers/:id
  * @access  Private/Admin
  */
-  exports.updateTeacher = async (req, res, next) => {
+exports.updateTeacher = async (req, res, next) => {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
@@ -227,56 +274,66 @@ exports.upload = createUploadMiddleware(
         throw new APIError('Unauthorized: Only admins can update teacher details', 403);
       }
 
-      const { email, ...updateData } = teacherData; // Extract email for separate handling
+      const { email, ...updateData } = teacherData;
 
       const teacher = await Teacher.findOne({ _id: req.params.id, schoolId })
         .session(session)
         .orFail(new APIError('Teacher not found', 404));
 
-      // Check if email is changing and validate uniqueness
+      let profileImageUrl = teacher.profileImage;
+      if (req.file) {
+        const fileBuffer = req.file.buffer;
+        const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const params = {
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: `teachers/${fileName}`, // Add 'teachers/' prefix
+          Body: fileBuffer,
+          ContentType: req.file.mimetype,
+        };
+        const command = new PutObjectCommand(params);
+        await s3Client.send(command);
+        profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/teachers/${fileName}`;
+      }
+
       if (email && email !== teacher.email) {
         const existingUser = await User.findOne({ email }).session(session);
         if (existingUser && existingUser._id.toString() !== teacher.userId.toString()) {
           throw new APIError('Email already in use by another user', 409);
         }
-        await User.findOneAndUpdate(
-          { _id: teacher.userId },
-          { email },
-          { session }
-        );
+        await User.findOneAndUpdate({ _id: teacher.userId }, { email }, { session });
         await Teacher.findOneAndUpdate(
           { _id: req.params.id, schoolId },
-          { email, ...updateData, profileImage: req.file?.path.replace(/\\/g, '/').split('uploads/')[1] || teacher.profileImage },
+          { email, ...updateData, profileImage: profileImageUrl },
           { new: true, runValidators: true, session }
         );
       } else {
         await Teacher.findOneAndUpdate(
           { _id: req.params.id, schoolId },
-          { ...updateData, profileImage: req.file?.path.replace(/\\/g, '/').split('uploads/')[1] || teacher.profileImage },
+          { ...updateData, profileImage: profileImageUrl },
           { new: true, runValidators: true, session }
         );
       }
 
-      // Notify the teacher
       const transporter = await createTransporter(schoolId);
       const school = await School.findById(schoolId).select('email').lean();
       const mailOptions = {
         from: school.email,
-        to: email, // New email
-        cc: teacher.email, // Old email for notification
+        to: email || teacher.email,
+        cc: email !== teacher.email ? teacher.email : undefined,
         subject: 'Email Update Notification',
         html: `
           <h1>Email Update</h1>
-          <p>Your email has been updated to <strong>${email}</strong>. If you did not request this change, please contact your admin immediately.</p>
+          ${email && email !== teacher.email ? `<p>Your email has been updated to <strong>${email}</strong>.` : ''}
+          ${email && email !== teacher.email ? 'If you did not request this change, please contact your admin immediately.' : ''}
           <p>Best regards,<br>The ${school.email} Team</p>
-        `
+        `,
       };
       await transporter.sendMail(mailOptions);
 
       res.json({
         success: true,
         message: 'Teacher updated successfully',
-        data: teacher
+        data: teacher,
       });
     });
   } catch (error) {
@@ -292,27 +349,39 @@ exports.upload = createUploadMiddleware(
  * @route   PUT /api/teachers/:id/photo
  * @access  Private/Admin
  */
-  exports.uploadTeacherPhoto = async (req, res, next) => {
-    try {
-      if (!req.file) {
-        throw new APIError('Please upload a file', 400);
-      }
-
-      const teacher = await Teacher.findOneAndUpdate(
-        { _id: req.params.id, schoolId: req.user.schoolId },
-        { profileImage: req.file.path.replace(/\\/g, '/').split('uploads/')[1] },
-        { new: true }
-      ).orFail(new APIError('Teacher not found', 404));
-
-      res.json({
-        success: true,
-        data: teacher.profileImage
-      });
-    } catch (error) {
-      next(error);
+exports.uploadTeacherPhoto = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      throw new APIError('Please upload a file', 400);
     }
-  };
 
+    const fileBuffer = req.file.buffer;
+    const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const params = {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: `teachers/${fileName}`, // Add 'teachers/' prefix
+      Body: fileBuffer,
+      ContentType: req.file.mimetype,
+    };
+    const command = new PutObjectCommand(params);
+    await s3Client.send(command);
+
+    const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/teachers/${fileName}`;
+
+    const teacher = await Teacher.findOneAndUpdate(
+      { _id: req.params.id, schoolId: req.user.schoolId },
+      { profileImage: imageUrl },
+      { new: true }
+    ).orFail(new APIError('Teacher not found', 404));
+
+    res.json({
+      success: true,
+      data: teacher.profileImage,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * @desc    Soft delete teacher
@@ -401,17 +470,70 @@ exports.updateTeacher = async (req, res, next) => {
     await session.withTransaction(async () => {
       const { schoolId } = req.user;
       const teacherData = await validateTeacherInput(req.body, true);
+      if (req.user.role !== 'admin') {
+        throw new APIError('Unauthorized: Only admins can update teacher details', 403);
+      }
 
-      const teacher = await Teacher.findOneAndUpdate(
-        { _id: req.params.id, schoolId },
-        { ...teacherData, profileImage: req.file?.path.replace(/\\/g, '/').split('uploads/')[1] || teacherData.profileImage },
-        { new: true, runValidators: true, session }
-      ).orFail(new APIError('Teacher not found', 404));
+      const { email, ...updateData } = teacherData;
+
+      const teacher = await Teacher.findOne({ _id: req.params.id, schoolId })
+        .session(session)
+        .orFail(new APIError('Teacher not found', 404));
+
+      let profileImageUrl = teacher.profileImage; // Preserve existing URL if no new file
+      if (req.file) {
+        const fileBuffer = req.file.buffer;
+        const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const params = {
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: `teachers/${fileName}`, // Use 'teachers/' prefix
+          Body: fileBuffer,
+          ContentType: req.file.mimetype,
+        };
+        const command = new PutObjectCommand(params);
+        await s3Client.send(command);
+        profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/teachers/${fileName}`;
+      }
+
+      if (email && email !== teacher.email) {
+        const existingUser = await User.findOne({ email }).session(session);
+        if (existingUser && existingUser._id.toString() !== teacher.userId.toString()) {
+          throw new APIError('Email already in use by another user', 409);
+        }
+        await User.findOneAndUpdate({ _id: teacher.userId }, { email }, { session });
+        await Teacher.findOneAndUpdate(
+          { _id: req.params.id, schoolId },
+          { email, ...updateData, profileImage: profileImageUrl },
+          { new: true, runValidators: true, session }
+        );
+      } else {
+        await Teacher.findOneAndUpdate(
+          { _id: req.params.id, schoolId },
+          { ...updateData, profileImage: profileImageUrl },
+          { new: true, runValidators: true, session }
+        );
+      }
+
+      const transporter = await createTransporter(schoolId);
+      const school = await School.findById(schoolId).select('email').lean();
+      const mailOptions = {
+        from: school.email,
+        to: email || teacher.email,
+        cc: email !== teacher.email ? teacher.email : undefined,
+        subject: 'Email Update Notification',
+        html: `
+          <h1>Email Update</h1>
+          ${email && email !== teacher.email ? `<p>Your email has been updated to <strong>${email}</strong>.` : ''}
+          ${email && email !== teacher.email ? 'If you did not request this change, please contact your admin immediately.' : ''}
+          <p>Best regards,<br>The ${school.email} Team</p>
+        `,
+      };
+      await transporter.sendMail(mailOptions);
 
       res.json({
         success: true,
         message: 'Teacher updated successfully',
-        data: teacher
+        data: teacher,
       });
     });
   } catch (error) {

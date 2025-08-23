@@ -93,7 +93,7 @@ export const routes: Routes = [
       },
       {
         path: 'class-&-subject-management',
-        canActivate:[AuthGuard],
+        canActivate:[AuthGuard],data: { roles: ['admin'] },
         loadChildren: () => import('./demo/component/advance-component/class-subject-management/class-subject.routing').then((c) => c.classSubjectManagementRoute)
       },
       {

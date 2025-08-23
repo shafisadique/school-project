@@ -106,68 +106,68 @@
       </app-pagination>
     </div>
     <div *ngIf="isSidebarVisible" class="sidebar">
-      <div class="card shadow">
-        <div class="img-container">
-          <img crossorigin="anonymous"
-              *ngIf="selectedStudent?.profileImage" 
-              [src]="getImageUrl(selectedStudent.profileImage)" 
-              [alt]="selectedStudent?.name + ' profile'" 
-              class="circle-img"> 
-        </div>
-
-        <!-- If student has no image -->
-        <div *ngIf="!selectedStudent?.profileImage" class="avatar-placeholder">
-          {{ selectedStudent ? getInitials(selectedStudent.name) : '' }}
-        </div>
-        <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Personal Details</h4>
-        <div class="key-value">
-          <div class="key-left">
-            <h5 class="key-left-value">Student Name</h5>
-            <h5 class="key-left-value">DOB</h5>
-            <h5 class="key-left-value">Admission No</h5>
-            <h5 class="key-left-value">Roll No</h5>
-            <h5 class="key-left-value">Gender</h5>
-            <h5 class="key-left-value">Address</h5>
-          </div>
-          <div class="key-right">
-            <h5 class="key-left-value">{{ selectedStudent?.name || '' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.dateOfBirth ? (selectedStudent.dateOfBirth | date:'dd/MM/yyyy') : '' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.admissionNo || '' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.rollNo || '-' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.gender || '' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.address || '' }}</h5>
-            </div>
-        </div>
-
-        <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Parents Details</h4>
-        <div class="key-value">
-          <div class="key-left">
-            <h5 class="key-left-value">Parents Name 1</h5>
-            <h5 class="key-left-value">Parents Number 1</h5>
-            <h5 class="key-left-value">Parents Name 2</h5>
-            <h5 class="key-left-value">Parents Name 2</h5>
-          </div>
-          <div class="key-right">        
-            <h5 class="key-left-value">{{ selectedStudent?.parents?.fatherName || '-' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.parents?.fatherPhone || '-' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.parents?.motherName || '-' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.parents?.motherPhone || '-' }}</h5>
-            </div>
-        </div>
-
-        <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Student Portal Details</h4>
-        <div class="key-value">
-          <div class="key-left">
-            <h5 class="key-left-value">User Name</h5>
-            <h5 class="key-left-value">Password</h5>
-          </div>
-          <div class="key-right">        
-            <h5 class="key-left-value">{{ selectedStudent?.portalUsername || '-' }}</h5>
-            <h5 class="key-left-value">{{ selectedStudent?.portalPassword || '-' }}</h5>
-            </div>
-        </div>
-
+  <div class="card shadow">
+    <div class="img-container">
+      <img 
+        *ngIf="selectedStudent?.profileImage"  crossorigin="anonymous"
+        [src]="getImageUrl(selectedStudent?.profileImage)" 
+        [alt]="selectedStudent.name ? selectedStudent.name + ' profile' : 'Student profile'" 
+        class="circle-img"
+      >
+      <div *ngIf="!selectedStudent?.profileImage || !getImageUrl(selectedStudent.profileImage)" class="avatar-placeholder">
+        {{ selectedStudent?.name ? getInitials(selectedStudent.name) : 'N/A' }}
       </div>
     </div>
+
+    <!-- Rest of your sidebar content remains the same -->
+    <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Personal Details</h4>
+    <div class="key-value">
+      <div class="key-left">
+        <h5 class="key-left-value">Student Name</h5>
+        <h5 class="key-left-value">DOB</h5>
+        <h5 class="key-left-value">Admission No</h5>
+        <h5 class="key-left-value">Roll No</h5>
+        <h5 class="key-left-value">Gender</h5>
+        <h5 class="key-left-value">Address</h5>
+      </div>
+      <div class="key-right">
+        <h5 class="key-left-value">{{ selectedStudent?.name || '' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.dateOfBirth ? (selectedStudent.dateOfBirth | date:'dd/MM/yyyy') : '' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.admissionNo || '' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.rollNo || '-' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.gender || '' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.address || '' }}</h5>
+      </div>
+    </div>
+
+    <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Parents Details</h4>
+    <div class="key-value">
+      <div class="key-left">
+        <h5 class="key-left-value">Parents Name 1</h5>
+        <h5 class="key-left-value">Parents Number 1</h5>
+        <h5 class="key-left-value">Parents Name 2</h5>
+        <h5 class="key-left-value">Parents Number 2</h5>
+      </div>
+      <div class="key-right">        
+        <h5 class="key-left-value">{{ selectedStudent?.parents?.fatherName || '-' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.parents?.fatherPhone || '-' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.parents?.motherName || '-' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.parents?.motherPhone || '-' }}</h5>
+      </div>
+    </div>
+
+    <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Student Portal Details</h4>
+    <div class="key-value">
+      <div class="key-left">
+        <h5 class="key-left-value">User Name</h5>
+        <h5 class="key-left-value">Password</h5>
+      </div>
+      <div class="key-right">        
+        <h5 class="key-left-value">{{ selectedStudent?.portalUsername || '-' }}</h5>
+        <h5 class="key-left-value">{{ selectedStudent?.portalPassword || '-' }}</h5>
+      </div>
+    </div>
+  </div>
+</div>
   </div>
 </div>

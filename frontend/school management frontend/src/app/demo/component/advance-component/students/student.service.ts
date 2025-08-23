@@ -23,7 +23,7 @@ export class StudentService {
   }
 
   uploadStudentPhoto(studentId: string, formData: FormData): Observable<any> {
-    return this.http.put(`${this.apiUrl}/${studentId}/photo`, formData);
+    return this.http.put(`${this.apiUrl}/api/students/${studentId}/photo`, formData);
   }
   
   updateStudent(studentId: string, updateData: any): Observable<any> {

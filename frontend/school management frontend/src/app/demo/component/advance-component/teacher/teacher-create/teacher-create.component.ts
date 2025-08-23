@@ -45,9 +45,7 @@ export class TeacherCreateComponent {
 
   onFileSelect(event: any) {
     const file = event.target.files[0];
-  
     if (file) {
-      // Allowed image types
       const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg'];
       if (!allowedTypes.includes(file.type)) {
         this.toastr.error('Only PNG, JPG, and JPEG files are allowed.', 'Invalid File Type');
@@ -56,25 +54,17 @@ export class TeacherCreateComponent {
         this.fileError = 'Only PNG, JPG, and JPEG files are allowed.';
         return;
       }
-  
-      // Maximum file size: 2MB
-      const maxSizeInMB = 2;
-      if (file.size > maxSizeInMB * 1024 * 1024) {
-        this.toastr.error(`File size must be less than ${maxSizeInMB}MB.`, 'File Too Large');
+      if (file.size > 2 * 1024 * 1024) {
+        this.toastr.error('File size must be less than 2MB.', 'File Too Large');
         this.selectedFile = null;
         this.imagePreview = null;
-        this.fileError = `File size must be less than ${maxSizeInMB}MB.`;
+        this.fileError = 'File size must be less than 2MB.';
         return;
       }
-  
       this.selectedFile = file;
       this.fileError = null;
-  
-      // Generate image preview
       const reader = new FileReader();
-      reader.onload = () => {
-        this.imagePreview = reader.result as string;
-      };
+      reader.onload = () => { this.imagePreview = reader.result as string; };
       reader.readAsDataURL(file);
     }
   }

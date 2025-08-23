@@ -67,7 +67,6 @@ const getClassesBySchool = async (req, res, next) => {
   try {
     let classes;
     if (req.user.role === 'admin') {
-      console.log('Fetching all classes for admin');
       classes = await Class.find({ schoolId: req.user.schoolId })
         .populate({
           path: 'subjects',
@@ -123,7 +122,6 @@ const getClassesBySchool = async (req, res, next) => {
       throw new APIError('Access denied', 403);
     }
 
-    console.log('Classes found:', classes);
     res.status(200).json(classes);
   } catch (err) {
     console.error('Error fetching classes:', err.message);

@@ -13,6 +13,7 @@ const User = require('../../models/user');
 const bcrypt = require('bcrypt');
 const subscriptionSchema = require('../../models/subscription');
 const crypto = require('crypto');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -26,7 +27,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-
+const s3Client = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID,
+    secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY,
+  },
+});
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32); // 32 bytes for AES-256
 const IV_LENGTH = 16; // Initialization vector length for AES
 
@@ -223,7 +231,7 @@ const validateParent = async (req, res) => {
 };
 
 
-const createStudent = async (req, res) => {
+const createStudent = async (req, res, next) => {
   try {
     if (!req.user || (!req.user._id && !req.user.id)) {
       return res.status(401).json({ message: 'User not authenticated, ID missing' });
@@ -254,7 +262,7 @@ const createStudent = async (req, res) => {
       needsExamFee,
       parents,
       academicYearId,
-      routeId // Add routeId from the request body
+      routeId,
     } = req.body;
 
     const parsedSection = typeof section === 'string' ? JSON.parse(section) : section;
@@ -263,7 +271,6 @@ const createStudent = async (req, res) => {
     const schoolId = req.user.schoolId;
     const admissionNo = await generateAdmissionNo(schoolId, academicYearId);
 
-    // Construct feePreferences map
     const feePreferences = new Map();
     feePreferences.set('usesTransport', usesTransport === 'true');
     feePreferences.set('usesHostel', usesHostel === 'true');
@@ -272,7 +279,6 @@ const createStudent = async (req, res) => {
     feePreferences.set('usesLab', usesLab === 'true');
     feePreferences.set('needsExamFee', needsExamFee === 'true');
 
-    // Validate routeId if usesTransport is true
     let finalRouteId = null;
     if (usesTransport === 'true' && routeId) {
       if (!mongoose.Types.ObjectId.isValid(routeId)) {
@@ -287,11 +293,28 @@ const createStudent = async (req, res) => {
       throw new APIError('A route is required when transportation is enabled', 400);
     }
 
+    let profileImageUrl = '';
+    if (req.file) {
+      const fileBuffer = req.file.buffer;
+      const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const params = {
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: `students/${fileName}`, // Add 'students/' prefix
+        Body: fileBuffer,
+        ContentType: req.file.mimetype,
+      };
+
+      const command = new PutObjectCommand(params);
+      await s3Client.send(command);
+
+      profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
+    }
+
     const newStudent = new Student({
       admissionNo,
       name,
       email,
-      phone:phone||undefined,
+      phone: phone || undefined,
       dateOfBirth,
       city,
       state,
@@ -305,19 +328,20 @@ const createStudent = async (req, res) => {
       feePreferences,
       parents: parsedParents,
       createdBy: userId,
-      profileImage: req.file ? `/uploads/${req.file.filename}` : '',
-      routeId: finalRouteId, // Assign routeId
-      status: true
+      profileImage: profileImageUrl,
+      routeId: finalRouteId,
+      status: true,
     });
 
     await newStudent.save();
 
     res.status(201).json({ message: 'Student created successfully', student: newStudent });
   } catch (error) {
-    console.error('Error creating student:', error);
-    res.status(400).json({ message: 'Error creating student', error: error.message });
+    console.error('Error creating student:', error.message, error.stack);
+    next(error);
   }
 };
+
 
 const bulkCreateStudents = async (req, res, next) => {
   try {
@@ -338,7 +362,6 @@ const bulkCreateStudents = async (req, res, next) => {
 
     // Fetch all valid classIds for this school to validate
     const classes = await Class.find({ schoolId });
-    console.log('Classes found:', classes); // Debug log
     const validClassIds = new Set(classes.map(cls => cls._id.toString()));
 
     // Get the current student count once, before processing the batch
@@ -627,9 +650,24 @@ const uploadStudentPhoto = async (req, res, next) => {
     if (!req.file) {
       throw new APIError('No file uploaded', 400);
     }
+
+    const fileBuffer = req.file.buffer;
+    const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const params = {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: `students/${fileName}`, // Add 'students/' prefix
+      Body: fileBuffer,
+      ContentType: req.file.mimetype,
+    };
+
+    const command = new PutObjectCommand(params);
+    await s3Client.send(command);
+
+    const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
+
     const student = await Student.findByIdAndUpdate(
       req.params.id,
-      { profileImage: `/uploads/${req.file.filename}` },
+      { profileImage: imageUrl },
       { new: true }
     );
     if (!student) {
