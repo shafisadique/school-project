@@ -5,19 +5,16 @@ const feeStructureSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class',
     required: true,
-    index: true
   },
   schoolId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'School',
     required: true,
-    index: true
   },
   academicYearId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AcademicYear',
     required: true,
-    index: true
   },
   fees: [{
     name: {

@@ -10,7 +10,10 @@ const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3'); // Add GetObjectCommand
 
 dotenv.config();
+
 const app = express();
+
+
 
 // R2 Configuration
 const s3Client = new S3Client({
@@ -86,13 +89,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'Uploads'), {
   }
 }));
 
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
-
   // New Proxy Route for Images
 app.get('/api/proxy-image/*', async (req, res) => {
   try {
@@ -118,40 +117,40 @@ app.get('/api/proxy-image/*', async (req, res) => {
   }
 });
 
-app.post('/api/upload-image', upload.single('image'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No image file uploaded' });
-    }
+// app.post('/api/upload-image', upload.single('image'), async (req, res) => {
+//   try {
+//     if (!req.file) {
+//       return res.status(400).json({ message: 'No image file uploaded' });
+//     }
 
-    console.log('Received file:', req.file);
+//     console.log('Received file:', req.file);
 
-    const fileBuffer = req.file.buffer;
-    const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const params = {
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: `students/${fileName}`, // Use 'students/' prefix
-      Body: fileBuffer,
-      ContentType: req.file.mimetype,
-    };
+//     const fileBuffer = req.file.buffer;
+//     const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+//     const params = {
+//       Bucket: process.env.R2_BUCKET_NAME,
+//       Key: `students/${fileName}`, // Use 'students/' prefix
+//       Body: fileBuffer,
+//       ContentType: req.file.mimetype,
+//     };
 
-    console.log('Upload params:', params);
+//     console.log('Upload params:', params);
 
-    const command = new PutObjectCommand(params);
-    await s3Client.send(command);
+//     const command = new PutObjectCommand(params);
+//     await s3Client.send(command);
 
-    const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
-    res.status(200).json({ message: 'Image uploaded successfully', url: imageUrl });
-  } catch (error) {
-    console.error('Upload error:', error.message, error.stack);
-    if (error.name === 'AccessDenied' || error.name === 'InvalidAccessKeyId') {
-      console.error('Check R2 credentials in .env file');
-    } else if (error.name === 'NoSuchBucket') {
-      console.error('Bucket does not exist:', process.env.R2_BUCKET_NAME);
-    }
-    res.status(500).json({ message: 'Failed to upload image', error: error.message });
-  }
-});
+//     const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
+//     res.status(200).json({ message: 'Image uploaded successfully', url: imageUrl });
+//   } catch (error) {
+//     console.error('Upload error:', error.message, error.stack);
+//     if (error.name === 'AccessDenied' || error.name === 'InvalidAccessKeyId') {
+//       console.error('Check R2 credentials in .env file');
+//     } else if (error.name === 'NoSuchBucket') {
+//       console.error('Bucket does not exist:', process.env.R2_BUCKET_NAME);
+//     }
+//     res.status(500).json({ message: 'Failed to upload image', error: error.message });
+//   }
+// });
 
 const authRoutes = require('./routes/authRoutes');
 const schoolRoutes = require('./routes/schoolRoutes');

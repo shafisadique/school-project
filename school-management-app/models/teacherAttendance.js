@@ -6,24 +6,20 @@ const teacherAttendanceSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Teacher',
     required: true,
-    index: true
   },
   schoolId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'School',
     required: true,
-    index: true
   },
     academicYearId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'AcademicYear',
     required: true,
-    index: true
   },
   date: {
     type: Date,
     required: true,
-    index: true
   },
   status: {
     type: String,
@@ -48,5 +44,9 @@ const teacherAttendanceSchema = new mongoose.Schema({
 
 // Ensure unique attendance record per teacher per day
 teacherAttendanceSchema.index({ teacherId: 1, date: 1 }, { unique: true });
+teacherAttendanceSchema.index({ teacherId: 1 });
+teacherAttendanceSchema.index({ schoolId: 1 });
+teacherAttendanceSchema.index({ academicYearId: 1 });
+teacherAttendanceSchema.index({ date: 1 });
 
 module.exports = mongoose.model('TeacherAttendance', teacherAttendanceSchema);

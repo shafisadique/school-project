@@ -16,15 +16,14 @@ const teacherSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'AcademicYear', 
     required: true,
-    index: true
   },
   status: { type: Boolean, default: true }, // Active by default
 }, { timestamps: true });
 
 // Index for faster queries
 teacherSchema.index({ schoolId: 1 });
-teacherSchema.index({ email: 1 }, { unique: true });
-
+// teacherSchema.index({ email: 1 }, { unique: true });
+teacherSchema.index({ academicYearId: 1 }); 
 teacherSchema.virtual('school', {
   ref: 'School',
   localField: 'schoolId',

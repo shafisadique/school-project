@@ -6,7 +6,6 @@ const studentSchema = new mongoose.Schema({
     required: true, 
     unique: true, 
     trim: true,
-    index: true
   },
   name: { 
     type: String, 
@@ -68,7 +67,6 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Class', 
     required: true,
-    index: true
   },
   gender: { 
     type: String, 
@@ -79,13 +77,11 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'School', 
     required: true,
-    index: true
   },
   academicYearId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'AcademicYear', 
     required: true,
-    index: true
   },
   rollNo: { 
     type: String, 
@@ -104,7 +100,6 @@ const studentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Route',
     default: null,
-    index: true
   },
   feePreferences: { 
     type: Map,
@@ -220,6 +215,13 @@ studentSchema.index({ schoolId: 1, classId: 1, section: 1, rollNo: 1 }, {
   name: 'unique_rollNo_per_class_section',
   partialFilterExpression: { rollNo: { $exists: true, $ne: '' } }
 });
+// studentSchema.index({ admissionNo: 1 });
+studentSchema.index({ name: 1 });
+studentSchema.index({ email: 1 });
+studentSchema.index({ classId: 1 });
+studentSchema.index({ schoolId: 1 });
+studentSchema.index({ academicYearId: 1 });
+studentSchema.index({ routeId: 1 });
 
 // Virtuals
 studentSchema.virtual('school', {

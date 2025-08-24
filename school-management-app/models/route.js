@@ -5,7 +5,6 @@ const routeSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'School', 
     required: true, 
-    index: true 
   },
   name: { 
     type: String, 
@@ -52,5 +51,6 @@ const routeSchema = new mongoose.Schema({
 });
 
 routeSchema.index({ schoolId: 1, name: 1 }, { unique: true });
+routeSchema.index({ schoolId: 1 }); 
 
 module.exports = mongoose.model('Route', routeSchema);
