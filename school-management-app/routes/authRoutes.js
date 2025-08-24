@@ -7,6 +7,7 @@ const { registerSchool, getSchoolById } = require('../controllers/auth/register/
 const { approveSchoolRequest,requestSchool, updateSubscription } =require('../controllers/school/schoolController');
 const { changePassword, forgotPassword, resetPassword, getProfile, updateProfile, getUsers, updateUser } = require('../controllers/user/user');
 const validateRequest = require('../middleware/validateRequest');
+const Payment =require('../models/payment')
 const authMiddleware = require('../middleware/authMiddleware');
 const { isSuperAdmin } = require('../middleware/roleMiddleware');
 const { createPaymentOrder, generateSchoolInvoicePDF, handleWebhook } = require('../controllers/fee/paymentController');

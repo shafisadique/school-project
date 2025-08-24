@@ -6,6 +6,10 @@ require('./feeStructure'); // This will register the FeeStructure model
 require('./feeInvoice');
 require('./student');
 require('./academicyear');
+require('./payment');
+require('./school');
+require('./feeInvoice');
+
 // Add other models as needed
 
 module.exports = mongoose;
