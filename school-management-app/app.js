@@ -43,7 +43,7 @@ const authLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.'
 });
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4300'];
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4300','https://school-management-backend-khaki.vercel.app'];
 
 app.use(cors({
   origin: allowedOrigins,
