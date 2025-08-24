@@ -10,7 +10,6 @@ const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3'); // Add GetObjectCommand
 
 dotenv.config();
-console.log('Loaded env variables:', process.env); // Debug log
 const app = express();
 
 // R2 Configuration
@@ -23,12 +22,7 @@ const s3Client = new S3Client({
   },
 });
 
-console.log('R2 Config:', {
-  accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
-  accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID?.slice(0, 4) + '...',
-  secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY?.slice(0, 4) + '...',
-  bucketName: process.env.R2_BUCKET_NAME,
-});
+
 // Multer setup for file uploads
 const storage = multer.memoryStorage(); // Store file in memory for R2 upload
 const upload = multer({ storage: storage });
@@ -187,9 +181,6 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: 'No image file uploaded' });
     }
-
-    console.log('Received file:', req.file); // Debug: Log file details
-
     const fileBuffer = req.file.buffer;
     const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`; // Sanitize file name
     const params = {

@@ -12,4 +12,4 @@ const paymentSchema = new mongoose.Schema({
   processedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Payment', paymentSchema);
+module.exports = mongoose.model('payment', paymentSchema);
