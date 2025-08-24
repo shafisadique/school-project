@@ -13,7 +13,7 @@ const rzp = new Razorpay({
 });
 
 // Multer setup for file uploads
-const storage = multer.diskStorage({
+const storage = multer.memoryStorage({
   destination: './uploads/payment-proofs/',
   filename: (req, file, cb) => {
     cb(null, `proof-${req.user.schoolId}-${Date.now()}${path.extname(file.originalname)}`);
@@ -205,6 +205,32 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
 });
 
 // POST /api/subscriptions/upload-proof
+// router.post('/upload-proof', authMiddleware, upload.single('paymentProof'), async (req, res) => {
+//   try {
+//     if (!req.file) {
+//       return res.status(400).json({ message: 'No file uploaded' });
+//     }
+
+//     const subscription = await Subscription.findOne({
+//       schoolId: req.user.schoolId,
+//       status: 'pending',
+//       paymentMethod: 'bank_transfer'
+//     });
+//     if (!subscription) {
+//       return res.status(404).json({ message: 'No pending bank transfer subscription found' });
+//     }
+
+//     subscription.paymentProof = `/uploads/payment-proofs/${req.file.filename}`;
+//     await subscription.save();
+
+//     res.status(200).json({ message: 'Payment proof uploaded. Awaiting verification.' });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Error uploading payment proof', error: err.message });
+//   }
+// });
+
+
+// POST /api/subscriptions/upload-proof
 router.post('/upload-proof', authMiddleware, upload.single('paymentProof'), async (req, res) => {
   try {
     if (!req.file) {
@@ -220,7 +246,22 @@ router.post('/upload-proof', authMiddleware, upload.single('paymentProof'), asyn
       return res.status(404).json({ message: 'No pending bank transfer subscription found' });
     }
 
-    subscription.paymentProof = `/uploads/payment-proofs/${req.file.filename}`;
+    // ✅ Upload to R2 instead of local filesystem
+    const fileBuffer = req.file.buffer;
+    const fileName = `payment-proof-${req.user.schoolId}-${Date.now()}${path.extname(req.file.originalname)}`;
+    
+    const params = {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: `payment-proofs/${fileName}`,
+      Body: fileBuffer,
+      ContentType: req.file.mimetype,
+    };
+
+    const command = new PutObjectCommand(params);
+    await s3Client.send(command);
+
+    // Store the R2 URL instead of local path
+    subscription.paymentProof = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/payment-proofs/${fileName}`;
     await subscription.save();
 
     res.status(200).json({ message: 'Payment proof uploaded. Awaiting verification.' });
