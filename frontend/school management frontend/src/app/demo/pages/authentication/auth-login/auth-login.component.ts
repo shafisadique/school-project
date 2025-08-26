@@ -52,7 +52,6 @@ export class AuthLoginComponent {
     const { username, password } = this.loginForm.value;
     this.authService.login(username, password).subscribe({
       next: (res: any) => {
-        console.log(res.message)
         const role = this.authService.getUserRole();
         if (role === 'superadmin') {
           this.router.navigate(['/auth/register']);
@@ -66,13 +65,10 @@ export class AuthLoginComponent {
         this.isDisable = false;
       },
       error: (errorResponse) => {
-        console.log('Backend Error Response:', JSON.stringify(errorResponse, null, 2));
-        const errorMessage = errorResponse.error?.message || 'Login Failed';
 
+        const errorMessage = errorResponse.error?.message || 'Login Failed';
         if (errorResponse.status === 403 && errorMessage === 'You are not part of the school') {
           this.toastrService.error(errorMessage, 'Teacher Access Denied');
-        } else if (errorResponse.status === 401) {
-          this.toastrService.error(errorMessage, 'Authentication Failed');
         } else if (errorResponse.status === 400) {
           this.toastrService.error(errorMessage, 'Invalid Input');
         } else if (errorResponse.status === 0) {
@@ -108,7 +104,6 @@ export class AuthLoginComponent {
         this.toggleForgotPassword(); // Return to login after success
       },
       error: (errorResponse) => {
-        console.error('Forgot Password Error:', JSON.stringify(errorResponse, null, 2));
         const errorMessage = errorResponse.error?.message || 'Failed to send reset link';
 
         if (errorResponse.status === 404) {

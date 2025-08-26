@@ -138,7 +138,7 @@ export class NavRightComponent {
 
         const { order } = response;
         const options = {
-          key: environment.razorpayKeyId,
+          key: environment.razorpayKey,
           amount: order.amount,
           currency: order.currency,
           name: 'School Management',

@@ -33,7 +33,6 @@ export class AuthService {
         }
         return response;
       }),
-      catchError(this.handleError)
     );
   }
 

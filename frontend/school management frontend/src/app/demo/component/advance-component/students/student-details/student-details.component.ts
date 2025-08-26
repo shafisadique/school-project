@@ -7,7 +7,7 @@ import { ClassSubjectService } from '../../class-subject-management/class-subjec
 import { AcademicYearService } from '../../academic-year/academic-year.service';
 import { PaginationComponent } from '../../pagination/pagination.component';
 import { Subscription } from 'rxjs';
-import { NgbDropdownModule } from '@ng-bootstrap/ng-bootstrap';
+import { NgbDropdownModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ToastrService } from 'ngx-toastr';
 
 interface Student {
@@ -18,20 +18,23 @@ interface Student {
   phone: string;
   gender: string;
   profileImage: string;
-  dateOfBirth:any;
-  address:string;
-  status:boolean;
-  rollNo:string;
-  portalUsername:string;
-  portalPassword:string;
-  parents: parentsDetails
+  dateOfBirth: any;
+  address: string;
+  status: boolean;
+  rollNo: string;
+  portalUsername: string;
+  portalPassword: string;
+  parents: parentsDetails;
+  selected?: boolean; // Added for selection tracking
 }
-interface parentsDetails{
-fatherName:string;
-fatherPhone:number;
-motherName:string;
-motherPhone:number;
+
+interface parentsDetails {
+  fatherName: string;
+  fatherPhone: number;
+  motherName: string;
+  motherPhone: number;
 }
+
 interface Class {
   _id: string;
   name: string;
@@ -53,12 +56,13 @@ interface PaginatedResponse {
 @Component({
   selector: 'app-student-details',
   standalone: true,
-  imports: [CommonModule, FormsModule, PaginationComponent,NgbDropdownModule],
+  imports: [CommonModule, FormsModule, PaginationComponent, NgbDropdownModule],
   templateUrl: './student-details.component.html',
   styleUrls: ['./student-details.component.scss']
 })
 export class StudentDetailsComponent implements OnInit, OnDestroy {
   students: Student[] = [];
+  selectedStudents: Student[] = []; // Track selected students
   classes: Class[] = [];
   academicYears: AcademicYear[] = [];
   backendUrl = 'http://localhost:5000';
@@ -80,10 +84,11 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   constructor(
     private studentService: StudentService,
     private classService: ClassSubjectService,
-    private toastr:ToastrService,
+    private toastr: ToastrService,
     private academicYearService: AcademicYearService,
     private route: ActivatedRoute,
     private router: Router,
+    private modalService: NgbModal
   ) {}
 
   ngOnInit(): void {
@@ -106,8 +111,96 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
       this.queryParamsSubscription.unsubscribe();
     }
   }
- onUpdateStudent(studentId: string): void {
-    this.router.navigate(['/student/student-update', studentId]);
+
+  // Toggle student selection
+  toggleStudentSelection(student: Student, event: any): void {
+    const isChecked = event.target.checked;
+    
+    if (isChecked) {
+      student.selected = true;
+      this.selectedStudents.push(student);
+    } else {
+      student.selected = false;
+      this.selectedStudents = this.selectedStudents.filter(s => s._id !== student._id);
+    }
+  }
+
+  // Select all students on current page
+  toggleAllSelection(event: any): void {
+    const isChecked = event.target.checked;
+    
+    this.students.forEach(student => {
+      student.selected = isChecked;
+    });
+    
+    if (isChecked) {
+      this.selectedStudents = [...this.students];
+    } else {
+      this.selectedStudents = [];
+    }
+  }
+
+  // Check if all students on current page are selected
+  areAllSelected(): boolean {
+    if (this.students.length === 0) return false;
+    return this.students.every(student => student.selected);
+  }
+
+  // Check if some but not all students are selected
+  areSomeSelected(): boolean {
+    return this.selectedStudents.length > 0 && !this.areAllSelected();
+  }
+
+  // Update selection when "Select All" checkbox changes
+  updateAllSelection(event: any): void {
+    const isChecked = event.target.checked;
+    
+    if (isChecked) {
+      this.selectedStudents = [...this.students];
+      this.students.forEach(student => student.selected = true);
+    } else {
+      this.selectedStudents = [];
+      this.students.forEach(student => student.selected = false);
+    }
+  }
+
+  onUpdateStudent(): void {
+    if (this.selectedStudents.length === 1) {
+      this.router.navigate(['/student/student-update', this.selectedStudents[0]._id]);
+    }
+  }
+
+  onDeleteStudents(): void {
+    if (this.selectedStudents.length === 0) return;
+    
+    const confirmMessage = this.selectedStudents.length === 1 
+      ? `Are you sure you want to delete ${this.selectedStudents[0].name}?`
+      : `Are you sure you want to delete ${this.selectedStudents.length} students?`;
+    
+    if (confirm(confirmMessage)) {
+      const studentIds = this.selectedStudents.map(s => s._id);
+      
+      this.studentService.deleteStudents(studentIds).subscribe({
+        next: () => {
+          this.toastr.success('Students deleted successfully', 'Success');
+          this.selectedStudents = [];
+          this.loadStudents(); // Reload the student list
+        },
+        error: (err) => {
+          this.toastr.error(err.error.message || 'Error deleting students', 'Error');
+        }
+      });
+    }
+  }
+
+  openStudentDetails(student: Student, content: any): void {
+    this.selectedStudent = student;
+    this.modalService.open(content, { size: 'sm', backdrop: 'static' });
+  }
+
+  onImageError(event: Event): void {
+    const element = event.target as HTMLImageElement;
+    element.src = 'assets/avtart-new.png'; // fallback avatar
   }
 
   loadClasses(): void {
@@ -150,6 +243,8 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
         this.currentPage = response.page;
         this.pageSize = response.limit;
 
+        // Clear selection when loading new data
+        this.selectedStudents = [];
       },
       error: (err) => {
         console.error('Error fetching students:', err);
@@ -177,14 +272,11 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     });
   }
 
-  
-
   createPortal(studentId: string, role: 'student' | 'parent') {
     // Assume admin role is checked by backend
     this.studentService.createPortal(studentId, role).subscribe({
       next: (res) => {
         this.toastr.success(`${res.message}`, 'Success');
-        console.log('Portal Details:', res.user); // Admin can copy username/password
         // Optionally, show a modal with credentials for admin to print/share
       },
       error: (err) => {
@@ -204,21 +296,21 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   }
 
   toggleSidebar(studentId: string): void {
-  if (this.isSidebarVisible && !studentId) {
-    // Hide sidebar if clicking "Hide Details"
-    this.isSidebarVisible = false;
-    this.selectedStudent = null;
-  } else if (studentId) {
-    // Show sidebar and load selected student details
-    this.isSidebarVisible = true;
-    this.selectedStudent = this.students.find(student => student._id === studentId) || null;
-    console.log('Selected Student ID:', studentId);
-    console.log('Found Student:', this.selectedStudent); // Debug log with full object
-    if (!this.selectedStudent) {
-      console.warn('Student not found in students array for ID:', studentId);
+    if (this.isSidebarVisible && !studentId) {
+      // Hide sidebar if clicking "Hide Details"
+      this.isSidebarVisible = false;
+      this.selectedStudent = null;
+    } else if (studentId) {
+      // Show sidebar and load selected student details
+      this.isSidebarVisible = true;
+      this.selectedStudent = this.students.find(student => student._id === studentId) || null;
+      console.log('Selected Student ID:', studentId);
+      console.log('Found Student:', this.selectedStudent); // Debug log with full object
+      if (!this.selectedStudent) {
+        console.warn('Student not found in students array for ID:', studentId);
+      }
     }
   }
-}
 
   onPageChange(page: number): void {
     this.currentPage = page;
@@ -231,22 +323,22 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     this.loadStudents();
   }
 
-    getImageUrl(profileImage: string): string {
-      if (!profileImage || profileImage.trim() === '') {
-        return 'assets/default-avatar.png';
-      }
-
-      // If the URL is from R2, extract the key (path after the bucket name)
-      if (profileImage.includes('r2.cloudflarestorage.com')) {
-        const urlParts = profileImage.split('/school-bucket/');
-        if (urlParts.length > 1) {
-          const key = urlParts[1]; // e.g., 'students/1755955052920-student.png'
-          return `${this.backendUrl}/api/proxy-image/${key}`;
-        }
-      }
-      // Fallback to default if the URL format is unexpected
+  getImageUrl(profileImage: string): string {
+    if (!profileImage || profileImage.trim() === '') {
       return 'assets/default-avatar.png';
     }
+
+    // If the URL is from R2, extract the key (path after the bucket name)
+    if (profileImage.includes('r2.cloudflarestorage.com')) {
+      const urlParts = profileImage.split('/school-bucket/');
+      if (urlParts.length > 1) {
+        const key = urlParts[1]; // e.g., 'students/1755955052920-student.png'
+        return `${this.backendUrl}/api/proxy-image/${key}`;
+      }
+    }
+    // Fallback to default if the URL format is unexpected
+    return 'assets/default-avatar.png';
+  }
 
   getInitials(name: string): string {
     return name

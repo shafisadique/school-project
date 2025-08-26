@@ -175,7 +175,7 @@ export class DefaultComponent implements OnInit, AfterViewInit {
 
         const { order } = response;
         const options = {
-          key: environment.razorpayKeyId,
+          key: environment.razorpayKey,
           amount: order.amount,
           currency: order.currency,
           name: 'School Management',

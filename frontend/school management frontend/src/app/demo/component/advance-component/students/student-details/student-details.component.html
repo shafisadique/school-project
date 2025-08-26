@@ -1,31 +1,25 @@
 <div class="container-fluid" style="margin-top: 10px;">
   <div class="row">
-    <div [style.width]="isSidebarVisible ? '80%' : '100%'">
+    <div class="col-12">
       <!-- Filters and Search -->
       <div class="d-flex justify-content-between align-items-center">
-        <!-- Left Side: Filters and Search Button -->
-        <div class="filters d-flex align-items-center">
-          <select 
-            class="form-control form-control-sm me-2" 
-            [(ngModel)]="selectedClass" 
-            (change)="onFilterChange()"
-            style="width: 150px;">
-            <option value="">All Classes</option>
-            <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
-          </select>
-
-          <select 
-            class="form-control form-control-sm me-2" 
-            [(ngModel)]="selectedSession" 
-            (change)="onFilterChange()"
-            style="width: 150px;">
-            <option value="">All Sessions</option>
-            <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
-          </select>
-
-          <button class="btn btn-primary btn-sm" (click)="onSearch()">Search</button>
+        <div>
+          <button class="btn btn-sm btn-material btn-primary"><i class="fa fa-plus" aria-hidden="true"></i>Create</button>
+          <button 
+            class="btn btn-sm btn-material btn-secondary" 
+            [disabled]="selectedStudents.length !== 1"
+            (click)="onUpdateStudent()">
+            <i class="fa fa-pencil" aria-hidden="true"></i>Update
+          </button>
+          <button 
+            class="btn btn-sm btn-material btn-danger" 
+            [disabled]="selectedStudents.length === 0"
+            (click)="onDeleteStudents()">
+            <i class="fa fa-trash" aria-hidden="true"></i>Delete
+          </button>
+          <button class="btn btn-sm btn-material btn-success"><i class="fa fa-download" aria-hidden="true"></i>Download</button>
         </div>
-
+        
         <!-- Right Side: Search Field -->
         <div class="search-field">
           <input 
@@ -34,7 +28,31 @@
             placeholder="Search by name or admission no" 
             [(ngModel)]="searchQuery" 
             (keyup.enter)="onSearch()"
-            style="width: 250px;">
+            style="width: 170px;">
+        </div>
+        
+        <!-- Left Side: Filters and Search Button -->
+        <div class="filters d-flex align-items-center">
+          <select 
+            class="form-control form-control-sm me-2" 
+            [(ngModel)]="selectedClass" 
+            (change)="onFilterChange()"
+            style="width: 130px;">
+            <option value="">All Classes</option>
+            <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
+          </select>
+
+          <select 
+            class="form-control form-control-sm me-2" 
+            [(ngModel)]="selectedSession" 
+            (change)="onFilterChange()"
+            style="width: 130px;">
+            <option value="">All Sessions</option>
+            <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
+          </select>
+          <button class="btn btn-sm btn-material btn-primary" (click)="onSearch()">
+            <i class="fa fa-filter" aria-hidden="true" style="font-size: 10px;"></i>Filter
+          </button>
         </div>
       </div>
 
@@ -43,6 +61,13 @@
         <table class="professional-table table-striped table-sm">
           <thead>
             <tr>
+              <th>
+                <input 
+                  type="checkbox" 
+                  [checked]="areAllSelected()"
+                  [indeterminate]="areSomeSelected()"
+                  (change)="updateAllSelection($event)">
+              </th>
               <th>#</th>
               <th>Name</th>
               <th>Admission No</th>
@@ -50,32 +75,38 @@
               <th>Contact</th>
               <th>Gender</th>
               <th>Status</th>
-
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let student of students; let i = index" (click)="toggleSidebar(student._id)" >
+            <tr *ngFor="let student of students; let i = index">
+              <td>
+                <input 
+                  type="checkbox"
+                  [checked]="student.selected"
+                  (change)="toggleStudentSelection(student, $event)">
+              </td>
               <td>
                 <div ngbDropdown>
                   <button class="btn btn-link btn-sm" id="dropdownButton{{i}}" ngbDropdownToggle>
                     {{ (currentPage - 1) * pageSize + i + 1 }}
                   </button>
-                  <div ngbDropdownMenu >
-                    <button ngbDropdownItem (click)="onUpdateStudent(student._id)">Update</button>
-                    <button ngbDropdownItem (click)="createPortal(student._id, 'student')" >Student Portal</button>
+                  <div ngbDropdownMenu>
+                    <button ngbDropdownItem (click)="openStudentDetails(student, studentDetailsModal)">Student Details</button>
+                    <!-- <button ngbDropdownItem (click)="onUpdateStudent(student._id)">Update</button> -->
+                    <button ngbDropdownItem (click)="createPortal(student._id, 'student')">Student Portal</button>
                     <button ngbDropdownItem (click)="createPortal(student._id, 'parent')">Parent Portal</button>
                   </div>
                 </div>
               </td>
               <td class="profile-cell">
                 <div class="profile-wrapper">
-                  <img *ngIf="student.profileImage" crossorigin="anonymous"
-                    [src]="getImageUrl(student.profileImage)"
+                  <img
+                    [src]="student.profileImage ? getImageUrl(student.profileImage) : 'assets/avtart-new.png'"
                     alt="{{ student.name }} profile"
-                    class="profile-avatar">
-                  <div *ngIf="!student.profileImage" class="avatar-placeholder">
-                    {{ getInitials(student.name) }}
-                  </div>
+                    class="profile-avatar"
+                    crossorigin="anonymous"
+                    (error)="onImageError($event)"
+                  >
                   <span class="student-name">{{ student.name }}</span>
                 </div>
               </td>
@@ -86,16 +117,16 @@
               </td>
               <td>{{ student.gender }}</td>
               <td>{{ student.status }}</td>
-
             </tr>
             <tr *ngIf="students.length === 0">
-              <td colspan="6" style="text-align: center; font-family: 'Poppins', sans-serif; font-weight: 600;">
+              <td colspan="8" style="text-align: center; font-family: 'Poppins', sans-serif; font-weight: 600;">
                 No Students Available
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+      
       <!-- Pagination Component -->
       <app-pagination
         [currentPage]="currentPage"
@@ -105,69 +136,40 @@
         (pageChange)="onPageChange($event)">
       </app-pagination>
     </div>
-    <div *ngIf="isSidebarVisible" class="sidebar">
-  <div class="card shadow">
-    <div class="img-container">
-      <img 
-        *ngIf="selectedStudent?.profileImage"  crossorigin="anonymous"
-        [src]="getImageUrl(selectedStudent?.profileImage)" 
-        [alt]="selectedStudent.name ? selectedStudent.name + ' profile' : 'Student profile'" 
-        class="circle-img"
-      >
-      <div *ngIf="!selectedStudent?.profileImage || !getImageUrl(selectedStudent.profileImage)" class="avatar-placeholder">
-        {{ selectedStudent?.name ? getInitials(selectedStudent.name) : 'N/A' }}
-      </div>
-    </div>
 
-    <!-- Rest of your sidebar content remains the same -->
-    <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Personal Details</h4>
-    <div class="key-value">
-      <div class="key-left">
-        <h5 class="key-left-value">Student Name</h5>
-        <h5 class="key-left-value">DOB</h5>
-        <h5 class="key-left-value">Admission No</h5>
-        <h5 class="key-left-value">Roll No</h5>
-        <h5 class="key-left-value">Gender</h5>
-        <h5 class="key-left-value">Address</h5>
+    <ng-template #studentDetailsModal let-modal>
+      <div class="modal-header">
+        <h5 class="modal-title">Student Details</h5>
+        <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
       </div>
-      <div class="key-right">
-        <h5 class="key-left-value">{{ selectedStudent?.name || '' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.dateOfBirth ? (selectedStudent.dateOfBirth | date:'dd/MM/yyyy') : '' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.admissionNo || '' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.rollNo || '-' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.gender || '' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.address || '' }}</h5>
-      </div>
-    </div>
+      <div class="modal-body">
+        <div class="text-center">
+          <img *ngIf="selectedStudent?.profileImage"
+               [src]="selectedStudent.profileImage ? getImageUrl(selectedStudent.profileImage):  'assets/avtart-new.png'"
+               alt="{{ selectedStudent?.name }}"
+               (error)="onImageError($event)"
+               class="circle-img">
+          <div *ngIf="!selectedStudent?.profileImage" class="avatar-placeholder">
+            {{ getInitials(selectedStudent?.name || '') }}
+          </div>
+        </div>
 
-    <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Parents Details</h4>
-    <div class="key-value">
-      <div class="key-left">
-        <h5 class="key-left-value">Parents Name 1</h5>
-        <h5 class="key-left-value">Parents Number 1</h5>
-        <h5 class="key-left-value">Parents Name 2</h5>
-        <h5 class="key-left-value">Parents Number 2</h5>
-      </div>
-      <div class="key-right">        
-        <h5 class="key-left-value">{{ selectedStudent?.parents?.fatherName || '-' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.parents?.fatherPhone || '-' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.parents?.motherName || '-' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.parents?.motherPhone || '-' }}</h5>
-      </div>
-    </div>
+        <h6>Personal Details</h6>
+        <p><b>Name</b> {{ selectedStudent?.name }}</p>
+        <p><b>DOB </b> {{ selectedStudent?.dateOfBirth | date:'dd/MM/yyyy' }}</p>
+        <p><b>Admission No</b> {{ selectedStudent?.admissionNo }}</p>
+        <p><b>Roll No</b> {{ selectedStudent?.rollNo || '-' }}</p>
+        <p><b>Gender</b> {{ selectedStudent?.gender }}</p>
+        <p><b>Address</b> {{ selectedStudent?.address }}</p>
 
-    <h4 style="font-family: 'Poppins',sans-serif;font-weight: 600;font-size: 14px;color: white;">Student Portal Details</h4>
-    <div class="key-value">
-      <div class="key-left">
-        <h5 class="key-left-value">User Name</h5>
-        <h5 class="key-left-value">Password</h5>
+        <h6>Parents</h6>
+        <p><b>Father</b> {{ selectedStudent?.parents?.fatherName }} - {{ selectedStudent?.parents?.fatherPhone }}</p>
+        <p><b>Mother</b> {{ selectedStudent?.parents?.motherName }} - {{ selectedStudent?.parents?.motherPhone }}</p>
+
+        <h6>Student Portal Details</h6>
+        <p><b>UserName</b> {{ selectedStudent?.portalUsername || '-' }}</p>
+        <p><b>Password</b> {{ selectedStudent?.portalPassword || '-' }}</p>
       </div>
-      <div class="key-right">        
-        <h5 class="key-left-value">{{ selectedStudent?.portalUsername || '-' }}</h5>
-        <h5 class="key-left-value">{{ selectedStudent?.portalPassword || '-' }}</h5>
-      </div>
-    </div>
-  </div>
-</div>
+    </ng-template>
   </div>
 </div>
