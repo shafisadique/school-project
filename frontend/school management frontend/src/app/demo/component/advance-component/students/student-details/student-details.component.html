@@ -99,6 +99,7 @@
                 </div>
               </td>
               <td class="profile-cell">
+                
                 <div class="profile-wrapper">
                   <img
                     [src]="student.profileImage ? getImageUrl(student.profileImage) : 'assets/avtart-new.png'"
@@ -152,6 +153,7 @@
           <div *ngIf="!selectedStudent?.profileImage" class="avatar-placeholder">
             {{ getInitials(selectedStudent?.name || '') }}
           </div>
+          
         </div>
 
         <h6>Personal Details</h6>

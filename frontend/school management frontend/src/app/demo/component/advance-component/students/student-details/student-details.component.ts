@@ -304,8 +304,6 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
       // Show sidebar and load selected student details
       this.isSidebarVisible = true;
       this.selectedStudent = this.students.find(student => student._id === studentId) || null;
-      console.log('Selected Student ID:', studentId);
-      console.log('Found Student:', this.selectedStudent); // Debug log with full object
       if (!this.selectedStudent) {
         console.warn('Student not found in students array for ID:', studentId);
       }
@@ -323,22 +321,28 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     this.loadStudents();
   }
 
-  getImageUrl(profileImage: string): string {
-    if (!profileImage || profileImage.trim() === '') {
-      return 'assets/default-avatar.png';
-    }
+  getImageUrl(profileImageUrl: string): string {
+  return profileImageUrl && profileImageUrl.trim() !== '' 
+    ? profileImageUrl 
+    : 'assets/avtart-new.png';
+}
 
-    // If the URL is from R2, extract the key (path after the bucket name)
-    if (profileImage.includes('r2.cloudflarestorage.com')) {
-      const urlParts = profileImage.split('/school-bucket/');
-      if (urlParts.length > 1) {
-        const key = urlParts[1]; // e.g., 'students/1755955052920-student.png'
-        return `${this.backendUrl}/api/proxy-image/${key}`;
-      }
-    }
-    // Fallback to default if the URL format is unexpected
-    return 'assets/default-avatar.png';
-  }
+  // getImageUrl(profileImage: string): string {
+  //   if (!profileImage || profileImage.trim() === '') {
+  //     return 'assets/default-avatar.png';
+  //   }
+
+  //   // If the URL is from R2, extract the key (path after the bucket name)
+  //   if (profileImage.includes('r2.cloudflarestorage.com')) {
+  //     const urlParts = profileImage.split('/school-bucket/');
+  //     if (urlParts.length > 1) {
+  //       const key = urlParts[1]; // e.g., 'students/1755955052920-student.png'
+  //       return `${this.backendUrl}/api/proxy-image/${key}`;
+  //     }
+  //   }
+  //   // Fallback to default if the URL format is unexpected
+  //   return 'assets/default-avatar.png';
+  // }
 
   getInitials(name: string): string {
     return name
