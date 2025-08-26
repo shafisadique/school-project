@@ -92,30 +92,28 @@ app.use('/uploads', express.static(path.join(__dirname, 'Uploads'), {
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
-  // New Proxy Route for Images
-app.get('/api/proxy-image/*', async (req, res) => {
-  try {
-    const key = req.params[0]; // This captures everything after /api/proxy-image/, e.g., 'students/1755955052920-student.png'
-    const params = { Bucket: process.env.R2_BUCKET_NAME, Key: key };
-    const command = new GetObjectCommand(params);
-    const response = await s3Client.send(command);
-    res.setHeader('Content-Type', response.ContentType);
-    res.setHeader('Content-Length', response.ContentLength);
-    res.setHeader('Last-Modified', response.LastModified.toUTCString());
-    res.setHeader('ETag', response.ETag);
-    res.setHeader('Access-Control-Allow-Origin', 'http://localhost:4200'); // Allow your frontend
 
-    response.Body.pipe(res);
-  } catch (error) {
-    console.error('Proxy error:', error);
-    if (error.name === 'NoSuchKey' || error.message === 'NoSuchKey') {
-      const defaultImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg=='; // 1x1 transparent pixel
-      res.status(404).set('Content-Type', 'image/png').send(Buffer.from(defaultImage.split(',')[1], 'base64'));
-    } else {
-      res.status(500).json({ message: 'Failed to proxy image', error: error.message });
-    }
+app.get('/api/proxy-image/:key(*)', async (req, res) => {
+  try {
+    const key = decodeURIComponent(req.params.key || '').replace(/^\/+/, '');
+    console.log('Proxy image request:', { key, host: req.get('host'), origin: req.get('origin') }); // Debug
+    if (!key) return res.status(400).json({ message: 'Missing key' });
+
+    const data = await s3Client.send(new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key
+    }));
+
+    res.setHeader('Content-Type', data.ContentType || 'image/jpeg');
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow all origins (adjust for production)
+    res.setHeader('Cache-Control', 'public, max-age=31536000');
+    data.Body.pipe(res);
+  } catch (err) {
+    console.error('Proxy-image error:', err.message, err.stack);
+    res.status(404).json({ message: 'Image not found', error: err.message });
   }
 });
+
 
 // app.post('/api/upload-image', upload.single('image'), async (req, res) => {
 //   try {

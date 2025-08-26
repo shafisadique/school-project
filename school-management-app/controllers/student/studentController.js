@@ -14,6 +14,7 @@ const bcrypt = require('bcrypt');
 const subscriptionSchema = require('../../models/subscription');
 const crypto = require('crypto');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { toR2Key } = require('../../utils/image');
 
 // Configure multer for file uploads
 const storage = multer.memoryStorage({
@@ -35,6 +36,21 @@ const s3Client = new S3Client({
     secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY,
   },
 });
+
+function normalizeImage(profileImage) {
+  if (!profileImage) return null;
+  // If full Cloudflare URL, extract only the "students/..." part
+  if (profileImage.startsWith("http")) {
+    const parts = profileImage.split("/students/");
+    if (parts.length > 1) {
+      return `students/${parts[1]}`;
+    }
+  }
+  return profileImage; // already just "students/..."
+}
+
+
+
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32); // 32 bytes for AES-256
 const IV_LENGTH = 16; // Initialization vector length for AES
 
@@ -307,7 +323,9 @@ const createStudent = async (req, res, next) => {
       const command = new PutObjectCommand(params);
       await s3Client.send(command);
 
-      profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
+      // profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
+      profileImageUrl = `students/${fileName}`;
+
     }
 
     const newStudent = new Student({
@@ -516,16 +534,12 @@ const getStudents = async (req, res, next) => {
     }
 
     if (classId) {
-      if (!mongoose.Types.ObjectId.isValid(classId)) {
-        throw new APIError('Invalid class ID format', 400);
-      }
+      if (!mongoose.Types.ObjectId.isValid(classId)) throw new APIError('Invalid class ID format', 400);
       query.classId = new mongoose.Types.ObjectId(classId);
     }
 
     if (academicYearId) {
-      if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
-        throw new APIError('Invalid academic year ID format', 400);
-      }
+      if (!mongoose.Types.ObjectId.isValid(academicYearId)) throw new APIError('Invalid academic year ID format', 400);
       query.academicYearId = new mongoose.Types.ObjectId(academicYearId);
     }
 
@@ -542,21 +556,23 @@ const getStudents = async (req, res, next) => {
 
     const total = await Student.countDocuments(query);
 
-    // Fetch portal details for admin users
-    let studentsWithPortals = students;
-    if (req.user && req.user.role === 'admin') {
-      studentsWithPortals = await Promise.all(students.map(async (student) => {
-        const portalUser = await User.findOne({ 
-          'additionalInfo.studentId': student._id, 
-          role: 'student' 
-        });
-        return {
-          ...student.toObject(),
-          portalUsername: portalUser ? portalUser.username : '',
-          portalPassword: portalUser ? decryptPassword(portalUser.password) : ''
-        };
-      }));
-    }
+    const base = `${req.protocol}://${req.get('host')}`; // Dynamic base URL (e.g., https://school-management-backend-khaki.vercel.app)
+
+    const studentsWithPortals = students.map((student) => {
+      const studentObjectId = new mongoose.Types.ObjectId(student._id);
+      const key = toR2Key(student.profileImage); // Extracts key from full URL
+      const url = key ? `${base}/api/proxy-image/${encodeURIComponent(key)}` : '';
+
+      return {
+        ...student.toObject(),
+        profileImageKey: key,
+        profileImageUrl: url,
+        portalUsername: '', // Add User.findOne logic if needed
+        portalPassword: '',
+        parentPortalUsername: '',
+        parentPortalPassword: ''
+      };
+    });
 
     res.status(200).json({
       students: studentsWithPortals,
@@ -570,6 +586,9 @@ const getStudents = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
 const getStudent = async (req, res, next) => {
   try {
     const student = await Student.findById(req.params.id);
@@ -645,36 +664,128 @@ const updateStudent = async (req, res, next) => {
   }
 };
 
+const softDeleteStudents = async (req, res, next) => {
+  try {
+    const { studentIds } = req.body;
+
+    // Validate input
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+      throw new APIError('studentIds must be a non-empty array', 400);
+    }
+
+    // Validate all student IDs
+    if (!studentIds.every(id => mongoose.Types.ObjectId.isValid(id))) {
+      throw new APIError('All student IDs must be valid ObjectIds', 400);
+    }
+
+    const schoolId = req.user.schoolId;
+
+    // Verify all students belong to the user's school and are active
+    const students = await Student.find({
+      _id: { $in: studentIds },
+      schoolId,
+      status: true
+    });
+
+    if (students.length === 0) {
+      throw new APIError('No active students found with the provided IDs', 404);
+    }
+
+    if (students.length !== studentIds.length) {
+      const foundIds = new Set(students.map(student => student._id.toString()));
+      const invalidIds = studentIds.filter(id => !foundIds.has(id));
+      throw new APIError(`Some student IDs are invalid or already inactive: ${invalidIds.join(', ')}`, 400);
+    }
+
+    // Perform soft delete by setting status to false
+    const result = await Student.updateMany(
+      { _id: { $in: studentIds }, schoolId },
+      { $set: { status: false } }
+    );
+
+    if (result.modifiedCount === 0) {
+      throw new APIError('Failed to soft delete students', 500);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully soft deleted ${result.modifiedCount} student(s)`,
+      deletedStudentIds: studentIds
+    });
+  } catch (error) {
+    console.error('Error in softDeleteStudents:', error);
+    next(error);
+  }
+};
+
+// const uploadStudentPhoto = async (req, res, next) => {
+//   try {
+//     if (!req.file) {
+//       throw new APIError('No file uploaded', 400);
+//     }
+
+//     const fileBuffer = req.file.buffer;
+//     const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+//     const params = {
+//       Bucket: process.env.R2_BUCKET_NAME,
+//       Key: `students/${fileName}`, // Add 'students/' prefix
+//       Body: fileBuffer,
+//       ContentType: req.file.mimetype,
+//     };
+
+//     const command = new PutObjectCommand(params);
+//     await s3Client.send(command);
+
+//     // const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
+//     const imageUrl = `students/${fileName}`;
+
+//     const student = await Student.findByIdAndUpdate(
+//       req.params.id,
+//       { profileImage: imageUrl },
+//       { new: true }
+//     );
+//     if (!student) {
+//       throw new APIError('Student not found', 404);
+//     }
+//     res.status(200).json({ success: true, data: student });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+
 const uploadStudentPhoto = async (req, res, next) => {
   try {
+    const studentId = req.params.id;
+
     if (!req.file) {
       throw new APIError('No file uploaded', 400);
     }
 
-    const fileBuffer = req.file.buffer;
-    const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const params = {
+    const fileName = `student-${studentId}-${Date.now()}${path.extname(req.file.originalname)}`;
+    const key = `students/${fileName}`;
+
+    const uploadParams = {
       Bucket: process.env.R2_BUCKET_NAME,
-      Key: `students/${fileName}`, // Add 'students/' prefix
-      Body: fileBuffer,
-      ContentType: req.file.mimetype,
+      Key: key,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype
     };
 
-    const command = new PutObjectCommand(params);
-    await s3Client.send(command);
-
-    const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
+    await s3.send(new PutObjectCommand(uploadParams));
 
     const student = await Student.findByIdAndUpdate(
-      req.params.id,
-      { profileImage: imageUrl },
+      studentId,
+      { profileImage: key }, // 👈 Only store key
       { new: true }
     );
-    if (!student) {
-      throw new APIError('Student not found', 404);
-    }
-    res.status(200).json({ success: true, data: student });
+
+    res.status(200).json({ 
+      message: 'Photo uploaded successfully',
+      student
+    });
   } catch (error) {
+    console.error('Error in uploadStudentPhoto:', error);
     next(error);
   }
 };
@@ -974,76 +1085,110 @@ const createStudentPortal = async (req, res) => {
       throw new APIError('Student not found or does not belong to your school', 404);
     }
 
-    let username;
-    let name;
-    let email;
-    let phoneNumber;
-    let additionalInfo;
+    // Convert studentId to ObjectId for proper comparison
+    const studentObjectId = new mongoose.Types.ObjectId(studentId);
 
+    // Check if portal already exists for this student and role
+    let query;
     if (role === 'student') {
-      username = `${student.admissionNo}-student`;
-      name = student.name;
-      email = student.email || null;
-      phoneNumber = student.phone || null;
-      additionalInfo = { studentId: student._id };
+      query = { 
+        schoolId, 
+        role, 
+        'additionalInfo.studentId': studentObjectId 
+      };
     } else if (role === 'parent') {
-      username = `${student.admissionNo}-parent`;
-      name = student.parents.fatherName || student.parents.motherName || 'Parent';
-      email = null;
-      phoneNumber = (student.parents.fatherPhone || student.parents.motherPhone) || null;
-      additionalInfo = { parentOfStudentId: student._id };
-    } else {
-      throw new APIError('Invalid role. Must be "student" or "parent"', 400);
+      query = { 
+        schoolId, 
+        role, 
+        'additionalInfo.parentOfStudentId': studentObjectId 
+      };
     }
 
-    // Check for existing user with the same username
-    let baseUsername = username;
+    const existingUser = await User.findOne(query);
+
+    if (existingUser) {
+      const decryptedPassword = decryptPassword(existingUser.password);
+      return res.status(400).json({
+        message: `${role} portal already exists for this student`,
+        credentials: {
+          username: existingUser.username,
+          password: decryptedPassword || '112233' // Default if decryption fails
+        }
+      });
+    }
+
+    // Generate username
+    let baseUsername = `${student.admissionNo}-${role}`;
+    let username = baseUsername;
     let suffix = 0;
-    while (true) {
-      const existingUser = await User.findOne({ username });
-      if (!existingUser) {
-        break;
-      }
+    
+    // Ensure username is unique within the school
+    while (await User.findOne({ username, schoolId })) {
       suffix++;
       username = `${baseUsername}-${suffix}`;
     }
 
-    // Use fixed password and encrypt it
-    const plainPassword = '112233';
+    // Set name based on role
+    const name = role === 'student' ? 
+      student.name : 
+      (student.parents.fatherName || student.parents.motherName || 'Parent');
+
+    // Generate random 8-character password
+    const generateRandomPassword = (length = 8) => {
+      const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+      let password = '';
+      for (let i = 0; i < length; i++) {
+        password += charset.charAt(Math.floor(Math.random() * charset.length));
+      }
+      return password;
+    };
+
+    const plainPassword = generateRandomPassword(8);
     const encryptedPassword = encryptPassword(plainPassword);
+
+    // Create a unique email using school ID and username
+    const email = `${username}@school-${schoolId.toString().substring(0, 8)}.edu`;
 
     // Create User with schoolId from admin
     const newUser = new User({
       username,
-      password: encryptedPassword, // Store encrypted password
+      password: encryptedPassword,
       role,
       name,
       email,
       schoolId,
       status: true,
-      additionalInfo
+      additionalInfo: role === 'student' ? 
+        { studentId: studentObjectId } : 
+        { parentOfStudentId: studentObjectId }
     });
 
     await newUser.save();
 
-    // Return decrypted password to admin in response
-    const decryptedPassword = decryptPassword(encryptedPassword);
-
+    // Return credentials to admin
     res.status(201).json({
-      message: `${role.charAt(0).toUpperCase() + role.slice(1)} portal created successfully`,
-      user: {
+      message: `${role} portal created successfully`,
+      credentials: {
         username,
-        role,
-        name,
-        email,
-        schoolId,
-        additionalInfo,
-        password: decryptedPassword // Return decrypted password for admin
+        password: plainPassword
       }
     });
   } catch (error) {
     console.error('Error creating portal:', error);
-    res.status(error.status || 400).json({ message: 'Error creating portal', error: error.message });
+    
+    // Handle duplicate key error (username or email)
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+      return res.status(400).json({
+        message: `${field} already exists`,
+        error: `The ${field} '${error.keyValue[field]}' is already in use`
+      });
+    }
+    
+    res.status(error.status || 500).json({ 
+      message: 'Error creating portal', 
+      error: error.message 
+    });
   }
 };
 
@@ -1062,5 +1207,6 @@ module.exports = {
   assignRollNumbers,
   assignRollNumbersAlphabetically,
   validateParent,
+  softDeleteStudents,
   getStudentsByClass // Added to exports
 };
