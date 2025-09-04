@@ -50,13 +50,6 @@ export const NavigationItems: NavigationItem[] = [
       },
       
       {
-        id: 'student-create',
-        title: 'Student Create',
-        type: 'item',
-        url: '/student/student-create',
-        icon: 'user'
-      },
-           {
         id: 'student-promotion',
         title: 'Student Promotion',
         type: 'item',
@@ -85,13 +78,7 @@ export const NavigationItems: NavigationItem[] = [
         url: '/teacher/teacher-details',
         icon: 'user'
       },
-      {
-        id: 'teacher-create',
-        title: 'Teacher Create',
-        type: 'item',
-        url: '/teacher/teacher-create',
-        icon: 'user'
-      },
+      
       {
         id: 'teacher-create',
         title: 'Approve/Reject Leaves',

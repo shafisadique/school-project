@@ -199,10 +199,17 @@ studentSchema.pre('validate', function (next) {
 });
 
 // Indexes
+// Replace your current phone index with this:
 studentSchema.index({ schoolId: 1, phone: 1 }, { 
   unique: true,
   name: 'unique_phone_per_school',
-  partialFilterExpression: { phone: { $exists: true } }
+  partialFilterExpression: { 
+    phone: { 
+      $exists: true, 
+      $ne: null, 
+      $ne: "" 
+    } 
+  }
 });
 
 studentSchema.index({ schoolId: 1, admissionNo: 1 }, { 

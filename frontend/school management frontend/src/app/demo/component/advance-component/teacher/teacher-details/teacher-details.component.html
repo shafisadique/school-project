@@ -1,54 +1,101 @@
+<div class="container-fluid" style="margin-top: 10px;">
+  <div class="row">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <button class="btn btn-sm btn-material btn-primary" (click)="createTeacher()"><i class="fa fa-plus" aria-hidden="true"></i>Create</button>
+        <button 
+          class="btn btn-sm btn-material btn-secondary" 
+          [disabled]="selectedTeaches.length !== 1"
+          (click)="onUpdateTeacher()">
+          <i class="fa fa-pencil" aria-hidden="true"></i>Update
+        </button>
+        <button 
+          class="btn btn-sm btn-material btn-danger" 
+          [disabled]="selectedTeaches.length === 0"
+          (click)="onDeleteTeacher()">
+          <i class="fa fa-trash" aria-hidden="true"></i>Delete
+        </button>
+        <button class="btn btn-sm btn-material btn-success" (click)="downloadExcel()"><i class="fa fa-download" aria-hidden="true"></i>Download</button>
+      </div>
+      
+      <div class="search-field">
+        <input 
+          type="text" 
+          class="form-control form-control-sm" 
+          placeholder="Search by name or admission no" 
+          [(ngModel)]="searchQuery" 
+          (keyup.enter)="onSearch()"
+          style="width: 170px;">
+      </div>
+      
+    </div>
+  </div>
 
-<div class="table-container">
+  <div class="table-container">
     <table class="professional-table table-striped table-sm">
       <thead>
         <tr>
+          <th>
+            <input 
+              type="checkbox" 
+              [checked]="isAllSelected()" 
+              (change)="toggleAllSelection($event)">
+          </th>
           <th>#</th>
           <th>Name</th>
+          <th>UserName</th>
           <th>Subject</th>
-          <th>Class</th>
+          <th>Phone</th>
+          <th>Leave</th>
           <th>Email address</th>
           <th>Gender</th>
-        <th>Actions</th>
-
+          <th>Status</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let teacher of teachers; let i = index">
+          <td>
+            <input 
+              type="checkbox"
+              [checked]="isTeacherSelected(teacher)"
+              (change)="toggleTeacherSelection(teacher, $event)">
+          </td>
           <td>{{ i + 1 }}</td>
-          <!-- Profile Image & Name -->
           <td class="profile-cell">
             <div class="profile-wrapper">
               <img *ngIf="teacher.profileImage" crossorigin="anonymous"
-                 [src]="getImageUrl(teacher.profileImage)" 
-                   alt="{{ teacher.name }} profile"
-                   class="profile-avatar"
-                   (error)="handleImageError($event)">
+                [src]="getImageUrl(teacher.profileImage)" 
+                alt="{{ teacher.name }} profile"
+                class="profile-avatar"
+                (error)="handleImageError($event)">
               <div *ngIf="!teacher.profileImage" class="avatar-placeholder">
                 {{ getInitials(teacher.name) }}
               </div>
               <span class="teacher-name">{{ teacher.name }}</span>
             </div>
           </td>
-  
+          <td>{{ teacher.userId.username }}</td>
           <td>{{ teacher.subjects.join(', ') }}</td>
-          <td>{{ teacher.class || 'N/A' }}</td>
+          <td>{{ teacher.phone }}</td>
+          <td [ngClass]="{'text-danger': teacher.leaveBalance < 5}">
+            {{ teacher.leaveBalance }}
+          </td>
           <td><a href="mailto:{{ teacher.email }}">{{ teacher.email }}</a></td>
           <td>{{ teacher.gender }}</td>
           <td>
-          <button class="btn btn-primary btn-sm" (click)="editTeacher(teacher._id)">Edit</button>
-          <button class="btn btn-danger btn-sm" (click)="deleteTeacher(teacher._id)">Delete</button>
-        </td>
+            <span [ngClass]="{'text-success': teacher.status, 'text-danger': !teacher.status}">
+              {{ teacher.status ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
         </tr>
-        @if(teachers.length == 0){
+        @if(teachers.length === 0){
           <tr>
-            <td colspan="6" style="text-align: center;font-family: 'Poppins',sans-serif;font-weight: 600;">
+            <td colspan="10" style="text-align: center;font-family: 'Poppins',sans-serif;font-weight: 600;">
               No Teacher Available
-          </td> 
-        </tr>
-
+            </td> 
+          </tr>
         }
       </tbody>
     </table>
   </div>
-  
+</div>

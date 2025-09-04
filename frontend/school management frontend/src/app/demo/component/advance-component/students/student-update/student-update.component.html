@@ -119,7 +119,7 @@
               <div class="col-md-6 col-12">
                 <div class="form-group">
                   <label>Upload Profile Picture:</label>
-                  <input type="file" class="form-control form-control-sm" (change)="onFileSelect($event)" accept="image/*" />
+                  <input type="file" class="form-control form-control-sm"  (change)="onFileSelect($event)" accept="image/*" />
                   <small *ngIf="submitted && !selectedFile" class="error">Profile picture is required.</small>
                   <small *ngIf="fileError" class="error">{{ fileError }}</small>
                 </div>

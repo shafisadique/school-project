@@ -54,31 +54,31 @@ router.post('/promote', authMiddleware, studentController.promoteStudents);
 router.post('/create-portal', authMiddleware, studentController.createStudentPortal);
 router.get('/validate-parent/:studentId', authMiddleware, studentController.validateParent);
 router.post('/soft-delete', authMiddleware, studentController.softDeleteStudents);
-// router.put('/:id/photo', authMiddleware, studentController.uploadStudentPhoto); // Updated
-router.get('/students/:id/photo', authMiddleware, async (req, res, next) => {
-  try {
-    const student = await Student.findById(req.params.id);
-    if (!student || !student.profileImage) {
-      return res.status(404).send("Photo not found");
-    }
+router.put('/:id/photo', authMiddleware, studentController.uploadStudentPhoto); // Updated
+// router.get('/students/:id/photo', authMiddleware, async (req, res, next) => {
+//   try {
+//     const student = await Student.findById(req.params.id);
+//     if (!student || !student.profileImage) {
+//       return res.status(404).send("Photo not found");
+//     }
 
-    // Optional: restrict to admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).send("Forbidden");
-    }
+//     // Optional: restrict to admin
+//     if (req.user.role !== 'admin') {
+//       return res.status(403).send("Forbidden");
+//     }
 
-    const command = new GetObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: student.profileImage,
-    });
+//     const command = new GetObjectCommand({
+//       Bucket: process.env.R2_BUCKET_NAME,
+//       Key: student.profileImage,
+//     });
 
-    const data = await s3Client.send(command);
+//     const data = await s3Client.send(command);
 
-    res.setHeader("Content-Type", data.ContentType);
-    data.Body.pipe(res);
-  } catch (err) {
-    next(err);
-  }
-});
+//     res.setHeader("Content-Type", data.ContentType);
+//     data.Body.pipe(res);
+//   } catch (err) {
+//     next(err);
+//   }
+// });
 
 module.exports = router;

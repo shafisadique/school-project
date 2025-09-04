@@ -88,14 +88,59 @@ export class NavRightComponent {
     this.fetchPlans();
   }
 
+  // fetchPlans() {
+  //   this.dashboardService.getPlans().subscribe({
+  //     next: (data: any) => {
+  //       this.plans = [...data.trial, ...data.basic];
+  //     },
+  //     error: (error) => console.error('Error fetching plans:', error)
+  //   });
+  // }
+
   fetchPlans() {
-    this.dashboardService.getPlans().subscribe({
-      next: (data: any) => {
-        this.plans = [...data.basic, ...data.premium];
-      },
-      error: (error) => console.error('Error fetching plans:', error)
-    });
-  }
+  this.dashboardService.getPlans().subscribe({
+    next: (data: any) => {
+      const normalizedPlans: any[] = [];
+
+      // Trial
+      if (data.trial) {
+        normalizedPlans.push({
+          ...data.trial,
+          value: 'trial',
+          originalPrice: data.trial.price,
+          discount: 0
+        });
+      }
+
+      // Basic
+      if (data.basic) {
+        Object.entries(data.basic).forEach(([key, plan]: [string, any]) => {
+          normalizedPlans.push({
+            ...plan,
+            value: `basic_${key}`, // basic_monthly, basic_yearly
+            discount: plan.savings || 0
+          });
+        });
+      }
+
+      // Premium
+      if (data.premium) {
+        Object.entries(data.premium).forEach(([key, plan]: [string, any]) => {
+          normalizedPlans.push({
+            ...plan,
+            value: `premium_${key}`, // premium_monthly, premium_yearly
+            discount: plan.savings || 0
+          });
+        });
+      }
+
+      this.plans = normalizedPlans;
+      console.log('Plans:', this.plans);
+    },
+    error: (error) => console.error('Error fetching plans:', error)
+  });
+}
+
 
   openUpgradeModal(template: TemplateRef<any>) {
     this.selectedPaymentMethod = 'razorpay';

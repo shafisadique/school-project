@@ -11,15 +11,16 @@ const login = async (req, res) => {
     if ((!username && !email) || !password) {
       return res.status(400).json({ message: 'Username/Email and password are required' });
     }
-
+ 
     const user = await User.findOne({
-      $or: [{ username }, { email }]
+      $or: [{ username }]
     });
     if (!user) {
       return res.status(401).json({ message: 'Invalid username/email or password' });
     }
-
+    console.log(password,user.password)
     const isPasswordValid = bcrypt.compareSync(password, user.password);
+
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid username/email or password' });
     }

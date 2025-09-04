@@ -110,41 +110,52 @@ export class StudentUpdateComponent implements OnInit {
   }
 
   loadStudent() {
-    if (this.studentId) {
-      this.studentService.getStudentById(this.studentId).subscribe({
-        next: (student) => {
-          console.log(student)
-          this.studentForm.patchValue({
-            name: student.name,
-            email: student.email,
-            phone: student.phone,
-            dateOfBirth: new Date(student.dateOfBirth).toISOString().split('T')[0],
-            city: student.city,
-            state: student.state,
-            country: student.country,
-            classId: student.classId?._id || student.classId,
-            section: student.section[0], // Assuming section is an array
-            address: student.address,
-            gender: student.gender,
-            usesTransport: student.feePreferences.usesTransport,
-            usesHostel: student.feePreferences.usesHostel,
-            fatherName: student.parents?.fatherName || '',
-            motherName: student.parents?.motherName || '',
-            fatherPhone: student.parents?.fatherPhone || '',
-            motherPhone: student.parents?.motherPhone || '',
-            status: student.status // Set the status
-          });
-          this.imagePreview = student.profileImage
-            ? `http://localhost:5000${student.profileImage}`
-            : null;
-        },
-        error: (err) => {
-          this.toastr.error('Error loading student details', 'Error');
-          this.router.navigate(['/student/details']);
+  if (this.studentId) {
+    this.studentService.getStudentById(this.studentId).subscribe({
+      next: (student) => {
+        console.log(student)
+        this.studentForm.patchValue({
+          name: student.name,
+          email: student.email,
+          phone: student.phone,
+          dateOfBirth: new Date(student.dateOfBirth).toISOString().split('T')[0],
+          city: student.city,
+          state: student.state,
+          country: student.country,
+          classId: student.classId?._id || student.classId,
+          section: student.section[0], // Assuming section is an array
+          address: student.address,
+          gender: student.gender,
+          usesTransport: student.feePreferences.usesTransport,
+          usesHostel: student.feePreferences.usesHostel,
+          fatherName: student.parents?.fatherName || '',
+          motherName: student.parents?.motherName || '',
+          fatherPhone: student.parents?.fatherPhone || '',
+          motherPhone: student.parents?.motherPhone || '',
+          status: student.status // Set the status
+        });
+        
+        // FIX: Use the profileImageUrl from backend or construct it properly
+        if (student.profileImage) {
+          // If it's already a full URL (from older entries)
+          if (student.profileImage.startsWith('http')) {
+            this.imagePreview = student.profileImage;
+          } else {
+            // If it's a key, use the proxy endpoint
+            let url= `https://school-management-backend-khaki.vercel.app`
+            this.imagePreview = `${url}/${encodeURIComponent(student.profileImage)}`;
+          }
+        } else {
+          this.imagePreview = null;
         }
-      });
-    }
+      },
+      error: (err) => {
+        this.toastr.error('Error loading student details', 'Error');
+        this.router.navigate(['/student/details']);
+      }
+    });
   }
+}
 
   onFileSelect(event: any) {
     const file = event.target.files[0];

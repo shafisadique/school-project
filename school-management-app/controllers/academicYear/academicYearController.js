@@ -169,6 +169,66 @@ const activateAcademicYear = async (req, res) => {
       });
     }
   };
+  // academicYearController.js
+const editAcademicYear = async (req, res) => {
+  try {
+    const { academicYearId, name, startDate, endDate } = req.body;
+    const schoolId = req.user.schoolId;
+
+    if (!academicYearId || !name || !startDate || !endDate) {
+      return res.status(400).json({ message: 'Academic year ID, name, startDate, and endDate are required' });
+    }
+
+    // Validate dates
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (end <= start) {
+      return res.status(400).json({ message: 'End date must be after start date' });
+    }
+
+    // Ensure the school exists
+    const school = await School.findById(schoolId);
+    if (!school) {
+      return res.status(404).json({ message: 'School not found' });
+    }
+
+    // Check for duplicate name
+    const existingYear = await AcademicYear.findOne({
+      schoolId,
+      name,
+      _id: { $ne: academicYearId },
+    });
+    if (existingYear) {
+      return res.status(400).json({ message: 'An academic year with this name already exists for this school' });
+    }
+
+    // Update the academic year
+    const updatedAcademicYear = await AcademicYear.findOneAndUpdate(
+      { _id: academicYearId, schoolId },
+      {
+        $set: {
+          name,
+          startDate: start,
+          endDate: end,
+        },
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedAcademicYear) {
+      return res.status(404).json({ message: 'Academic year not found or you do not have permission to edit it' });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Academic year updated successfully',
+      data: updatedAcademicYear,
+    });
+  } catch (error) {
+    console.error('Error editing academic year:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
 module.exports = {
   createAcademicYear,
@@ -177,5 +237,6 @@ module.exports = {
   getActiveAcademicYear,
   getStudentAcademicYears,
   setAcademicYear,
-  activateAcademicYear
+  activateAcademicYear,
+  editAcademicYear
 };

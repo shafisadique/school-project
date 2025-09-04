@@ -30,7 +30,6 @@ export class StudentCreateComponent implements OnInit {
   imagePreview: string | null = null;
   fileError: string | null = null;
   serverErrors: any = {};
-  sessionList = ['2023-2024', '2024-2025', '2025-2026'];
   schoolId = localStorage.getItem('schoolId');
   routes: any[] = []; // Store available routes
 

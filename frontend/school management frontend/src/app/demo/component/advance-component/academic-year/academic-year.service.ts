@@ -17,6 +17,11 @@ export class AcademicYearService {
     return this.http.post<AcademicYear>(`${this.baseUrl}/create`, payload);
   }
 
+  // academic-year.service.ts (already correct)
+  editAcademicYear(payload: { academicYearId: string; name: string; startDate: string; endDate: string; schoolId: string }): Observable<AcademicYear> {
+    return this.http.put<AcademicYear>(`${this.baseUrl}/edit`, payload);
+  }
+
   // Get active academic year
   getActiveAcademicYear(schoolId: string): Observable<AcademicYear> {
     return this.http.get<AcademicYear>(`${this.baseUrl}/active/${schoolId}`);

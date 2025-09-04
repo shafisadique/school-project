@@ -4,7 +4,7 @@
       <!-- Filters and Search -->
       <div class="d-flex justify-content-between align-items-center">
         <div>
-          <button class="btn btn-sm btn-material btn-primary"><i class="fa fa-plus" aria-hidden="true"></i>Create</button>
+          <button class="btn btn-sm btn-material btn-primary" (click)="createStudent()"><i class="fa fa-plus" aria-hidden="true"></i>Create</button>
           <button 
             class="btn btn-sm btn-material btn-secondary" 
             [disabled]="selectedStudents.length !== 1"
@@ -17,7 +17,7 @@
             (click)="onDeleteStudents()">
             <i class="fa fa-trash" aria-hidden="true"></i>Delete
           </button>
-          <button class="btn btn-sm btn-material btn-success"><i class="fa fa-download" aria-hidden="true"></i>Download</button>
+          <button class="btn btn-sm btn-material btn-success" (click)="downloadExcel()"><i class="fa fa-download" aria-hidden="true"></i>Download</button>
         </div>
         
         <!-- Right Side: Search Field -->

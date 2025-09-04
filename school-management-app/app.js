@@ -9,10 +9,14 @@ const fs = require('fs');
 const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3'); // Add GetObjectCommand
 
+
 dotenv.config();
 
 const app = express();
 
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
 
 // R2 Configuration
@@ -31,12 +35,6 @@ const storage = multer.memoryStorage(); // Store file in memory for R2 upload
 const upload = multer({ storage: storage });
 
 
-// const uploadsDir = path.join(__dirname, 'Uploads');
-// if (!fs.existsSync(uploadsDir)) {
-//   fs.mkdirSync(uploadsDir, { recursive: true });
-// }
-
-require('./utils/attendanceCron');
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 40,
@@ -81,22 +79,20 @@ app.use('/api/auth', authLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/uploads', express.static(path.join(__dirname, 'Uploads'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg')) {
-      res.set('Content-Type', 'image/' + path.split('.').pop());
-    }
-  }
-}));
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+// app.use('/uploads', express.static(path.join(__dirname, 'Uploads'), {
+//   setHeaders: (res, path) => {
+//     if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+//       res.set('Content-Type', 'image/' + path.split('.').pop());
+//     }
+//   }
+// }));
+
+
 
 app.get('/api/proxy-image/:key(*)', async (req, res) => {
   try {
     const key = decodeURIComponent(req.params.key || '').replace(/^\/+/, '');
-    console.log('Proxy image request:', { key, host: req.get('host'), origin: req.get('origin') }); // Debug
     if (!key) return res.status(400).json({ message: 'Missing key' });
 
     const data = await s3Client.send(new GetObjectCommand({
@@ -115,40 +111,7 @@ app.get('/api/proxy-image/:key(*)', async (req, res) => {
 });
 
 
-// app.post('/api/upload-image', upload.single('image'), async (req, res) => {
-//   try {
-//     if (!req.file) {
-//       return res.status(400).json({ message: 'No image file uploaded' });
-//     }
-
-//     console.log('Received file:', req.file);
-
-//     const fileBuffer = req.file.buffer;
-//     const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-//     const params = {
-//       Bucket: process.env.R2_BUCKET_NAME,
-//       Key: `students/${fileName}`, // Use 'students/' prefix
-//       Body: fileBuffer,
-//       ContentType: req.file.mimetype,
-//     };
-
-//     console.log('Upload params:', params);
-
-//     const command = new PutObjectCommand(params);
-//     await s3Client.send(command);
-
-//     const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
-//     res.status(200).json({ message: 'Image uploaded successfully', url: imageUrl });
-//   } catch (error) {
-//     console.error('Upload error:', error.message, error.stack);
-//     if (error.name === 'AccessDenied' || error.name === 'InvalidAccessKeyId') {
-//       console.error('Check R2 credentials in .env file');
-//     } else if (error.name === 'NoSuchBucket') {
-//       console.error('Bucket does not exist:', process.env.R2_BUCKET_NAME);
-//     }
-//     res.status(500).json({ message: 'Failed to upload image', error: error.message });
-//   }
-// });
+require('./utils/attendanceCron');
 
 const authRoutes = require('./routes/authRoutes');
 const schoolRoutes = require('./routes/schoolRoutes');
@@ -172,41 +135,41 @@ const studentDashboard = require('./routes/admin-dashboard/dashboard.routes');
 const { isAdmin } = require('./middleware/roleMiddleware');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 
+
 // Add upload endpoint with enhanced debugging
 app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No image file uploaded' });
     }
+
     const fileBuffer = req.file.buffer;
-    const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`; // Sanitize file name
+    const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+    const key = `students/${fileName}`; // Store with students/ prefix
+
     const params = {
       Bucket: process.env.R2_BUCKET_NAME,
-      Key: fileName,
+      Key: key, // Use the key with prefix
       Body: fileBuffer,
       ContentType: req.file.mimetype,
     };
 
-    console.log('Upload params:', params); // Debug: Log upload parameters
-
     const command = new PutObjectCommand(params);
     await s3Client.send(command);
 
-    const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/${fileName}`;
-    res.status(200).json({ message: 'Image uploaded successfully', url: imageUrl });
+    // Return only the key, not full URL
+    res.status(200).json({ 
+      message: 'Image uploaded successfully', 
+      key: key // Store this in your database
+    });
   } catch (error) {
-    console.error('Upload error:', error.message, error.stack); // Enhanced error logging
-    if (error.name === 'AccessDenied' || error.name === 'InvalidAccessKeyId') {
-      console.error('Check R2 credentials in .env file');
-    } else if (error.name === 'NoSuchBucket') {
-      console.error('Bucket does not exist:', process.env.R2_BUCKET_NAME);
-    }
+    console.error('Upload error:', error);
     res.status(500).json({ message: 'Failed to upload image', error: error.message });
   }
 });
 
 app.use('/api/auth', authRoutes);
-// app.use('/api/schools', authMiddleware, schoolRoutes);
+app.use('/api/schools', authMiddleware, schoolRoutes);
 app.use('/api/students', authMiddleware, (req, res, next) => {
   upload.single('profileImage')(req, res, (err) => {
     if (err) return next(err);

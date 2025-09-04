@@ -13,6 +13,9 @@ const userSchema = new mongoose.Schema({
   additionalInfo: { type: mongoose.Schema.Types.Mixed, default: {} } // Flexible field for additional data
 }, { timestamps: true });
 
+
+
+
 // ✅ Index for Faster Admin Lookup
 userSchema.index({ schoolId: 1, role: 1 });
 

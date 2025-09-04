@@ -1,4 +1,4 @@
-// src/app/demo/component/advance-component/academic-year/academic-year/academic-year.component.ts
+// src/app/demo/component/advance-component/academic-year/academic-year.component.ts
 import { Component, OnInit, inject } from '@angular/core';
 import { AcademicYearService } from '../academic-year.service';
 import { CommonModule } from '@angular/common';
@@ -10,24 +10,25 @@ import { AuthService } from 'src/app/theme/shared/service/auth.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './academic-year.component.html',
-  styleUrl: './academic-year.component.scss'
+  styleUrl: './academic-year.component.scss',
 })
 export class AcademicYearComponent implements OnInit {
   private academicYearService = inject(AcademicYearService);
   private authService = inject(AuthService);
 
   newAcademicYear = {
+    academicYearId: '', // Add for edit mode
     name: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
   };
-
+  isEditMode = false; // Track if form is in edit mode
   availableYears: any[] = [];
   currentAcademicYear: any;
   schoolId: string | null = null;
 
   ngOnInit(): void {
-    this.schoolId = this.authService.currentSchoolId(); // Access signal value with ()
+    this.schoolId = this.authService.currentSchoolId();
     if (!this.schoolId) {
       this.showError('School ID not found.');
       return;
@@ -43,7 +44,7 @@ export class AcademicYearComponent implements OnInit {
         this.currentAcademicYear = data;
         console.log('Active Academic Year:', data);
       },
-      error: () => this.showError('Failed to load active session')
+      error: () => this.showError('Failed to load active session'),
     });
 
     this.academicYearService.getAllAcademicYears(this.schoolId).subscribe({
@@ -51,14 +52,14 @@ export class AcademicYearComponent implements OnInit {
         this.availableYears = data;
         console.log('All Academic Years:', data);
       },
-      error: () => this.showError('Failed to load sessions')
+      error: () => this.showError('Failed to load sessions'),
     });
   }
 
   createAcademicYear(): void {
     if (!this.schoolId) return;
 
-    const { name, startDate, endDate } = this.newAcademicYear;
+    const { academicYearId, name, startDate, endDate } = this.newAcademicYear;
     if (!name || !startDate || !endDate) {
       this.showError('All fields are required.');
       return;
@@ -68,17 +69,38 @@ export class AcademicYearComponent implements OnInit {
       name,
       startDate: new Date(startDate).toISOString(),
       endDate: new Date(endDate).toISOString(),
-      schoolId: this.schoolId
+      schoolId: this.schoolId,
+      ...(this.isEditMode && { academicYearId }), // Include academicYearId for edit
     };
 
-    this.academicYearService.createAcademicYear(payload).subscribe({
+    const action = this.isEditMode
+      ? this.academicYearService.editAcademicYear(payload)
+      : this.academicYearService.createAcademicYear(payload);
+
+    action.subscribe({
       next: () => {
-        alert('Session created successfully!');
-        this.newAcademicYear = { name: '', startDate: '', endDate: '' };
+        alert(this.isEditMode ? 'Session updated successfully!' : 'Session created successfully!');
+        this.newAcademicYear = { academicYearId: '', name: '', startDate: '', endDate: '' };
+        this.isEditMode = false;
         this.loadAcademicYears();
       },
-      error: (err) => this.showError(err.message || 'Failed to create session')
+      error: (err) => this.showError(err.message || this.isEditMode ? 'Failed to update session' : 'Failed to create session'),
     });
+  }
+
+  editYear(year: any): void {
+    this.newAcademicYear = {
+      academicYearId: year._id,
+      name: year.name,
+      startDate: new Date(year.startDate).toISOString().split('T')[0], // Format for date input
+      endDate: new Date(year.endDate).toISOString().split('T')[0],
+    };
+    this.isEditMode = true;
+  }
+
+  cancelEdit(): void {
+    this.newAcademicYear = { academicYearId: '', name: '', startDate: '', endDate: '' };
+    this.isEditMode = false;
   }
 
   activateYear(yearId: string): void {
@@ -86,7 +108,7 @@ export class AcademicYearComponent implements OnInit {
 
     this.academicYearService.activateAcademicYear(yearId, this.schoolId).subscribe({
       next: () => this.loadAcademicYears(),
-      error: (err) => console.error('Activation failed:', err)
+      error: (err) => console.error('Activation failed:', err),
     });
   }
 
@@ -98,7 +120,7 @@ export class AcademicYearComponent implements OnInit {
         alert('Active session updated!');
         this.loadAcademicYears();
       },
-      error: (err) => this.showError(err.message || 'Failed to update active session')
+      error: (err) => this.showError(err.message || 'Failed to update active session'),
     });
   }
 

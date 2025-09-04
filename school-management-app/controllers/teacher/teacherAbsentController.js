@@ -455,17 +455,17 @@ exports.getPendingTeacherLeaveApplications = async (req, res, next) => {
 // New endpoint for auto-generated absences
 exports.getPendingAutoAbsences = async (req, res, next) => {
   try {
-    const { schoolId } = req.user; // Assuming schoolId is in req.user from authMiddleware
+    const { schoolId } = req.user;
     const { startDate, endDate, teacherId } = req.query;
 
     if (!schoolId || !mongoose.Types.ObjectId.isValid(schoolId)) {
       throw new APIError('Valid schoolId is required', 400);
     }
 
-    const matchStage = {  
-      schoolId: new mongoose.Types.ObjectId(schoolId), 
+    const matchStage = {
+      schoolId: new mongoose.Types.ObjectId(schoolId),
       status: 'Pending',
-      isTeacherApplied: false // Only auto-generated absences
+      isTeacherApplied: false,
     };
     if (teacherId && mongoose.Types.ObjectId.isValid(teacherId)) {
       matchStage.teacherId = new mongoose.Types.ObjectId(teacherId);
@@ -473,7 +473,7 @@ exports.getPendingAutoAbsences = async (req, res, next) => {
     if (startDate && endDate) {
       matchStage.date = {
         $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $lte: new Date(endDate),
       };
     }
 
@@ -481,19 +481,24 @@ exports.getPendingAutoAbsences = async (req, res, next) => {
       { $match: matchStage },
       {
         $lookup: {
-          from: 'teachers',
+          from: 'teachers', // Matches Teacher model collection name
           localField: 'teacherId',
           foreignField: '_id',
-          as: 'teacherDetails'
-        }
+          as: 'teacherDetails',
+        },
+      },
+      {
+        $match: {
+          teacherDetails: { $ne: [] }, // Exclude records with no matching teacher
+        },
       },
       {
         $lookup: {
           from: 'teachers',
           localField: 'substituteTeacherId',
           foreignField: '_id',
-          as: 'substituteDetails'
-        }
+          as: 'substituteDetails',
+        },
       },
       {
         $project: {
@@ -501,7 +506,7 @@ exports.getPendingAutoAbsences = async (req, res, next) => {
           teacherId: {
             _id: { $arrayElemAt: ['$teacherDetails._id', 0] },
             name: { $arrayElemAt: ['$teacherDetails.name', 0] },
-            email: { $arrayElemAt: ['$teacherDetails.email', 0] }
+            email: { $arrayElemAt: ['$teacherDetails.email', 0] },
           },
           schoolId: 1,
           date: 1,
@@ -512,27 +517,41 @@ exports.getPendingAutoAbsences = async (req, res, next) => {
               then: {
                 _id: { $arrayElemAt: ['$substituteDetails._id', 0] },
                 name: { $arrayElemAt: ['$substituteDetails.name', 0] },
-                email: { $arrayElemAt: ['$substituteDetails.email', 0] }
+                email: { $arrayElemAt: ['$substituteDetails.email', 0] },
               },
-              else: null
-            }
+              else: null,
+            },
           },
           status: 1,
           isTeacherApplied: 1,
           createdAt: 1,
-          updatedAt: 1
-        }
+          updatedAt: 1,
+        },
       },
-      { $sort: { date: 1 } }
+      { $sort: { date: 1 } },
     ]);
+
+    // Log absences with invalid teacherId for debugging
+    const invalidAbsences = await TeacherAbsence.find({
+      ...matchStage,
+      teacherId: { $nin: await mongoose.model('Teacher').distinct('_id') },
+    });
+    if (invalidAbsences.length > 0) {
+      console.warn('Found absences with invalid teacherId:', invalidAbsences.map(a => ({
+        _id: a._id,
+        teacherId: a.teacherId,
+        date: a.date,
+      })));
+    }
 
     console.log('Pending auto-generated absences:', absences);
     res.status(200).json({
       success: true,
       count: absences.length,
-      data: absences
+      data: absences,
     });
   } catch (error) {
+    console.error('Error in getPendingAutoAbsences:', error);
     next(error);
   }
 };

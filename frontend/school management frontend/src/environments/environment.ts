@@ -7,7 +7,7 @@ import packageInfo from '../../package.json';
 export const environment = {
   appVersion: packageInfo.version,
   production: false,
-  apiUrl: 'school-management-backend-git-main-shafis-projects-4d00e460.vercel.app', 
+  apiUrl: 'http://localhost:5675', 
   razorpayKey: 'rzp_test_xxxxxxxxxxxx', // Replace with your Razorpay test key
   razorpayKeyId:''
 };

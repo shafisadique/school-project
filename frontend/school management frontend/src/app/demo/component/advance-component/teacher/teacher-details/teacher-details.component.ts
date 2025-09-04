@@ -1,93 +1,135 @@
-import { Component, OnInit } from '@angular/core';
-import { TeacherService } from '../teacher.service';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { Subscription, forkJoin } from 'rxjs'; // Import Subscription and forkJoin
+import { Teacher } from '../teacher.interface';
+import { TeacherService } from '../teacher.service';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
-  selector: 'app-teacher-details',
-  imports: [CommonModule],
-  templateUrl: './teacher-details.component.html',
-  styleUrls: ['./teacher-details.component.scss'],
-  standalone: true
+ selector: 'app-teacher-details',
+ imports: [CommonModule, FormsModule],
+ templateUrl: './teacher-details.component.html',
+ styleUrls: ['./teacher-details.component.scss'],
+ standalone: true
 })
-export class TeacherDetailsComponent implements OnInit {
-  teachers: any[] = [];
-  backendUrl = 'http://localhost:5000'; // Base URL for proxy or local fallback
+export class TeacherDetailsComponent implements OnInit, OnDestroy {
+ teachers: Teacher[] = [];
+ selectedTeaches: Teacher[] = [];
+ searchQuery = '';
+ private teachersSubscription: Subscription = new Subscription();
 
-  constructor(private teacherService: TeacherService, private router: Router) {}
+ constructor(private teacherService: TeacherService, private router: Router, private toastr: ToastrService) {}
 
-  ngOnInit(): void {
-    this.loadTeachers();
-  }
+ ngOnInit(): void {
+  this.loadTeachers();
+ }
 
-  loadTeachers() {
-    this.teacherService.getTeachersBySchool().subscribe({
-      next: (response: any) => {
-        this.teachers = response.data.filter((t: any) => t.status); // Show only active teachers
-        console.log('Loaded Teachers with profileImage:', this.teachers.map(t => ({ name: t.name, profileImage: t.profileImage }))); // Debug log
-      },
-      error: (err) => {
-        console.error('Error loading teachers:', err);
-      }
-    });
-  }
-getImageUrl(profileImage: string): string {
-  console.log('Profile Image:', profileImage);
-  if (!profileImage || profileImage.trim() === '') {
-    console.log('No profile image, using default');
-    return 'assets/default-avatar.png';
-  }
+ ngOnDestroy(): void {
+  this.teachersSubscription.unsubscribe();
+ }
 
-  const bucketName = 'school-bucket'; // Matches R2_BUCKET_NAME
-  let key = '';
+ loadTeachers() {
+  this.teachersSubscription = this.teacherService.getTeachersBySchool().subscribe({
+   next: (response: any) => {
+    this.teachers = response.data;
+    this.selectedTeaches = []; // Clear selection on load
+    console.log('Loaded Teachers with profileImage:', this.teachers.map(t => ({ name: t.name, profileImage: t.profileImage })));
+   },
+   error: (err) => {
+    console.error('Error loading teachers:', err);
+   }
+  });
+ }
+ 
+ // Checkbox Selection Logic
+ isTeacherSelected(teacher: Teacher): boolean {
+  return this.selectedTeaches.some(t => t._id === teacher._id);
+ }
 
-  if (profileImage.includes('r2.cloudflarestorage.com')) {
-    const urlParts = profileImage.split(`/${bucketName}/`);
-    console.log('URL Parts:', urlParts);
-    if (urlParts.length > 1) {
-      key = urlParts[1]; // e.g., 'teachers/1755961433261-teacher.png'
-    }
-  } else if (profileImage.startsWith('teachers/')) {
-    key = profileImage; // Handle relative paths like 'teachers/1754664158015.png'
+ toggleTeacherSelection(teacher: Teacher, event: Event): void {
+  const isChecked = (event.target as HTMLInputElement).checked;
+  if (isChecked) {
+   this.selectedTeaches.push(teacher);
   } else {
-    console.log('Invalid URL format, using default');
-    return 'assets/default-avatar.png';
+   this.selectedTeaches = this.selectedTeaches.filter(t => t._id !== teacher._id);
   }
+ }
 
-  const proxyUrl = `${this.backendUrl}/api/proxy-image/${key}`;
-  console.log('Proxy URL:', proxyUrl);
-  return proxyUrl;
-}
+ isAllSelected(): boolean {
+  return this.teachers.length > 0 && this.teachers.length === this.selectedTeaches.length;
+ }
 
-  getInitials(name: string): string {
-    return name.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
+ toggleAllSelection(event: Event): void {
+  const isChecked = (event.target as HTMLInputElement).checked;
+  if (isChecked) {
+   this.selectedTeaches = [...this.teachers];
+  } else {
+   this.selectedTeaches = [];
   }
+ }
 
-  handleImageError(event: Event) {
-    const img = event.target as HTMLImageElement;
-    img.style.display = 'none';
-    const container = img.parentElement;
-    if (container) {
-      container.querySelector('.avatar-placeholder')?.classList.remove('d-none');
+ getImageUrl(profileImage: string): string {
+  if (!profileImage || profileImage.trim() === '') {
+   return 'assets/avtart-new.png';
+  }
+  if (profileImage.startsWith('http')) {
+   return profileImage;
+  }
+  
+  const backendUrl = 'https://school-management-backend-khaki.vercel.app';
+  return `${backendUrl}/api/proxy-image/${encodeURIComponent(profileImage)}`;
+ }
+
+ onUpdateTeacher(): void {
+  if (this.selectedTeaches.length === 1) {
+   const teacherId = this.selectedTeaches[0]._id;
+   this.router.navigate(['/teacher/teacher-update', teacherId]);
+  }
+ }
+ 
+ onDeleteTeacher(): void {
+  if (this.selectedTeaches.length === 0) {
+   return;
+  }
+ 
+  if (confirm('Are you sure you want to soft delete the selected teacher(s)?')) {
+   const deleteRequests = this.selectedTeaches.map(teacher => 
+    this.teacherService.deleteTeacher(teacher._id)
+   );
+ 
+   forkJoin(deleteRequests).subscribe({
+    next: () => {
+     this.toastr.success('Selected teacher(s) deleted successfully!', 'Success');
+     this.loadTeachers();
+    },
+    error: (err) => {
+     console.error('Error deleting teacher(s):', err);
+     this.toastr.error('Failed to delete one or more teachers. Please try again.', 'Error');
     }
-    console.log('Image load error for:', img.alt, 'URL:', img.src); // Enhanced debug log
+   });
   }
+ }
 
-  editTeacher(teacherId: string) {
-    this.router.navigate([`teacher/teacher-update/${teacherId}`]);
+ downloadExcel(): void {}
+ onSearch(): void {}
+
+ getInitials(name: string): string {
+  return name.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2);
+ }
+
+ handleImageError(event: Event) {
+  const img = event.target as HTMLImageElement;
+  img.style.display = 'none';
+  const container = img.parentElement;
+  if (container) {
+   container.querySelector('.avatar-placeholder')?.classList.remove('d-none');
   }
+  console.log('Image load error for:', img.alt, 'URL:', img.src);
+ }
 
-  deleteTeacher(teacherId: string) {
-    if (confirm('Are you sure you want to soft delete this teacher?')) {
-      this.teacherService.deleteTeacher(teacherId).subscribe({
-        next: () => {
-          this.loadTeachers(); // Reload the list
-        },
-        error: (err) => {
-          console.error('Error deleting teacher:', err);
-          alert('Failed to delete teacher. Please try again or contact support.');
-        }
-      });
-    }
+ createTeacher(): void {
+   this.router.navigate(['/teacher/teacher-create']);
   }
 }

@@ -9,6 +9,8 @@ import { PaginationComponent } from '../../pagination/pagination.component';
 import { Subscription } from 'rxjs';
 import { NgbDropdownModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ToastrService } from 'ngx-toastr';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 interface Student {
   _id: string;
@@ -16,6 +18,7 @@ interface Student {
   admissionNo: string;
   classId?: { _id: string; name: string };
   phone: string;
+  academicYearId:any;
   gender: string;
   profileImage: string;
   dateOfBirth: any;
@@ -169,29 +172,59 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
       this.router.navigate(['/student/student-update', this.selectedStudents[0]._id]);
     }
   }
+  downloadExcel(): void {
+    // Prepare data for Excel
+    const excelData = this.students.map(student => ({
+      Name: student.name,
+      'Admission No': student.admissionNo,
+      Class: student.classId?.name || '',
+      'Academic Year': student?.academicYearId?.name || '',
+      'Student Portal Username': student.portalUsername,
+      'Student Portal Password': student.portalPassword,
+      'Profile Image Key': student.profileImage,
+    }));
 
-  onDeleteStudents(): void {
-    if (this.selectedStudents.length === 0) return;
-    
-    const confirmMessage = this.selectedStudents.length === 1 
-      ? `Are you sure you want to delete ${this.selectedStudents[0].name}?`
-      : `Are you sure you want to delete ${this.selectedStudents.length} students?`;
-    
-    if (confirm(confirmMessage)) {
-      const studentIds = this.selectedStudents.map(s => s._id);
-      
-      this.studentService.deleteStudents(studentIds).subscribe({
-        next: () => {
-          this.toastr.success('Students deleted successfully', 'Success');
-          this.selectedStudents = [];
-          this.loadStudents(); // Reload the student list
-        },
-        error: (err) => {
-          this.toastr.error(err.error.message || 'Error deleting students', 'Error');
-        }
-      });
-    }
+    // Create worksheet
+    const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Create workbook
+    const workbook: XLSX.WorkBook = {
+      Sheets: { 'Students': worksheet },
+      SheetNames: ['Students']
+    };
+
+    // Generate Excel file
+    const excelBuffer: any = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+
+    // Save as file
+    const data: Blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(data, `students_list_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
+
+ onDeleteStudents(): void {
+  if (this.selectedStudents.length === 0) return;
+  
+  const confirmMessage = this.selectedStudents.length === 1 
+    ? `Are you sure you want to delete ${this.selectedStudents[0].name}?`
+    : `Are you sure you want to delete ${this.selectedStudents.length} students?`;
+  
+  if (confirm(confirmMessage)) {
+    const studentIds = this.selectedStudents.map(s => s._id);
+    console.log('Deleting students with IDs:', studentIds); // Debug log
+    
+    this.studentService.deleteStudents(studentIds).subscribe({
+      next: () => {
+        this.toastr.success('Students deleted successfully', 'Success');
+        this.selectedStudents = [];
+        this.loadStudents(); // Reload the student list
+      },
+      error: (err) => {
+        console.error('Delete error:', err); // Debug error
+        this.toastr.error(err.error.message || 'Error deleting students', 'Error');
+      }
+    });
+  }
+}
 
   openStudentDetails(student: Student, content: any): void {
     this.selectedStudent = student;
@@ -321,12 +354,23 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     this.loadStudents();
   }
 
-  getImageUrl(profileImageUrl: string): string {
-  return profileImageUrl && profileImageUrl.trim() !== '' 
-    ? profileImageUrl 
-    : 'assets/avtart-new.png';
-}
+  getImageUrl(profileImage: string): string {
+  if (!profileImage || profileImage.trim() === '') {
+    return 'assets/avtart-new.png';
+  }
 
+  // If it's already a full URL (from older entries), use it directly
+  if (profileImage.startsWith('http')) {
+    return profileImage;
+  }
+  
+  // If it's a key (new format), use the proxy endpoint
+  const backendUrl = 'https://school-management-backend-khaki.vercel.app'; // Your backend URL
+  return `${backendUrl}/api/proxy-image/${encodeURIComponent(profileImage)}`;
+}
+createStudent(){
+  this.router.navigate(['/student/student-create'])
+}
   // getImageUrl(profileImage: string): string {
   //   if (!profileImage || profileImage.trim() === '') {
   //     return 'assets/default-avatar.png';

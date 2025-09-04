@@ -10,23 +10,23 @@ const multer = require('multer');
 const { paginate } = require('../../utils/paginationHelper'); // Adjust path as needed
 const Route = require('../../models/route');
 const User = require('../../models/user');
-const bcrypt = require('bcrypt');
 const subscriptionSchema = require('../../models/subscription');
 const crypto = require('crypto');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { toR2Key } = require('../../utils/image');
+const path = require('path')
 
 // Configure multer for file uploads
-const storage = multer.memoryStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
-});
+// const storage = multer.memoryStorage({
+//   destination: (req, file, cb) => {
+//     cb(null, 'uploads/');
+//   },
+//   filename: (req, file, cb) => {
+//     cb(null, `${Date.now()}-${file.originalname}`);
+//   }
+// });
 
-const upload = multer({ storage });
+// const upload = multer({ storage });
 
 const s3Client = new S3Client({
   region: 'auto',
@@ -37,55 +37,89 @@ const s3Client = new S3Client({
   },
 });
 
-function normalizeImage(profileImage) {
-  if (!profileImage) return null;
-  // If full Cloudflare URL, extract only the "students/..." part
-  if (profileImage.startsWith("http")) {
-    const parts = profileImage.split("/students/");
-    if (parts.length > 1) {
-      return `students/${parts[1]}`;
-    }
+// Multer setup for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+// Encryption configuration
+let ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+const IV_LENGTH = 16; // AES-256-CBC IV length
+
+
+// Validate ENCRYPTION_KEY
+if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(
+      `Invalid ENCRYPTION_KEY length: "${ENCRYPTION_KEY}". Using fallback key for development.`
+    );
+    ENCRYPTION_KEY = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f123';
+  } else {
+    throw new Error(
+      `ENCRYPTION_KEY must be a 64-character hex string in .env. Current value: "${ENCRYPTION_KEY}"`
+    );
   }
-  return profileImage; // already just "students/..."
 }
 
-
-
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32); // 32 bytes for AES-256
-const IV_LENGTH = 16; // Initialization vector length for AES
+try {
+  if (Buffer.from(ENCRYPTION_KEY, 'hex').length !== 32) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        `Invalid ENCRYPTION_KEY buffer length: "${ENCRYPTION_KEY}". Using fallback key for development.`
+      );
+      ENCRYPTION_KEY = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f123';
+    } else {
+      throw new Error(
+        `ENCRYPTION_KEY must produce a 32-byte buffer (64-character hex string) in .env. Current value: "${ENCRYPTION_KEY}"`
+      );
+    }
+  }
+} catch (err) {
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(
+      `ENCRYPTION_KEY parsing failed: ${err.message}. Using fallback key for development.`
+    );
+    ENCRYPTION_KEY = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f123';
+  } else {
+    throw new Error(
+      `ENCRYPTION_KEY parsing failed: ${err.message}. Ensure it is a 64-character hex string in .env. Current value: "${ENCRYPTION_KEY}"`
+    );
+  }
+}
 
 // Function to encrypt password
 const encryptPassword = (text) => {
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return iv.toString('hex') + ':' + encrypted; // Store IV with encrypted data
+  try {
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    return `${iv.toString('hex')}:${encrypted}`;
+  } catch (error) {
+    console.error('Encryption error:', error.message);
+    throw new APIError('Failed to encrypt password', 500);
+  }
 };
 
-// Function to decrypt password with validation
+// Function to decrypt password
 const decryptPassword = (encryptedText) => {
-  if (!encryptedText || typeof encryptedText !== 'string') return '';
-  const [ivHex, encrypted] = encryptedText.split(':');
-  if (!ivHex || !encrypted || ivHex.length !== 32) { // 32 hex chars = 16 bytes
-    console.error('Invalid encrypted text format:', encryptedText);
-    return '';
-  }
   try {
-    const iv = Buffer.from(ivHex, 'hex');
-    if (iv.length !== IV_LENGTH) {
-      console.error('Invalid IV length:', iv.length);
-      return '';
+    if (!encryptedText || typeof encryptedText !== 'string') {
+      throw new Error('Invalid encrypted text');
     }
-    const decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+    const [ivHex, encrypted] = encryptedText.split(':');
+    if (!ivHex || !encrypted || ivHex.length !== 32) {
+      throw new Error('Invalid encrypted text format');
+    }
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
     let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (error) {
-    console.error('Decryption error:', error.message, 'for encrypted text:', encryptedText);
-    return '';
+    console.error('Decryption error:', error.message);
+    return null; // Return null for invalid decryption
   }
-};
+}
 
 // Moved getStudentsByClass from attendanceControllers.js
 const getStudentsByClass = async (req, res, next) => {
@@ -322,8 +356,6 @@ const createStudent = async (req, res, next) => {
 
       const command = new PutObjectCommand(params);
       await s3Client.send(command);
-
-      // profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
       profileImageUrl = `students/${fileName}`;
 
     }
@@ -467,60 +499,6 @@ const bulkCreateStudents = async (req, res, next) => {
   }
 };
 
-// const getStudents = async (req, res, next) => {
-//   try {
-//     const { page = 1, limit = 25, classId, academicYearId, search } = req.query;
-//     const query = { schoolId: req.user.schoolId }; // Removed status: true in previous fix
-
-
-//     if (search) {
-//       query.$or = [
-//         { name: new RegExp(search, 'i') },
-//         { admissionNo: new RegExp(search, 'i') }
-//       ];
-//     }
-
-//     if (classId) {
-//       if (!mongoose.Types.ObjectId.isValid(classId)) {
-//         throw new APIError('Invalid class ID format', 400);
-//       }
-//       query.classId = new mongoose.Types.ObjectId(classId);
-//     }
-
-//     if (academicYearId) {
-//       if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
-//         throw new APIError('Invalid academic year ID format', 400);
-//       }
-//       query.academicYearId = new mongoose.Types.ObjectId(academicYearId);
-//     }
-
-
-//     const pageNum = parseInt(page);
-//     const limitNum = parseInt(limit);
-//     const skip = (pageNum - 1) * limitNum;
-
-//     const students = await Student.find(query)
-//       .populate('classId', 'name')
-//       .populate('academicYearId', 'name')
-//       .sort({ name: 1 })
-//       .skip(skip)
-//       .limit(limitNum);
-
-//     const total = await Student.countDocuments(query);
-
-//     res.status(200).json({
-//       students,
-//       total,
-//       page: pageNum,
-//       limit: limitNum,
-//       totalPages: Math.ceil(total / limitNum)
-//     });
-//   } catch (error) {
-//     console.error('Error in getStudents:', error);
-//     next(error);
-//   }
-// };
-
 const getStudents = async (req, res, next) => {
   try {
     const { page = 1, limit = 25, classId, academicYearId, search } = req.query;
@@ -556,23 +534,37 @@ const getStudents = async (req, res, next) => {
 
     const total = await Student.countDocuments(query);
 
-    const base = `${req.protocol}://${req.get('host')}`; // Dynamic base URL (e.g., https://school-management-backend-khaki.vercel.app)
+    const base = `${req.protocol}://${req.get('host')}`; // Dynamic base URL
 
-    const studentsWithPortals = students.map((student) => {
+    const studentsWithPortals = await Promise.all(students.map(async (student) => {
       const studentObjectId = new mongoose.Types.ObjectId(student._id);
       const key = toR2Key(student.profileImage); // Extracts key from full URL
       const url = key ? `${base}/api/proxy-image/${encodeURIComponent(key)}` : '';
+
+      // Fetch student portal credentials
+      const studentUser = await User.findOne({
+        schoolId: req.user.schoolId,
+        role: 'student',
+        'additionalInfo.studentId': studentObjectId
+      }).select('username password');
+
+      // Fetch parent portal credentials
+      const parentUser = await User.findOne({
+        schoolId: req.user.schoolId,
+        role: 'parent',
+        'additionalInfo.parentOfStudentId': studentObjectId
+      }).select('username password');
 
       return {
         ...student.toObject(),
         profileImageKey: key,
         profileImageUrl: url,
-        portalUsername: '', // Add User.findOne logic if needed
-        portalPassword: '',
-        parentPortalUsername: '',
-        parentPortalPassword: ''
+        portalUsername: studentUser ? studentUser.username : '',
+        portalPassword: studentUser ? decryptPassword(studentUser.password) || '' : '',
+        parentPortalUsername: parentUser ? parentUser.username : '',
+        parentPortalPassword: parentUser ? decryptPassword(parentUser.password) || '' : ''
       };
-    });
+    }));
 
     res.status(200).json({
       students: studentsWithPortals,
@@ -718,41 +710,6 @@ const softDeleteStudents = async (req, res, next) => {
   }
 };
 
-// const uploadStudentPhoto = async (req, res, next) => {
-//   try {
-//     if (!req.file) {
-//       throw new APIError('No file uploaded', 400);
-//     }
-
-//     const fileBuffer = req.file.buffer;
-//     const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-//     const params = {
-//       Bucket: process.env.R2_BUCKET_NAME,
-//       Key: `students/${fileName}`, // Add 'students/' prefix
-//       Body: fileBuffer,
-//       ContentType: req.file.mimetype,
-//     };
-
-//     const command = new PutObjectCommand(params);
-//     await s3Client.send(command);
-
-//     // const imageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/students/${fileName}`;
-//     const imageUrl = `students/${fileName}`;
-
-//     const student = await Student.findByIdAndUpdate(
-//       req.params.id,
-//       { profileImage: imageUrl },
-//       { new: true }
-//     );
-//     if (!student) {
-//       throw new APIError('Student not found', 404);
-//     }
-//     res.status(200).json({ success: true, data: student });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
 
 const uploadStudentPhoto = async (req, res, next) => {
   try {
@@ -772,11 +729,12 @@ const uploadStudentPhoto = async (req, res, next) => {
       ContentType: req.file.mimetype
     };
 
-    await s3.send(new PutObjectCommand(uploadParams));
+    // FIX: Use s3Client instead of s3
+    await s3Client.send(new PutObjectCommand(uploadParams));
 
     const student = await Student.findByIdAndUpdate(
       studentId,
-      { profileImage: key }, // 👈 Only store key
+      { profileImage: key }, // Store only the key
       { new: true }
     );
 
@@ -1185,7 +1143,7 @@ const createStudentPortal = async (req, res) => {
       });
     }
     
-    res.status(error.status || 500).json({ 
+    res.status(error.statusCode || 500).json({ 
       message: 'Error creating portal', 
       error: error.message 
     });
@@ -1194,7 +1152,6 @@ const createStudentPortal = async (req, res) => {
 
 // Export all functions, including getStudentsByClass
 module.exports = {
-  upload,
   createStudent,
   promoteStudents,
   createStudentPortal,

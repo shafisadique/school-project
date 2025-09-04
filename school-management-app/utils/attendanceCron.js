@@ -88,7 +88,7 @@ cron.schedule('* 15 * * *', async () => {
           console.warn(`No active teachers found for school ${schoolId}. Skipping.`);
           continue;
         }
-
+        
         for (const teacher of teachers) {
           const attendance = await TeacherAttendance.findOne({
             teacherId: teacher._id,

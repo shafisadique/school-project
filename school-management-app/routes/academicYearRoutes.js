@@ -19,6 +19,7 @@ router.get('/:schoolId', academicYearController.getAcademicYearsBySchool);
 // 📌 Update the active academic year
 router.put('/update', academicYearController.updateAcademicYear);
 
+router.put('/edit', academicYearController.editAcademicYear); // Updates AcademicYear details
 // 📌 Get the current active academicyear
 router.get('/active/:schoolId', academicYearController.getActiveAcademicYear);
 

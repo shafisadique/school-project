@@ -41,7 +41,6 @@ const changePassword = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: 'User with this email not found' });
@@ -53,9 +52,7 @@ const forgotPassword = async (req, res) => {
     user.resetToken = resetToken;
     user.resetTokenExpires = resetTokenExpires;
     await user.save();
-    console.log('here we reached')
     const resetUrl = `${process.env.FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
-    console.log('here we reached,',resetUrl)
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,

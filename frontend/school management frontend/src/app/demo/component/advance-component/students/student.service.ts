@@ -34,8 +34,9 @@ export class StudentService {
     return this.http.get(`${this.apiUrl}/api/students/list`, { params });
   }
 
-  deleteStudents(studentId):Observable<any>{
-    return this.http.post(`${this.apiUrl}/api/students/soft-delete`, { studentId });  }
+deleteStudents(studentIds: string[]): Observable<any> {
+  return this.http.post(`${this.apiUrl}/api/students/soft-delete`, { studentIds }); // Send array in payload
+}
 
   searchStudents(schoolId: string, query: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/students/search/${query}`);
