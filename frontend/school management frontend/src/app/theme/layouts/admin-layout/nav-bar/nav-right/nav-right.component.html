@@ -4,13 +4,13 @@
       <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center" *ngIf="authService.getUserRole() === 'admin'">
           <div *ngIf="isExpiringSoon && !isExpired && !isPending" class="alert alert-warning alert-dismissible fade show" role="alert">
-            Your plan expires in {{ subscriptionData.daysToExpire }} days.
-            <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Upgrade your plan</a> now!
+            Your plan expires in {{ subscriptionData.daysRemaining }} days.
+            <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Upgrade now</a>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
           <div *ngIf="isExpired" class="alert alert-danger alert-dismissible fade show" role="alert">
             Your subscription has expired. You can only view data.
-            <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Renew now</a> to restore full access.
+            <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Renew now</a>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
           <div *ngIf="isPending" class="alert alert-info alert-dismissible fade show" role="alert">
@@ -174,66 +174,95 @@
 
 <ng-template #upgradeModal>
   <div class="modal-header" style="background: linear-gradient(90deg, #4a90e2, #50c9c3);">
-    <h4 class="modal-title" style="color: white;">Manage Your Subscription</h4>
+    <h4 class="modal-title" style="color: white;">Upgrade Your Subscription</h4>
     <button type="button" class="btn-close" (click)="modalService.dismissAll()" aria-label="Close"></button>
   </div>
-  <div class="modal-body" style="background: linear-gradient(90deg, #4a90e2, #50c9c3);">
+  <div class="modal-body" style="background: #f8f9fa; padding: 20px;">
     <div class="row">
-      <div class="col-12 mb-3">
-        <p *ngIf="subscriptionData.planType" class="text-center">
+      <div class="col-12 mb-4 text-center">
+        <p *ngIf="subscriptionData.planType">
           Current Plan: <strong>{{ subscriptionData.planType | titlecase }}</strong>
-          (Expires: {{ subscriptionData.expiresAt | date:'mediumDate' }})
+          (Expired: {{ subscriptionData.expiresAt | date:'mediumDate' }})
         </p>
-        <p *ngIf="isExpired" class="text-center text-danger">
-          Your subscription has expired. Choose a plan to restore full access.
-        </p>
-        <p *ngIf="isPending" class="text-center text-info">
-          Your payment is pending verification. Upload new proof if needed.
-        </p>
+        <p *ngIf="isExpired" class="text-danger">Your subscription has expired. Select a new plan to continue.</p>
+        <p *ngIf="isPending" class="text-info">Payment pending. Upload proof if needed.</p>
       </div>
-      <div class="col-12 mb-4">
-        <h5 style="color: white;">Select Plan</h5>
+
+      <!-- Step 1: Select Plan -->
+      <div class="col-12 mb-4" *ngIf="!selectedPlan">
+        <h5 class="text-dark">Choose Your Plan</h5>
         <div class="pricing-container">
           <div class="pricing-card" *ngFor="let plan of plans">
             <div class="plan-label">{{ plan.name }}</div>
-            <div class="price">{{ plan.price}}<span>/{{ plan.value.split('_')[1] === 'monthly' ? 'mo' : plan.value.split('_')[1] === 'halfyearly' ? '6mo' : 'yr' }}</span></div>
-            <div class="subtitle">{{ plan.value === 'basic_monthly' ? 'Enjoy limitless use with interactive export options' : plan.value === 'premium_halfyearly' ? 'Perfect for professionals and teams' : 'All features with top priority support' }}</div>
+            <div class="price">₹{{ plan.price }}<span>/{{ plan.value.split('_')[1] === 'monthly' ? 'month' : 'year' }}</span></div>
+            <div class="subtitle">{{ plan.value === 'basic_monthly' ? 'Basic features' : 'Premium features' }}</div>
             <ul class="features">
               <li *ngFor="let feature of plan.features">{{ feature }}</li>
             </ul>
-            <button class="btn" (click)="selectedPlan = plan.value; $event.preventDefault()">GET STARTED</button>
-            <div *ngIf="plan.originalPrice" class="discount">
-              <span class="original-price">{{ plan.originalPrice / 100 }}</span>
-              <span class="saved">Save {{ plan.discount / 100 }}</span>
+            <button class="btn plan-select-btn" (click)="selectPlan(plan.value)" [ngClass]="{'selected': selectedPlan === plan.value}">
+              Get Started
+            </button>
+            <div *ngIf="plan.discount > 0" class="discount">
+              <span class="original-price">₹{{ plan.originalPrice }}</span>
+              <span class="saved">Save ₹{{ plan.discount }}</span>
             </div>
           </div>
         </div>
       </div>
-      <div class="col-12">
-        <h5>Select Payment Method</h5>
-        <div class="btn-group w-100 mb-3" role="group">
-          <button type="button" class="btn btn-outline-primary"
-                  [ngClass]="{'btn-primary': selectedPaymentMethod === 'razorpay'}"
-                  (click)="selectedPaymentMethod = 'razorpay'">Online (Card/UPI)</button>
-          <button type="button" class="btn btn-outline-primary"
-                  [ngClass]="{'btn-primary': selectedPaymentMethod === 'phonepe'}"
-                  (click)="selectedPaymentMethod = 'phonepe'">PhonePe</button>
-          <button type="button" class="btn btn-outline-primary"
-                  [ngClass]="{'btn-primary': selectedPaymentMethod === 'bank_transfer'}"
-                  (click)="selectedPaymentMethod = 'bank_transfer'">Bank Transfer</button>
+
+      <!-- Step 2: Select Payment Method -->
+      <div class="col-12" *ngIf="selectedPlan">
+        <h5 class="text-dark">Choose Payment Method</h5>
+        <div class="payment-options">
+          <button class="btn payment-method-btn" (click)="selectPaymentMethod('phonepe')" [ngClass]="{'selected': selectedPaymentMethod === 'phonepe'}">
+            PhonePe
+          </button>
+          <button class="btn payment-method-btn" (click)="selectPaymentMethod('razorpay')" [ngClass]="{'selected': selectedPaymentMethod === 'razorpay'}">
+            Online (Card/UPI)
+          </button>
+          <button class="btn payment-method-btn" (click)="selectPaymentMethod('bank_transfer')" [ngClass]="{'selected': selectedPaymentMethod === 'bank_transfer'}">
+            Bank Transfer
+          </button>
         </div>
-        <div *ngIf="selectedPaymentMethod === 'bank_transfer' && bankDetails" class="card">
-          <div class="card-body">
-            <h6>Bank Transfer Details</h6>
-            <p>Account Name: {{ bankDetails.accountName }}</p>
-            <p>Account Number: {{ bankDetails.accountNumber }}</p>
-            <p>IFSC Code: {{ bankDetails.ifscCode }}</p>
-            <p>Bank: {{ bankDetails.bankName }} ({{ bankDetails.branch }})</p>
-            <div class="mb-3">
-              <label for="paymentProof" class="form-label">Upload Payment Proof (JPG/PNG/PDF)</label>
-              <input type="file" class="form-control" id="paymentProof"
-                     accept="image/jpeg,image/png,application/pdf"
-                     (change)="onFileChange($event)">
+
+        <!-- PhonePe UPI Field -->
+        <div *ngIf="selectedPaymentMethod === 'phonepe'" class="payment-form mt-4">
+          <p class="text-muted">Enter your UPI ID to proceed with PhonePe payment.</p>
+          <input type="text" class="form-control mb-3" placeholder="e.g., user@phonepe" [(ngModel)]="upiId" />
+          <button class="btn btn-primary" (click)="upgradePlan()" [disabled]="!upiId || isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            Pay Now
+          </button>
+        </div>
+
+        <!-- Online (Card/UPI) - Direct to Razorpay -->
+        <div *ngIf="selectedPaymentMethod === 'razorpay'" class="payment-form mt-4">
+          <p class="text-muted">You will be redirected to a secure payment page for Card or UPI.</p>
+          <button class="btn btn-primary" (click)="upgradePlan()" [disabled]="isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+            Pay Now
+          </button>
+        </div>
+
+        <!-- Bank Transfer Details -->
+        <div *ngIf="selectedPaymentMethod === 'bank_transfer' && bankDetails" class="bank-transfer-details mt-4">
+          <div class="card">
+            <div class="card-body">
+              <h6>Bank Transfer Details</h6>
+              <p>Account Name: {{ bankDetails.accountName }}</p>
+              <p>Account Number: {{ bankDetails.accountNumber }}</p>
+              <p>IFSC Code: {{ bankDetails.ifscCode }}</p>
+              <p>Bank: {{ bankDetails.bankName }} ({{ bankDetails.branch }})</p>
+              <p>Amount: ₹{{ bankDetails.amount }}</p>
+              <p>Reference: {{ bankDetails.reference }}</p>
+              <div class="mb-3 mt-3">
+                <label for="paymentProof" class="form-label">Upload Payment Proof (JPG/PNG/PDF)</label>
+                <input type="file" class="form-control" id="paymentProof" accept="image/jpeg,image/png,application/pdf" (change)="onFileChange($event)">
+              </div>
+              <button class="btn btn-primary" (click)="uploadPaymentProof()" [disabled]="!paymentProof || isLoading">
+                <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                Upload Proof
+              </button>
             </div>
           </div>
         </div>
@@ -241,18 +270,6 @@
     </div>
   </div>
   <div class="modal-footer" style="background: linear-gradient(90deg, #4a90e2, #50c9c3);">
-    <button class="btn btn-primary"
-            *ngIf="selectedPaymentMethod !== 'bank_transfer'"
-            (click)="upgradePlan()"
-            [disabled]="!selectedPlan || isLoading">
-      <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-      <i class="fas fa-credit-card me-1" *ngIf="!isLoading"></i> Pay and {{ isExpired ? 'Renew' : 'Upgrade' }}
-    </button>
-    <button class="btn btn-primary"
-            *ngIf="selectedPaymentMethod === 'bank_transfer' && bankDetails"
-            (click)="uploadPaymentProof()"
-            [disabled]="!paymentProof">
-      <i class="fas fa-upload me-1"></i> Upload Proof
-    </button>
+    <button class="btn btn-secondary" (click)="modalService.dismissAll()" [disabled]="isLoading">Cancel</button>
   </div>
 </ng-template>

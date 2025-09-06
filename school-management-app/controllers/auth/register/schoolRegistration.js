@@ -5,7 +5,7 @@ const School = require('../../../models/school');
 const AcademicYear = require('../../../models/academicyear');
 const subscriptionSchema = require('../../../models/subscription');
 const pendingSchool = require('../../../models/pendingSchool');
-const auditLogsSchema = require('../../../models/auditLogs');
+const auditLogs = require('../../../models/auditLogs');
 
 
 const registerSchool = async (req, res) => {
@@ -14,6 +14,11 @@ const registerSchool = async (req, res) => {
     await session.withTransaction(async () => {
       const { schoolName, adminName, username, email, password, mobileNo, address } = req.body;
       const pendingSchoolId = req.body.pendingSchoolId; // Optional
+
+      // Validate user session
+      if (!req.user || !req.user.id) {
+        throw { status: 401, message: 'Unauthorized: Invalid user session' };
+      }
 
       // Validate pending school request if provided
       let pendingSchool = null;
@@ -31,25 +36,28 @@ const registerSchool = async (req, res) => {
         throw { status: 400, message: `Missing required fields: ${missingFields.join(', ')}` };
       }
 
-      // Ensure address is an object
+      // Validate and structure address
+      if (!address.street || !address.city || !address.state || !address.country || !address.postalCode) {
+        throw { status: 400, message: 'Address must include street, city, state, country, and postalCode' };
+      }
       const addressObj = {
         street: address.street,
         city: address.city,
         state: address.state,
         country: address.country,
-        postalCode: address.postalCode
+        postalCode: address.postalCode,
       };
 
       // Check for existing entities
       const [existingUser, existingSchool] = await Promise.all([
         User.findOne({ $or: [{ email }, { username }] }).session(session),
-        School.findOne({ name: schoolName }).session(session)
+        School.findOne({ name: schoolName }).session(session),
       ]);
 
       if (existingUser || existingSchool) {
-        throw { 
-          status: 409, 
-          message: existingUser ? 'Email or username already exists' : 'School name already exists' 
+        throw {
+          status: 409,
+          message: existingUser ? 'Email or username already exists' : 'School name already exists',
         };
       }
 
@@ -59,7 +67,7 @@ const registerSchool = async (req, res) => {
         address: addressObj,
         mobileNo,
         email,
-        createdBy: null // Will be set after user creation
+        createdBy: null, // Will be set after user creation
       });
 
       // Create academic year with isActive: true
@@ -68,7 +76,7 @@ const registerSchool = async (req, res) => {
         name: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
         startDate: new Date(new Date().getFullYear(), 2, 1), // March 1st
         endDate: new Date(new Date().getFullYear() + 1, 1, 28), // February 28th next year
-        isActive: true
+        isActive: true,
       });
 
       // Create admin user
@@ -78,27 +86,31 @@ const registerSchool = async (req, res) => {
         email,
         password: bcrypt.hashSync(password, 10),
         role: 'admin',
-        schoolId: newSchool._id
+        schoolId: newSchool._id,
       });
 
       // Link relationships
       newSchool.activeAcademicYear = defaultYear._id;
       newSchool.createdBy = adminUser._id;
 
-      // Save core documents
-      await Promise.all([
-        newSchool.save({ session }),
-        adminUser.save({ session }),
-        defaultYear.save({ session })
-      ]);
+      // Save core documents with logging
+      console.log('Saving school:', newSchool._id);
+      console.log('Saving user:', adminUser._id);
+      console.log('Saving academic year:', defaultYear._id);
+      await Promise.all([newSchool.save({ session }), adminUser.save({ session }), defaultYear.save({ session })]);
 
-      // Always create a trial subscription
+      // Create trial subscription with required fields
       const subscription = new subscriptionSchema({
         schoolId: newSchool._id,
         planType: 'trial',
         status: 'active',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30-day trial
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        durationDays: 30,
+        originalAmount: 0,
+        discountAmount: 0,
+        finalAmount: 0,
       });
+      console.log('Saving subscription:', subscription);
       await subscription.save({ session });
 
       // Update pending school if provided
@@ -108,10 +120,10 @@ const registerSchool = async (req, res) => {
       }
 
       // Log school creation
-      await new auditLogsSchema({
+      await new auditLogs({
         userId: req.user.id,
         action: 'create_school',
-        details: { schoolId: newSchool._id, schoolName, pendingSchoolId }
+        details: { schoolId: newSchool._id, schoolName, pendingSchoolId },
       }).save({ session });
 
       res.status(201).json({
@@ -120,17 +132,17 @@ const registerSchool = async (req, res) => {
           schoolId: newSchool._id,
           academicYear: defaultYear.name,
           userId: adminUser._id,
-          subscriptionId: subscription._id // Include subscription ID in response
-        }
+          subscriptionId: subscription._id,
+        },
       });
     });
   } catch (err) {
     console.error('Registration Error:', err);
     const status = err.status || 500;
     const message = err.message || 'Registration failed';
-    res.status(status).json({ 
+    res.status(status).json({
       message,
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined,
     });
   } finally {
     await session.endSession();
@@ -142,13 +154,25 @@ const getPendingSchools = async (req, res) => {
     const pendingSchools = await PendingSchool.aggregate([
       { $match: { status: 'pending' } },
       { $sort: { createdAt: -1 } },
-      { $project: { name: 1, email: 1, mobileNo: 1, address: 1, createdAt: 1 } }
+      { $project: { name: 1, email: 1, mobileNo: 1, address: 1, createdAt: 1 } },
     ]);
     res.status(200).json({ message: 'Pending schools retrieved', data: pendingSchools });
   } catch (err) {
     res.status(500).json({ message: 'Error fetching pending schools', error: err.message });
   }
 };
+// const getPendingSchools = async (req, res) => {
+//   try {
+//     const pendingSchools = await PendingSchool.aggregate([
+//       { $match: { status: 'pending' } },
+//       { $sort: { createdAt: -1 } },
+//       { $project: { name: 1, email: 1, mobileNo: 1, address: 1, createdAt: 1 } }
+//     ]);
+//     res.status(200).json({ message: 'Pending schools retrieved', data: pendingSchools });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Error fetching pending schools', error: err.message });
+//   }
+// };
 
 const getSchoolById = async (req, res) => {
   try {

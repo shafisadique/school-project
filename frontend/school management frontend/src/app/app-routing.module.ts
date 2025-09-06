@@ -45,7 +45,7 @@ export const routes: Routes = [
         loadComponent: () => import('./demo/dashboard/default/default.component').then((c) => c.DefaultComponent)
       },
       {
-        path: 'subscription-management',
+        path: 'subscription-management',data: { roles: ['superadmin'] },
         canActivate: [AuthGuard],
         loadComponent: () => import('./demo/component/subscription-management/subscription-management/subscription-management.component').then(c => c.SubscriptionManagementComponent)
       },

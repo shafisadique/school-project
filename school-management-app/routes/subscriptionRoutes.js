@@ -1,14 +1,7 @@
-
-
-
-
 const express = require('express');
 const router = express.Router();
 const Subscription = require('../models/subscription');
 const Razorpay = require('razorpay');
-const crypto = require('crypto');
-const multer = require('multer');
-const path = require('path');
 const authMiddleware = require('../middleware/authMiddleware');
 
 const rzp = new Razorpay({

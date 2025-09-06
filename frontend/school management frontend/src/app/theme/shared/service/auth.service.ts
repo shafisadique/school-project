@@ -22,6 +22,7 @@ export class AuthService {
   constructor() {
     this.updateAuthState();
   }
+  getUserEmail(){}
 
   login(username: string, password: string): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.baseUrl}/api/auth/login`, { username, password }).pipe(
