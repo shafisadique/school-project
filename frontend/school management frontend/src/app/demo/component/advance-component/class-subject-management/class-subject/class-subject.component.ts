@@ -23,7 +23,7 @@ export class ClassSubjectComponent implements OnInit {
     'Pre-Nursery (or Playgroup)', 'Nursery', 'Lower Kindergarten (LKG)', 'Upper Kindergarten (UKG)', 'Class I', 'Class II',
     'Class III', 'Class IV', 'Class V', 'Class VI', 'Class VII', 'Class VIII', 'Class IX', 'Class X'
   ];
-  classSubjects: string[] = ['English', 'Hindi', 'Mathematics', 'Environmental Science', 'General Knowledge', 'Arts', 'Science', 'Social Science', 'Music'];
+  classSubjects: string[] = ['English', 'Hindi', 'Mathematics', 'Environmental Science','Urdu', 'General Knowledge', 'Arts', 'Science', 'Social Science', 'Music'];
 
   constructor(
     private fb: FormBuilder,

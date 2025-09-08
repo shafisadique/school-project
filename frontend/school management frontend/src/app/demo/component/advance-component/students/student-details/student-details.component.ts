@@ -76,6 +76,8 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   totalItems = 0;
   totalPages = 0;
   pageSizeOptions = [10, 25, 50, 100];
+  sortColumn: string = 'name'; // Default sort column
+  sortDirection: string = 'asc'; // Default sort direction
   selectedClass = '';
   selectedSession = '';
   searchQuery = '';
@@ -271,6 +273,7 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     this.studentService.getStudents(params).subscribe({
       next: (response: PaginatedResponse) => {
         this.students = response.students;
+        this.students = this.sortStudents(response.students); // Sort the data
         this.totalItems = response.total;
         this.totalPages = response.totalPages;
         this.currentPage = response.page;
@@ -287,6 +290,7 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     this.updateUrl();
   }
 
+
   updateUrl(): void {
     const queryParams: any = {
       page: this.currentPage,
@@ -302,6 +306,39 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
       queryParams,
       queryParamsHandling: 'merge',
       replaceUrl: true
+    });
+  }
+
+  onSort(column: string): void {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    this.loadStudents(); // Reload and sort the data
+  }
+
+  private sortStudents(students: Student[]): Student[] {
+    return students.sort((a, b) => {
+      let aValue = a[this.sortColumn as keyof Student];
+      let bValue = b[this.sortColumn as keyof Student];
+
+      // Handle nested properties like classId.name
+      if (this.sortColumn === 'classId' && a.classId && b.classId) {
+        aValue = a.classId.name;
+        bValue = b.classId.name;
+      }
+
+      if (aValue == null) aValue = '';
+      if (bValue == null) bValue = '';
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return this.sortDirection === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      return this.sortDirection === 'asc' ? (aValue as number) - (bValue as number) : (bValue as number) - (aValue as number);
     });
   }
 
@@ -363,7 +400,7 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   if (profileImage.startsWith('http')) {
     return profileImage;
   }
-  
+    console.log(profileImage)
   // If it's a key (new format), use the proxy endpoint
   const backendUrl = 'https://school-management-backend-khaki.vercel.app'; // Your backend URL
   return `${backendUrl}/api/proxy-image/${encodeURIComponent(profileImage)}`;

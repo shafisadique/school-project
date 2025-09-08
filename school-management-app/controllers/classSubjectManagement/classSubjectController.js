@@ -4,6 +4,7 @@ const Subject = require('../../models/subject');
 const Teacher = require('../../models/teacher');
 const APIError = require('../../utils/apiError');
 const { updateClassProgression } = require('../../utils/classProgression');
+const mongoose = require('mongoose');
 
 // ✅ Create Class
 const createClass = async (req, res, next) => {
@@ -162,6 +163,85 @@ const createSubject = async (req, res, next) => {
   }
 };
 
+
+const assignSubjectToClassUpdate = async (req, res, next) => {
+  try {
+    const { classId, subjectId, teacherId, academicYearId } = req.body;
+
+    // Validate required fields
+    if (!classId || !subjectId || !teacherId || !academicYearId) {
+      throw new APIError('Class ID, Subject ID, Teacher ID, and Academic Year ID are required', 400);
+    }
+
+    // Validate IDs
+    if (
+      !mongoose.Types.ObjectId.isValid(classId) ||
+      !mongoose.Types.ObjectId.isValid(subjectId) ||
+      !mongoose.Types.ObjectId.isValid(teacherId) ||
+      !mongoose.Types.ObjectId.isValid(academicYearId)
+    ) {
+      throw new APIError('Invalid ID format', 400);
+    }
+
+    // Fetch subject, class, and teacher
+    const subject = await Subject.findOne({ _id: subjectId, schoolId: req.user.schoolId });
+    const classData = await Class.findOne({ _id: classId, schoolId: req.user.schoolId });
+    const teacher = await Teacher.findById(teacherId);
+
+    if (!subject || !classData || !teacher) {
+      throw new APIError('Subject, Class, or Teacher not found or not in this school', 404);
+    }
+
+    // Ensure subject is associated with the class
+    if (!subject.classes.includes(classId)) {
+      subject.classes.push(classId);
+      if (!classData.subjects.includes(subjectId)) {
+        classData.subjects.push(subjectId);
+      }
+    }
+
+    // Find the existing assignment
+    const assignmentIndex = subject.teacherAssignments.findIndex(
+      (ta) => ta.academicYearId.toString() === academicYearId && subject.classes.includes(classId)
+    );
+
+    if (assignmentIndex === -1) {
+      throw new APIError('No assignment found for the given class and academic year. Use the assign endpoint to create a new assignment.', 404);
+    }
+
+    // Update the teacher for the existing assignment
+    subject.teacherAssignments[assignmentIndex].teacherId = teacherId;
+
+    // Ensure the teacher is in the teachers array
+    if (!subject.teachers.includes(teacherId)) {
+      subject.teachers.push(teacherId);
+    }
+
+    // Save both documents in a transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await classData.save({ session });
+      await subject.save({ session });
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Assignment updated successfully',
+      data: { classId, subjectId, teacherId, academicYearId },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
 // ✅ Get All Subjects (For a Specific School)
 const getSubjectsBySchool = async (req, res) => {
   try {
@@ -302,16 +382,26 @@ const getAssignmentsByTeacher = async (req, res) => {
   }
 };
 
-// ✅ Assign Subject to Class
 const assignSubjectToClass = async (req, res) => {
   const { classId, subjectId, teacherId, academicYearId } = req.body;
 
   try {
-    // Validate required fields
+    // Step 1: Validate required fields (like checking if the timetable form is complete)
     if (!classId || !subjectId || !teacherId || !academicYearId) {
       return res.status(400).json({ message: 'Class ID, Subject ID, Teacher ID, and Academic Year ID are required' });
     }
 
+    // Step 2: Validate IDs (like ensuring the form has valid teacher and class IDs)
+    if (
+      !mongoose.Types.ObjectId.isValid(classId) ||
+      !mongoose.Types.ObjectId.isValid(subjectId) ||
+      !mongoose.Types.ObjectId.isValid(teacherId) ||
+      !mongoose.Types.ObjectId.isValid(academicYearId)
+    ) {
+      return res.status(400).json({ message: 'Invalid ID format' });
+    }
+
+    // Step 3: Fetch class, subject, and teacher (like looking up records in the school office)
     const classData = await Class.findById(classId);
     const subject = await Subject.findById(subjectId);
     const teacher = await Teacher.findById(teacherId);
@@ -320,48 +410,127 @@ const assignSubjectToClass = async (req, res) => {
       return res.status(404).json({ message: 'Class, Subject, or Teacher not found' });
     }
 
-    // Ensure they belong to the same school
-    if (classData.schoolId.toString() !== subject.schoolId.toString() ||
-        subject.schoolId.toString() !== teacher.schoolId.toString()) {
+    // Step 4: Ensure they belong to the same school
+    if (
+      classData.schoolId.toString() !== subject.schoolId.toString() ||
+      subject.schoolId.toString() !== teacher.schoolId.toString()
+    ) {
       return res.status(400).json({ message: 'Class, Subject, and Teacher must belong to the same school' });
     }
 
-    // Assign subject to class
-    if (!classData.subjects.includes(subjectId)) {
-      classData.subjects.push(subjectId);
-    }
-    subject.classes = subject.classes || [];
-    if (!subject.classes.includes(classId)) {
-      subject.classes.push(classId);
-    }
-    // Update subject's teacherAssignments with academicYearId
-    subject.teacherAssignments = subject.teacherAssignments || [];
-    const existingAssignment = subject.teacherAssignments.find(
-      ta => ta.teacherId.toString() === teacherId && ta.academicYearId.toString() === academicYearId
+    // Step 5: Check for existing assignment (like checking if English is already in the Pre-Nursery timetable for 2025-26)
+    const existingAssignment = subject.teacherAssignments?.find(
+      (ta) => ta.academicYearId.toString() === academicYearId && subject.classes.includes(classId)
     );
-
-    if (!existingAssignment) {
-      subject.teacherAssignments.push({
-        teacherId,
-        academicYearId
+    if (existingAssignment) {
+      return res.status(409).json({
+        message: `Subject ${subject.name} is already assigned to class ${classData.name} for this academic year. Use the update endpoint to change the teacher.`,
       });
     }
 
-    // Optionally, update the subject's teachers array (if still needed)
-    subject.teachers = subject.teachers || [];
+    // Step 6: Link subject to class and class to subject (like updating the timetable)
+    if (!classData.subjects.includes(subjectId)) {
+      classData.subjects.push(subjectId);
+    }
+    if (!subject.classes.includes(classId)) {
+      subject.classes.push(classId);
+    }
+
+    // Step 7: Add new teacher assignment (like assigning Afifa Shamim to teach English)
+    subject.teacherAssignments = subject.teacherAssignments || [];
+    subject.teacherAssignments.push({
+      _id: new mongoose.Types.ObjectId(),
+      teacherId,
+      academicYearId,
+    });
+
+    // Step 8: Add teacher to subject’s teachers array (optional, for tracking)
     if (!subject.teachers.includes(teacherId)) {
       subject.teachers.push(teacherId);
     }
 
-    await classData.save();
-    await subject.save();
+    // Step 9: Save changes securely (like saving the timetable)
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    try {
+      await classData.save({ session });
+      await subject.save({ session });
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
 
-    res.status(200).json({ message: 'Subject assigned to class successfully with teacher' });
-
+    // Step 10: Confirm success
+    res.status(200).json({ message: `Subject ${subject.name} assigned to class ${classData.name} with teacher ${teacher.name}` });
   } catch (err) {
     res.status(500).json({ message: 'Error assigning subject to class', error: err.message });
   }
 };
+
+// ✅ Assign Subject to Class
+// const assignSubjectToClass = async (req, res) => {
+//   const { classId, subjectId, teacherId, academicYearId } = req.body;
+
+//   try {
+//     // Validate required fields
+//     if (!classId || !subjectId || !teacherId || !academicYearId) {
+//       return res.status(400).json({ message: 'Class ID, Subject ID, Teacher ID, and Academic Year ID are required' });
+//     }
+
+//     const classData = await Class.findById(classId);
+//     const subject = await Subject.findById(subjectId);
+//     const teacher = await Teacher.findById(teacherId);
+
+//     if (!classData || !subject || !teacher) {
+//       return res.status(404).json({ message: 'Class, Subject, or Teacher not found' });
+//     }
+
+//     // Ensure they belong to the same school
+//     if (classData.schoolId.toString() !== subject.schoolId.toString() ||
+//         subject.schoolId.toString() !== teacher.schoolId.toString()) {
+//       return res.status(400).json({ message: 'Class, Subject, and Teacher must belong to the same school' });
+//     }
+
+//     // Assign subject to class
+//     if (!classData.subjects.includes(subjectId)) {
+//       classData.subjects.push(subjectId);
+//     }
+//     subject.classes = subject.classes || [];
+//     if (!subject.classes.includes(classId)) {
+//       subject.classes.push(classId);
+//     }
+//     // Update subject's teacherAssignments with academicYearId
+//     subject.teacherAssignments = subject.teacherAssignments || [];
+//     const existingAssignment = subject.teacherAssignments.find(
+//       ta => ta.teacherId.toString() === teacherId && ta.academicYearId.toString() === academicYearId
+//     );
+
+//     if (!existingAssignment) {
+//       subject.teacherAssignments.push({
+//         teacherId,
+//         academicYearId
+//       });
+//     }
+
+//     // Optionally, update the subject's teachers array (if still needed)
+//     subject.teachers = subject.teachers || [];
+//     if (!subject.teachers.includes(teacherId)) {
+//       subject.teachers.push(teacherId);
+//     }
+
+//     await classData.save();
+//     await subject.save();
+
+//     res.status(200).json({ message: 'Subject assigned to class successfully with teacher' });
+
+//   } catch (err) {
+//     res.status(500).json({ message: 'Error assigning subject to class', error: err.message });
+//   }
+// };
+
 
 // ✅ Update Attendance Teachers
 const updateAttendanceTeachers = async (req, res, next) => {
@@ -432,6 +601,7 @@ module.exports = {
   getSubjectsBySchool,
   assignSubjectToClass,
   getCombinedAssignments,
+  assignSubjectToClassUpdate,
   getTeachersBySchoolId,
   getAssignmentsByTeacher,
   updateAttendanceTeachers

@@ -69,10 +69,13 @@
                   (change)="updateAllSelection($event)">
               </th>
               <th>#</th>
-              <th>Name</th>
+              <th (click)="onSort('name')">Name
+                <span *ngIf="sortColumn === 'name'">
+                  <i class="fa {{sortDirection === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down'}}"></i>
+                </span>
+             </th>
               <th>Admission No</th>
               <th>Class</th>
-              <th>Contact</th>
               <th>Gender</th>
               <th>Status</th>
             </tr>
@@ -113,9 +116,9 @@
               </td>
               <td style="white-space: nowrap;">{{ student.admissionNo }}</td>
               <td>{{ student.classId?.name || 'N/A' }}</td>
-              <td>
+              <!-- <td>
                 <div>{{ student.phone }}</div>
-              </td>
+              </td> -->
               <td>{{ student.gender }}</td>
               <td>{{ student.status }}</td>
             </tr>

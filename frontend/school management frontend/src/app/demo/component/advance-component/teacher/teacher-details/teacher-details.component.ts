@@ -2,10 +2,11 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subscription, forkJoin } from 'rxjs'; // Import Subscription and forkJoin
+import { Subject, Subscription, forkJoin } from 'rxjs'; // Import Subscription and forkJoin
 import { Teacher } from '../teacher.interface';
 import { TeacherService } from '../teacher.service';
 import { ToastrService } from 'ngx-toastr';
+import { takeUntil } from 'rxjs/operators';
 
 @Component({
  selector: 'app-teacher-details',
@@ -18,8 +19,7 @@ export class TeacherDetailsComponent implements OnInit, OnDestroy {
  teachers: Teacher[] = [];
  selectedTeaches: Teacher[] = [];
  searchQuery = '';
- private teachersSubscription: Subscription = new Subscription();
-
+private destroy$ = new Subject<void>();
  constructor(private teacherService: TeacherService, private router: Router, private toastr: ToastrService) {}
 
  ngOnInit(): void {
@@ -27,15 +27,15 @@ export class TeacherDetailsComponent implements OnInit, OnDestroy {
  }
 
  ngOnDestroy(): void {
-  this.teachersSubscription.unsubscribe();
+  this.destroy$.next();
+  this.destroy$.complete();
  }
 
  loadTeachers() {
-  this.teachersSubscription = this.teacherService.getTeachersBySchool().subscribe({
+  this.teacherService.getTeachersBySchool().pipe(takeUntil(this.destroy$)).subscribe({
    next: (response: any) => {
     this.teachers = response.data;
     this.selectedTeaches = []; // Clear selection on load
-    console.log('Loaded Teachers with profileImage:', this.teachers.map(t => ({ name: t.name, profileImage: t.profileImage })));
    },
    error: (err) => {
     console.error('Error loading teachers:', err);
@@ -70,17 +70,17 @@ export class TeacherDetailsComponent implements OnInit, OnDestroy {
   }
  }
 
- getImageUrl(profileImage: string): string {
-  if (!profileImage || profileImage.trim() === '') {
-   return 'assets/avtart-new.png';
+   getImageUrl(profileImage: string):any {
+    if (!profileImage || profileImage.trim() === '') {
+      return 'assets/avtart-new.png';
+    }
+     if (profileImage.startsWith('http')) {
+    return profileImage;
+
   }
-  if (profileImage.startsWith('http')) {
-   return profileImage;
-  }
-  
-  const backendUrl = 'https://school-management-backend-khaki.vercel.app';
+    const backendUrl = 'https://school-management-backend-khaki.vercel.app'; // Your backend URL
   return `${backendUrl}/api/proxy-image/${encodeURIComponent(profileImage)}`;
- }
+  }
 
  onUpdateTeacher(): void {
   if (this.selectedTeaches.length === 1) {
@@ -126,7 +126,6 @@ export class TeacherDetailsComponent implements OnInit, OnDestroy {
   if (container) {
    container.querySelector('.avatar-placeholder')?.classList.remove('d-none');
   }
-  console.log('Image load error for:', img.alt, 'URL:', img.src);
  }
 
  createTeacher(): void {

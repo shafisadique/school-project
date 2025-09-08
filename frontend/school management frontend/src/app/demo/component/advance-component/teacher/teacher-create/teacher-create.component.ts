@@ -22,7 +22,6 @@ export class TeacherCreateComponent {
   selectedFile: File | null = null;
   imagePreview: string | null = null;
   fileError: string | null = null;
-
   constructor(private fb: FormBuilder, private teacherService: TeacherService, private toastr: ToastrService) {}
 
   ngOnInit() {
@@ -34,7 +33,8 @@ export class TeacherCreateComponent {
       phone: ['', [Validators.required, Validators.pattern('^[0-9]{10}$')]],
       designation: ['', Validators.required],
       subjects: [[], Validators.required],
-      gender: ['', Validators.required]
+      gender: ['', Validators.required],
+      leaveBalance:[10]
     });
   }
 

@@ -104,6 +104,9 @@ export class ClassSubjectService {
       academicYearId
     });
   }
+  updateAssignment(data: { classId: string, subjectId: string, teacherId: string, academicYearId: string }) {
+    return this.http.put(`${this.apiUrl}/api/class-subject-management/assign-subject`, data);
+  }
 
   getAssignmentsByTeacher(teacherId: string, academicYearId: string, date?: string): Observable<Assignment[]> {
     let params = new HttpParams().set('academicYearId', academicYearId);

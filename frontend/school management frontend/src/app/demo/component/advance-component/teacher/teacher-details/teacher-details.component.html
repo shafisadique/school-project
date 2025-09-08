@@ -18,7 +18,7 @@
         <button class="btn btn-sm btn-material btn-success" (click)="downloadExcel()"><i class="fa fa-download" aria-hidden="true"></i>Download</button>
       </div>
       
-      <div class="search-field">
+      <!-- <div class="search-field">
         <input 
           type="text" 
           class="form-control form-control-sm" 
@@ -26,7 +26,7 @@
           [(ngModel)]="searchQuery" 
           (keyup.enter)="onSearch()"
           style="width: 170px;">
-      </div>
+      </div> -->
       
     </div>
   </div>
@@ -63,8 +63,8 @@
           <td>{{ i + 1 }}</td>
           <td class="profile-cell">
             <div class="profile-wrapper">
-              <img *ngIf="teacher.profileImage" crossorigin="anonymous"
-                [src]="getImageUrl(teacher.profileImage)" 
+              <img  crossorigin="anonymous"
+                 [src]="teacher.profileImage ? getImageUrl(teacher.profileImage) : 'assets/avtart-new.png'"
                 alt="{{ teacher.name }} profile"
                 class="profile-avatar"
                 (error)="handleImageError($event)">

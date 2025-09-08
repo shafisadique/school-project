@@ -11,10 +11,10 @@
         <div class="col-md-6">
           <div class="card bg-white shadow-xl rounded-xl overflow-hidden">
             <div class="card-header bg-gradient-to-r from-blue-700 to-blue-900 text-white p-2">
-              <h5 class="card-title text-xl font-semibold" style="color: white;">Assign Subject to Class</h5>
+              <h5 class="card-title text-xl font-semibold" style="color: white;">{{ isEditing ? 'Update Assignment' : 'Assign Subject to Class' }}</h5>
             </div>
             <div class="card-body p-6">
-              <form [formGroup]="assignForm" (ngSubmit)="assignSubject()">
+              <form [formGroup]="assignForm" (ngSubmit)="submitAssignment()">
                 <div class="mb-4">
                   <label for="academicYearId" class="block text-sm font-medium text-gray-700 mb-1">Select Academic Year</label>
                   <div class="custom-select-wrapper">
@@ -64,8 +64,9 @@
                   </div>
                 </div>
                 <button type="submit" class="btn-primary w-100" [disabled]="assignForm.invalid || loading">
-                  {{ loading ? 'Assigning...' : 'Assign Subject' }}
+                  {{ loading ? 'Processing...' : (isEditing ? 'Update Assignment' : 'Assign Subject') }}
                 </button>
+                <button *ngIf="isEditing" type="button" (click)="cancelEdit()" class="btn-secondary w-100 mt-2">Cancel</button>
               </form>
             </div>
           </div>
@@ -134,6 +135,7 @@
                       <th class="p-2 text-left">Teacher Email</th>
                       <th class="p-2 text-left">Attendance Teacher</th>
                       <th class="p-2 text-left">Substitute Teachers</th>
+                      <th class="p-2 text-left">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -144,9 +146,12 @@
                       <td class="p-2">{{ assignment.teacherEmail }}</td>
                       <td class="p-2">{{ getAttendanceTeacher(assignment.attendanceTeacher) }}</td>
                       <td class="p-2">{{ getSubstituteTeachers(assignment.substituteAttendanceTeachers) }}</td>
+                      <td class="p-2">
+                        <button (click)="editAssignment(assignment)" class="btn btn-sm btn-primary">Edit</button>
+                      </td>
                     </tr>
                     <tr *ngIf="assignments.length === 0 && !loading" class="text-center">
-                      <td colspan="6" class="p-4 text-gray-500">No assignments found</td>
+                      <td colspan="7" class="p-4 text-gray-500">No assignments found</td>
                     </tr>
                   </tbody>
                 </table>

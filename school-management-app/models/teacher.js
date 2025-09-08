@@ -10,7 +10,7 @@ const teacherSchema = new mongoose.Schema({
   gender: { type: String, enum: ['Male', 'Female', 'Other'], required: true },
   schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School', required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, 
-  leaveBalance: { type: Number, default: 20 }, // Example: 20 days as initial balance
+  leaveBalance: { type: Number, default: 12 }, // Example: 20 days as initial balance
   profileImage: { type: String },  // For storing teacher profile photo
   academicYearId: { 
     type: mongoose.Schema.Types.ObjectId, 

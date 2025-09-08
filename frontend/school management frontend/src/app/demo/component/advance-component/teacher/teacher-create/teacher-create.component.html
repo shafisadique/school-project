@@ -14,7 +14,6 @@
                 <small *ngIf="submitted && f['name'].errors?.['minlength']" class="error">Minimum 3 characters required.</small>
               </div>
             </div>
-
             <div class="col-md-6 col-12">
               <div class="form-group">
                 <label>Username:</label>
@@ -104,18 +103,26 @@
               Select at least one subject.
             </small>
           </div>
+          <div class="row">
 
-          <!-- Gender -->
-          <div class="form-group">
-            <label>Gender:</label>
-            <select formControlName="gender" class="form-control form-control-sm shadow-sm">
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
-            <small *ngIf="submitted && f['gender'].errors?.['required']" class="error">Gender is required.</small>
+            <div class="col-6">
+              <div class="form-group">
+                <label>Gender:</label>
+                <select formControlName="gender" class="form-control form-control-sm shadow-sm">
+                  <option value="">Select Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+                <small *ngIf="submitted && f['gender'].errors?.['required']" class="error">Gender is required.</small>
+              </div>
+            </div>
+            <div class="col-6">
+              <label>Leave Balance</label>
+                <input type="number" formControlName="leaveBalance" class="form-control form-control-sm shadow-sm" />
+            </div>
           </div>
+          <!-- Gender -->
 
           <!-- Server Errors -->
           <div *ngIf="serverErrors" class="server-error">

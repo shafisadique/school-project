@@ -10,6 +10,7 @@ const Class = require('../../models/class');
 const Subject = require('../../models/subject');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const multer = require('multer');
+const { toR2Key } = require('../../utils/image');
 
 // Constants
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -141,7 +142,7 @@ exports.addTeacher = async (req, res, next) => {
         };
         const command = new PutObjectCommand(params);
         await s3Client.send(command);
-        profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/teachers/${fileName}`;
+        profileImageUrl = `teachers/${fileName}`;
       }
 
       const teacher = await Teacher.create(
@@ -165,7 +166,7 @@ exports.addTeacher = async (req, res, next) => {
 
       const school = await School.findById(schoolId).select('email').lean().orFail(new APIError('School not found', 404));
       const schoolEmail = school.email;
-
+      console.log(schoolEmail)
       const transporter = await createTransporter(schoolId);
       const mailOptions = {
         from: schoolEmail,
@@ -201,24 +202,38 @@ exports.addTeacher = async (req, res, next) => {
  * @route   GET /api/teachers/list
  * @access  Private/Admin
  */
-  exports.getTeachersBySchool = async (req, res, next) => {
-    try {
-      const teachers = await Teacher.find({ 
-        schoolId: req.user.schoolId,
-        status: true 
-      })
-      .populate('academicYear', 'year')
-      .lean();
+exports.getTeachersBySchool = async (req, res, next) => {
+  try {
+    const teachers = await Teacher.find({ 
+      schoolId: req.user.schoolId,
+      status: true 
+    })
+    .populate('userId', 'username')
+    .populate('academicYear', 'year')
+    .lean();
 
-      res.json({
-        success: true,
-        count: teachers.length,
-        data: teachers
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
+    const base = `${req.protocol}://${req.get('host')}`; // Dynamic base URL
+
+    const teacherWithImages = await Promise.all(teachers.map(async (teacher) => {
+      const key = toR2Key(teacher.profileImage); // Extracts key from full URL (ensure toR2Key is defined)
+      const url = key ? `${base}/api/proxy-image/${encodeURIComponent(key)}` : '';
+
+      return {
+        ...teacher, // No .toObject() needed – teacher is already a plain object
+        profileImageKey: key,
+        profileImageUrl: url,
+      };
+    }));
+
+    res.json({
+      success: true,
+      count: teachers.length,
+      data: teacherWithImages,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 /**
  * @desc    Get single teacher
@@ -264,79 +279,116 @@ exports.addTeacher = async (req, res, next) => {
  * @route   PUT /api/teachers/:id
  * @access  Private/Admin
  */
+/**
+ * @desc    Update teacher
+ * @route   PUT /api/teachers/:id
+ * @access  Private/Admin
+ */
 exports.updateTeacher = async (req, res, next) => {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
       const { schoolId } = req.user;
-      const teacherData = await validateTeacherInput(req.body, true);
+      const teacherData = await validateTeacherInput(req.body, true); // isUpdate: true (no password required)
+      
       if (req.user.role !== 'admin') {
         throw new APIError('Unauthorized: Only admins can update teacher details', 403);
       }
-
-      const { email, ...updateData } = teacherData;
 
       const teacher = await Teacher.findOne({ _id: req.params.id, schoolId })
         .session(session)
         .orFail(new APIError('Teacher not found', 404));
 
-      let profileImageUrl = teacher.profileImage;
+      // Handle email and username updates (validate uniqueness if changed)
+      const email = teacherData.email || teacher.email;
+      const username = teacherData.username || (await User.findById(teacher.userId).select('username')).username;
+      
+      if (email !== teacher.email) {
+        const existingUser = await User.findOne({ email }).session(session);
+        if (existingUser && existingUser._id.toString() !== teacher.userId.toString()) {
+          throw new APIError('Email already in use by another user', 409);
+        }
+        await User.findByIdAndUpdate(teacher.userId, { email }, { session });
+      }
+
+      if (username !== (await User.findById(teacher.userId).select('username')).username) {
+        const existingUser = await User.findOne({ username }).session(session);
+        if (existingUser && existingUser._id.toString() !== teacher.userId.toString()) {
+          throw new APIError('Username already in use by another user', 409);
+        }
+        await User.findByIdAndUpdate(teacher.userId, { username }, { session });
+      }
+
+      // Handle profile image update
+      let profileImageKey = teacher.profileImage;
       if (req.file) {
         const fileBuffer = req.file.buffer;
         const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
         const params = {
           Bucket: process.env.R2_BUCKET_NAME,
-          Key: `teachers/${fileName}`, // Add 'teachers/' prefix
+          Key: `teachers/${fileName}`,
           Body: fileBuffer,
           ContentType: req.file.mimetype,
         };
         const command = new PutObjectCommand(params);
         await s3Client.send(command);
-        profileImageUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/teachers/${fileName}`;
+        profileImageKey = `teachers/${fileName}`; // Store only the key (consistent with addTeacher)
       }
 
-      if (email && email !== teacher.email) {
-        const existingUser = await User.findOne({ email }).session(session);
-        if (existingUser && existingUser._id.toString() !== teacher.userId.toString()) {
-          throw new APIError('Email already in use by another user', 409);
-        }
-        await User.findOneAndUpdate({ _id: teacher.userId }, { email }, { session });
-        await Teacher.findOneAndUpdate(
-          { _id: req.params.id, schoolId },
-          { email, ...updateData, profileImage: profileImageUrl },
-          { new: true, runValidators: true, session }
-        );
-      } else {
-        await Teacher.findOneAndUpdate(
-          { _id: req.params.id, schoolId },
-          { ...updateData, profileImage: profileImageUrl },
-          { new: true, runValidators: true, session }
-        );
+      // Update teacher (exclude email/username as they're in User; include other fields)
+      const { email: _, username: __, password, ...updateData } = teacherData; // Ignore password for updates
+      const updatedTeacher = await Teacher.findByIdAndUpdate(
+        req.params.id,
+        { 
+          ...updateData, 
+          email, // Still store in Teacher for quick access
+          profileImage: profileImageKey,
+        },
+        { new: true, runValidators: true, session }
+      ).orFail(new APIError('Failed to update teacher', 500));
+
+      // Send email notification if email changed
+      if (teacherData.email && teacherData.email !== teacher.email) {
+        const transporter = await createTransporter(schoolId);
+        const school = await School.findById(schoolId).select('email').lean();
+        const mailOptions = {
+          from: school.email,
+          to: email,
+          cc: teacher.email !== email ? teacher.email : undefined,
+          subject: 'Email Update Notification',
+          html: `
+            <h1>Email Update</h1>
+            <p>Your email has been updated to <strong>${email}</strong>.</p>
+            <p>If you did not request this change, please contact your admin immediately.</p>
+            <p>Best regards,<br>The ${school.email} Team</p>
+          `,
+        };
+        await transporter.sendMail(mailOptions);
       }
 
-      const transporter = await createTransporter(schoolId);
-      const school = await School.findById(schoolId).select('email').lean();
-      const mailOptions = {
-        from: school.email,
-        to: email || teacher.email,
-        cc: email !== teacher.email ? teacher.email : undefined,
-        subject: 'Email Update Notification',
-        html: `
-          <h1>Email Update</h1>
-          ${email && email !== teacher.email ? `<p>Your email has been updated to <strong>${email}</strong>.` : ''}
-          ${email && email !== teacher.email ? 'If you did not request this change, please contact your admin immediately.' : ''}
-          <p>Best regards,<br>The ${school.email} Team</p>
-        `,
+      // Enrich response with image URL and portal credentials (like getTeachersBySchool)
+      const base = `${req.protocol}://${req.get('host')}`;
+      const key = toR2Key(updatedTeacher.profileImage);
+      const profileImageUrl = key ? `${base}/api/proxy-image/${encodeURIComponent(key)}` : '';
+
+      const teacherUser = await User.findById(updatedTeacher.userId).select('username password');
+
+      const responseData = {
+        ...updatedTeacher.toObject(),
+        profileImageKey: key,
+        profileImageUrl: profileImageUrl,
+        portalUsername: teacherUser ? teacherUser.username : '',
+        portalPassword: teacherUser ? decryptPassword(teacherUser.password) || '' : '', // Assume decryptPassword is defined
       };
-      await transporter.sendMail(mailOptions);
 
       res.json({
         success: true,
         message: 'Teacher updated successfully',
-        data: teacher,
+        data: responseData,
       });
     });
   } catch (error) {
+    console.error('Error in updateTeacher:', error);
     next(error);
   } finally {
     await session.endSession();
@@ -389,79 +441,6 @@ exports.uploadTeacherPhoto = async (req, res, next) => {
  * @access  Private/Admin
  */ 
 
-exports.softDeleteTeacher = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      const teacher = await Teacher.findOne({
-        _id: req.params.id,
-        schoolId: req.user.schoolId
-      })
-        .session(session)
-        .orFail(new APIError('Teacher not found', 404));
-
-      // Soft delete teacher
-      teacher.status = false;
-      await teacher.save({ session });
-
-      // Soft delete associated User
-      const user = await User.findOne({ _id: teacher.userId }).session(session);
-      if (user) {
-        user.status = false;
-        await user.save({ session });
-      }
-
-      // Remove teacher from Class and Subject associations
-      await Class.updateMany(
-        { schoolId: req.user.schoolId, attendanceTeacher: req.params.id },
-        { $set: { attendanceTeacher: null } },
-        { session }
-      );
-      await Class.updateMany(
-        { schoolId: req.user.schoolId, substituteAttendanceTeachers: req.params.id },
-        { $pull: { substituteAttendanceTeachers: req.params.id } },
-        { session }
-      );
-      await Subject.updateMany(
-        { schoolId: req.user.schoolId, teachers: req.params.id },
-        { $pull: { teachers: req.params.id } },
-        { session }
-      );
-      await Subject.updateMany(
-        { schoolId: req.user.schoolId, 'teacherAssignments.teacherId': req.params.id },
-        { $pull: { teacherAssignments: { teacherId: req.params.id } } },
-        { session }
-      );
-
-      // Send notification to admin (if email is available)
-      const adminEmail = req.user.email;
-      if (adminEmail) {
-        const school = await School.findById(req.user.schoolId).select('email smtpConfig').lean();
-        if (school && school.email) {
-          const transporter = await createTransporter(req.user.schoolId);
-          const mailOptions = {
-            from: school.email,
-            to: adminEmail,
-            subject: 'Teacher Soft Deleted',
-            html: `<p>Teacher ${teacher.name} has been soft deleted. Please reassign their subjects and classes.</p>`
-          };
-          await transporter.sendMail(mailOptions);
-        }
-      }
-
-      res.json({
-        success: true,
-        message: 'Teacher and associated assignments removed successfully',
-        data: teacher
-      });
-    });
-  } catch (error) {
-    console.error('Error in softDeleteTeacher:', error);
-    next(error);
-  } finally {
-    await session.endSession();
-  }
-};
 
 
 exports.updateTeacher = async (req, res, next) => {

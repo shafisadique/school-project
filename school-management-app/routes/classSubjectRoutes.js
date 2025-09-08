@@ -10,6 +10,7 @@ const {
   getCombinedAssignments,
   getTeachersBySchoolId,
   updateAttendanceTeachers,
+  assignSubjectToClassUpdate,
 } = require('../controllers/classSubjectManagement/classSubjectController');
 
 const authMiddleware = require('../middleware/authMiddleware');
@@ -24,6 +25,7 @@ router.get('/classes/:schoolId', getClassesBySchool);
 // 📚 **Subject Management**
 router.post('/subject', createSubject);
 router.get('/subjects/:schoolId', getSubjectsBySchool);
+router.put('/assign-subject', assignSubjectToClassUpdate);
 
 // 🔗 **Assign Subject to Class**
 router.post('/assign-subject', assignSubjectToClass);

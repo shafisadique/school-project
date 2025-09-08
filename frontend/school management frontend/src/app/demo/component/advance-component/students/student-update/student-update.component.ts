@@ -230,7 +230,6 @@ export class StudentUpdateComponent implements OnInit {
             this.studentService.uploadStudentPhoto(this.studentId!, formData).subscribe({
               next: () => {
                 this.toastr.success('Student updated successfully!', 'Success');
-                this.router.navigate(['/student/student-details']);
               },
               error: (err) => {
                 this.toastr.error('Student updated, but failed to upload profile picture', 'Warning');
@@ -239,7 +238,7 @@ export class StudentUpdateComponent implements OnInit {
             });
           } else {
             this.toastr.success('Student updated successfully!', 'Success');
-            this.router.navigate(['/student/details']);
+            this.router.navigate(['/student/student-details']);
           }
         },
         error: (err) => {
