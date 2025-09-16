@@ -243,7 +243,7 @@
     symbol-observable "4.0.0"
     yargs "17.7.2"
 
-"@angular/common@^18.0.1", "@angular/common@^19.0.0", "@angular/common@^19.0.0 || ^20.0.0", "@angular/common@>=16.0.0-0", "@angular/common@>=17.3.0", "@angular/common@13.x - 20.x", "@angular/common@19.0.5":
+"@angular/common@^17.0.2", "@angular/common@^18.0.0", "@angular/common@^19.0.0", "@angular/common@^19.0.0 || ^20.0.0", "@angular/common@>=16.0.0-0", "@angular/common@>=17.3.0", "@angular/common@13.x - 20.x", "@angular/common@19.0.5":
   version "19.0.5"
   resolved "https://registry.npmjs.org/@angular/common/-/common-19.0.5.tgz"
   integrity sha512-fFK+euCj1AjBHBCpj9VnduMSeqoMRhZZHbhPYiND7tucRRJ8vwGU0sYK2KI/Ko+fsrNIXL/0O4F36jVPl09Smg==
@@ -271,21 +271,21 @@
   dependencies:
     tslib "^2.3.0"
 
-"@angular/core@^18.0.1", "@angular/core@^19.0.0", "@angular/core@^19.0.0 || ^20.0.0", "@angular/core@>=16.0.0-0", "@angular/core@>=17.3.0", "@angular/core@13.x - 20.x", "@angular/core@19.0.5":
+"@angular/core@^17.0.2", "@angular/core@^18.0.0", "@angular/core@^19.0.0", "@angular/core@^19.0.0 || ^20.0.0", "@angular/core@>=16.0.0-0", "@angular/core@>=17.3.0", "@angular/core@13.x - 20.x", "@angular/core@19.0.5":
   version "19.0.5"
   resolved "https://registry.npmjs.org/@angular/core/-/core-19.0.5.tgz"
   integrity sha512-Ywc6sPO6G/Y1stfk3y/MallV/h0yzQ0vdOHRWueLrk5kD1DTdbolV4X03Cs3PuVvravgcSVE3nnuuHFuH32emQ==
   dependencies:
     tslib "^2.3.0"
 
-"@angular/forms@^19.0.0", "@angular/forms@19.0.5":
+"@angular/forms@^18.0.0", "@angular/forms@^19.0.0", "@angular/forms@19.0.5":
   version "19.0.5"
   resolved "https://registry.npmjs.org/@angular/forms/-/forms-19.0.5.tgz"
   integrity sha512-OhNFkfOoguqCDq07vNBV28FFrmTM8S11Z3Cd6PQZJJF9TgAtpV5KtF7A3eXBCN92W4pmqluomPjfK7YyImzIYQ==
   dependencies:
     tslib "^2.3.0"
 
-"@angular/localize@^19.0.0":
+"@angular/localize@^18.0.0", "@angular/localize@^19.0.0":
   version "19.2.0"
   resolved "https://registry.npmjs.org/@angular/localize/-/localize-19.2.0.tgz"
   integrity sha512-cYizzpjyA4OPdBUmHfcp82L6JZNj16J0Q8LI7NEAggZuRNon9j+T7+vGafH8XfscnWjZxYzTwbSDENxwCH+NBA==
@@ -1549,10 +1549,10 @@
     "@napi-rs/nice-win32-ia32-msvc" "1.0.1"
     "@napi-rs/nice-win32-x64-msvc" "1.0.1"
 
-"@ng-bootstrap/ng-bootstrap@^18.0.0":
-  version "18.0.0"
-  resolved "https://registry.npmjs.org/@ng-bootstrap/ng-bootstrap/-/ng-bootstrap-18.0.0.tgz"
-  integrity sha512-GeSAz4yiGq49psdte8kcf+Y562wB3jK/qKRAkh6iA32lcXmy2sfQXVAmlHdjZ3AyP+E8lf3yMwuPdSKiYcDgSg==
+"@ng-bootstrap/ng-bootstrap@^17.0.0":
+  version "17.0.0"
+  resolved "https://registry.npmjs.org/@ng-bootstrap/ng-bootstrap/-/ng-bootstrap-17.0.0.tgz"
+  integrity sha512-hTbBtozJlpevF1RO6J2adCoXiAkMTPV3wmXIyK05dVha4VsKjHibgaL6YldToKoh6ElQnIYkPEIJHX9z5EtyMw==
   dependencies:
     tslib "^2.3.0"
 
@@ -2452,7 +2452,7 @@ anymatch@~3.1.2:
     normalize-path "^3.0.0"
     picomatch "^2.0.4"
 
-apexcharts@^3.49.1, apexcharts@3.49.2:
+apexcharts@^3.45.2, apexcharts@3.49.2:
   version "3.49.2"
   resolved "https://registry.npmjs.org/apexcharts/-/apexcharts-3.49.2.tgz"
   integrity sha512-vBB8KgwfD9rSObA7s4kY2rU6DeaN67gTR3JN7r32ztgKVf8lKkdFQ6iUhk6oIHrV7W8PoHhr5EwKymn0z5Fz6A==
@@ -5220,10 +5220,10 @@ neo-async@^2.6.2:
   resolved "https://registry.npmjs.org/neo-async/-/neo-async-2.6.2.tgz"
   integrity sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==
 
-ng-apexcharts@1.11.0:
-  version "1.11.0"
-  resolved "https://registry.npmjs.org/ng-apexcharts/-/ng-apexcharts-1.11.0.tgz"
-  integrity sha512-bzZ2qMYpJJ1V/Yfp9eC5y7BuxrlZx4fc9ev9pNHW8qEs5B0yE5yW25WrLhoGTYsfeFZfiADWeAmZkceEiihpFw==
+ng-apexcharts@^1.9.0:
+  version "1.9.0"
+  resolved "https://registry.npmjs.org/ng-apexcharts/-/ng-apexcharts-1.9.0.tgz"
+  integrity sha512-K6u/VTosww/ksMvNLUi1SigEpic4qwmLyZGtspalifF22xH6UFocp/BlIJ1B0EaTuC9gBP8130gDYJ9NmZZi5g==
   dependencies:
     tslib "^2.0.0"
 
