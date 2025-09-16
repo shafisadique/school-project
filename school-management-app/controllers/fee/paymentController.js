@@ -425,7 +425,8 @@ exports.getStudentFeeSummary = async (req, res) => {
 
 exports.getInvoiceDetails = async (req, res) => {
   try {
-    const invoice = await FeeInvoice.findById(req.params.id)
+    console.log('is this working',req.params.id)
+    const invoice = await feeInvoice.findById(req.params.id)
       .populate('studentId', 'name admissionNo className')
       .populate('academicYear', 'name')
       .populate('schoolId', 'name address');
@@ -869,6 +870,7 @@ exports.generateReceiptPDF = async (req, res) => {
 const pdf = require('html-pdf');
 const Handlebars = require('handlebars');
 const path = require('path'); // Import the path module
+const feeInvoice = require('../../models/feeInvoice');
 
 exports.generateInvoicePDF = async (req, res) => {
   try {

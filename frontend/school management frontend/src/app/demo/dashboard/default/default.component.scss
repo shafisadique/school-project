@@ -1,186 +1,349 @@
-.card {
-  .card-body.dashboard-card {
-    padding: 18px;
-    padding-bottom: 20px;
-    box-shadow: 30px;
-  }
-}
- .mb-3,.mb-2{
-      color: white;
-      font-family: 'Poppins',sans-serif;
-      font-weight: 500;
-    }
-// src/app/default.component.scss
-.chart-container {
-  max-height: 250px; // Matches the chart height
-  height: 250px; // Enforces the height
-  overflow: hidden; // Prevents content from spilling out
-  width: 100%; // Ensures it fits within the card
-  display: flex; // Ensures proper layout
-  justify-content: center; // Centers the chart
-  align-items: center; // Vertically centers the chart
+body {
+  font-family: Arial, sans-serif;
+  background: #f8f9fd;
+  min-height: 100vh;
 }
 
-.custom-modal {
-  .modal-content {
-    background: linear-gradient(135deg, #4a90e2, #50c9c3);
-    border-radius: 15px;
-    color: white;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-    animation: slideIn 0.3s ease-out;
+.row {
+  justify-content: center;
+}
+
+.custom-card {
+  border-radius: 15px;
+  width: 100%;
+  height: 120px;
+  color: #000;
+  border: none;
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15), 0 4px 10px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.custom-card:hover {
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2), 0 6px 15px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-5px);
+}
+
+.custom-card .card-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.custom-card .text-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.custom-card h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: bold;
+  line-height: 1.1;
+}
+
+.custom-card p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.custom-card .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-card .icon img {
+  filter: brightness(0) invert(1);
+}
+
+/* Card Colors */
+.orange {
+  background: linear-gradient(90deg, #ff7043, #ff8f00);
+  box-shadow: 0 8px 20px rgba(255, 112, 67, 0.3), 0 4px 10px rgba(255, 143, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.purple {
+  background: linear-gradient(90deg, #ab47bc, #7e57c2);
+  box-shadow: 0 8px 20px rgba(171, 71, 188, 0.3), 0 4px 10px rgba(126, 87, 194, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.blue {
+  background: linear-gradient(90deg, #42a5f5, #2196f3);
+  box-shadow: 0 8px 20px rgba(66, 165, 245, 0.3), 0 4px 10px rgba(33, 150, 243, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.teal {
+  background: linear-gradient(90deg, #26a69a, #00897b);
+  box-shadow: 0 8px 20px rgba(38, 166, 154, 0.3),
+              0 4px 10px rgba(0, 137, 123, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.cyan {
+  background: linear-gradient(90deg, #26c6da, #00acc1);
+  box-shadow: 0 8px 20px rgba(38, 198, 218, 0.3),
+              0 4px 10px rgba(0, 172, 193, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+/* Responsive Adjustments */
+@media (max-width: 767.98px) {
+  .custom-card {
+    height: 100px;
   }
-  .modal-header {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-    .modal-title {
-      font-family: 'Poppins', sans-serif;
-      color: white;
-      font-weight: 700;
-    }
-    .btn-close {
-      filter: invert(1);
-    }
+  .custom-card h2 {
+    font-size: 22px;
   }
-  h5{
-    color: white;
+  .custom-card p {
+    font-size: 12px;
   }
-  .modal-body {
-    font-family: 'Poppins', sans-serif;
-    .plan-card {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      box-shadow: 20px;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
-      &:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-      }
-      &.selected {
-        background: rgba(255, 255, 255, 0.2);
-        border: 2px solid #36a2eb;
-      }
-      .card-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-      }
-      .card-price {
-        font-size: 2rem;
-        color: #ffce56;
-        margin: 1rem 0;
-      }
-      .list-group-item {
-        background: transparent;
-        color: white;
-        border: none;
-        padding: 0.5rem 0;
-      }
-    }
-    .btn-group {
-      .btn {
-        font-family: 'Poppins', sans-serif;
-        &.btn-primary {
-          background-color: #36a2eb;
-          border-color: #36a2eb;
-        }
-        &.btn-outline-primary {
-          border-color: #36a2eb;
-          color: #36a2eb;
-          &:hover {
-            background-color: #36a2eb;
-            color: white;
-          }
-        }
-      }
-    }
-    .form-control {
-      background-color: #1a4a8c;
-      color: white;
-      border-color: #4a6fa5;
-      &:focus {
-        background-color: #1a4a8c;
-        border-color: #50c9c3;
-        box-shadow: 0 0 5px rgba(80, 201, 195, 0.5);
-      }
-    }
-  }
-  .modal-footer {
-    border-top: 1px solid rgba(255, 255, 255, 0.3);
-    .btn-primary {
-      background-color: #36a2eb;
-      border-color: #36a2eb;
-      &:hover {
-        background-color: #2a8ad0;
-      }
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-    }
-    .btn-secondary {
-      background-color: #6c757d;
-      border-color: #6c757d;
-    }
+  .custom-card .icon img {
+    width: 30px;
   }
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateY(-50px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-img{
-  margin-right: 10px;
-}
-.table{
-  thead{
-    tr{
-      box-shadow: 20px;
-      white-space: nowrap;
-      th{
-        background-color: #2C3E50;
-        font-family: 'Poppins',sans-serif;
-        font-weight: 600;
-        color:white;
+.chart-card {
+  background: #fff;
+  border-radius: 15px;
+  padding: 20px;
+  margin-top: 20px;
+  margin-bottom: 20px;
 
-      }
-    }
-  }
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
-apx-chart {
-  width: 100% !important; // Overrides any default width
-  height: 100% !important; // Ensures it respects the container height
-  color: white;
+.chart-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 10px;
 }
 
-#monthlyTrendChart{
-  color: white;
-}
-.user-group {
-  img {
-    position: relative;
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    z-index: 2;
-    transition: all 0.1s ease-in-out;
-    border: 2px solid var(--bs-white);
-    + img {
-      margin-left: -14px;
-    }
-    &:hover {
-      z-index: 5;
-    }
+.chart-filters {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+
+  .btn-outline {
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid #ccc;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .btn-fill {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+  }
+
+  .purple {
+    border-color: #7e57c2;
+    color: #7e57c2;
+  }
+
+  .blue {
+    border-color: #42a5f5;
+    color: #42a5f5;
+  }
+
+  .orange {
+    background: #ff7043;
   }
 }
 
-.badge-circle {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
+// .card {
+//   .card-body.dashboard-card {
+//     padding: 18px;
+//     padding-bottom: 20px;
+//     box-shadow: 30px;
+//   }
+// }
+//  .mb-3,.mb-2{
+//       color: white;
+//       font-family: 'Poppins',sans-serif;
+//       font-weight: 500;
+//     }
+// // src/app/default.component.scss
+// .chart-container {
+//   max-height: 250px; // Matches the chart height
+//   height: 250px; // Enforces the height
+//   overflow: hidden; // Prevents content from spilling out
+//   width: 100%; // Ensures it fits within the card
+//   display: flex; // Ensures proper layout
+//   justify-content: center; // Centers the chart
+//   align-items: center; // Vertically centers the chart
+// }
+
+// .custom-modal {
+//   .modal-content {
+//     background: linear-gradient(135deg, #4a90e2, #50c9c3);
+//     border-radius: 15px;
+//     color: white;
+//     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+//     animation: slideIn 0.3s ease-out;
+//   }
+//   .modal-header {
+//     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+//     .modal-title {
+//       font-family: 'Poppins', sans-serif;
+//       color: white;
+//       font-weight: 700;
+//     }
+//     .btn-close {
+//       filter: invert(1);
+//     }
+//   }
+//   h5{
+//     color: white;
+//   }
+//   .modal-body {
+//     font-family: 'Poppins', sans-serif;
+//     .plan-card {
+//       background: rgba(255, 255, 255, 0.1);
+//       border-radius: 10px;
+//       box-shadow: 20px;
+//       transition: transform 0.3s ease, box-shadow 0.3s ease;
+//       &:hover {
+//         transform: translateY(-5px);
+//         box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+//       }
+//       &.selected {
+//         background: rgba(255, 255, 255, 0.2);
+//         border: 2px solid #36a2eb;
+//       }
+//       .card-title {
+//         font-size: 1.5rem;
+//         font-weight: 600;
+//       }
+//       .card-price {
+//         font-size: 2rem;
+//         color: #ffce56;
+//         margin: 1rem 0;
+//       }
+//       .list-group-item {
+//         background: transparent;
+//         color: white;
+//         border: none;
+//         padding: 0.5rem 0;
+//       }
+//     }
+//     .btn-group {
+//       .btn {
+//         font-family: 'Poppins', sans-serif;
+//         &.btn-primary {
+//           background-color: #36a2eb;
+//           border-color: #36a2eb;
+//         }
+//         &.btn-outline-primary {
+//           border-color: #36a2eb;
+//           color: #36a2eb;
+//           &:hover {
+//             background-color: #36a2eb;
+//             color: white;
+//           }
+//         }
+//       }
+//     }
+//     .form-control {
+//       background-color: #1a4a8c;
+//       color: white;
+//       border-color: #4a6fa5;
+//       &:focus {
+//         background-color: #1a4a8c;
+//         border-color: #50c9c3;
+//         box-shadow: 0 0 5px rgba(80, 201, 195, 0.5);
+//       }
+//     }
+//   }
+//   .modal-footer {
+//     border-top: 1px solid rgba(255, 255, 255, 0.3);
+//     .btn-primary {
+//       background-color: #36a2eb;
+//       border-color: #36a2eb;
+//       &:hover {
+//         background-color: #2a8ad0;
+//       }
+//       &:disabled {
+//         opacity: 0.6;
+//         cursor: not-allowed;
+//       }
+//     }
+//     .btn-secondary {
+//       background-color: #6c757d;
+//       border-color: #6c757d;
+//     }
+//   }
+// }
+
+// @keyframes slideIn {
+//   from {
+//     transform: translateY(-50px);
+//     opacity: 0;
+//   }
+//   to {
+//     transform: translateY(0);
+//     opacity: 1;
+//   }
+// }
+// img{
+//   margin-right: 10px;
+// }
+// .table{
+//   thead{
+//     tr{
+//       box-shadow: 20px;
+//       white-space: nowrap;
+//       th{
+//         background-color: #2C3E50;
+//         font-family: 'Poppins',sans-serif;
+//         font-weight: 600;
+//         color:white;
+
+//       }
+//     }
+//   }
+// }
+
+// apx-chart {
+//   width: 100% !important; // Overrides any default width
+//   height: 100% !important; // Ensures it respects the container height
+//   color: white;
+// }
+
+// #monthlyTrendChart{
+//   color: white;
+// }
+// .user-group {
+//   img {
+//     position: relative;
+//     width: 35px;
+//     height: 35px;
+//     border-radius: 50%;
+//     z-index: 2;
+//     transition: all 0.1s ease-in-out;
+//     border: 2px solid var(--bs-white);
+//     + img {
+//       margin-left: -14px;
+//     }
+//     &:hover {
+//       z-index: 5;
+//     }
+//   }
+// }
+
+// .badge-circle {
+//   display: inline-block;
+//   width: 8px;
+//   height: 8px;
+//   border-radius: 50%;
+// }

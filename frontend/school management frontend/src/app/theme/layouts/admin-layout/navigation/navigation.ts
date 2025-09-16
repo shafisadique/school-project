@@ -27,7 +27,7 @@ export const NavigationItems: NavigationItem[] = [
     children: [
       {
         id: 'default-dash',
-        title: 'Default',
+        title: 'Dashboard',
         type: 'item',
         url: '/dashboard/default',
         icon: 'dashboard'

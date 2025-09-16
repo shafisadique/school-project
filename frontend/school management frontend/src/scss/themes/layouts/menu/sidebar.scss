@@ -96,30 +96,52 @@
       }
     }
   }
+
   .navbar-content {
-    // position: relative;
-    // height: calc(100vh - 60px);
-    padding: 16px 0;
+    padding: 5px;
 
     .coded-inner-navbar {
       flex-direction: column;
 
       app-nav-item > li.active {
         top: 0 !important;
-        height: 100% !important;
-        font-family: 'Poppins',sans-serif;
+        height: auto !important;
+        font-family: 'Poppins', sans-serif;
         font-weight: 600;
-       background-color: #e0f7fa; // Example: Light blue background
-        color: #007bff; // Optional: Change text color for contrast
-        border-radius: 5px; // Match the existing border-radius for consistency
-        
+        background: linear-gradient(to right, #007BFF, #a0afe8);
+        color: white;
+        border-radius: 5px;
+        transition: all 0.3s ease;
+        position: relative; // Ensure positioning context for :after
+
+        > a {
+          color: white;
+
+          .coded-micon {
+            color: white;
+            fill: white;
+          }
+
+          .coded-mtext {
+            color: white;
+          }
+        }
+
         &:after {
-          // Ensure the active indicator (if any) is visible
-          background-color: #007bff; // Example: Match text color
-        }}
+          content: '';
+          position: absolute;
+          right: 10px; // Positioned 10px from the right
+          top: 50%;
+          transform: translateY(-50%); // Center vertically
+          width: 8px; // Size of the circle
+          height: 8px; // Size of the circle
+          background-color: white; // White circle
+          border-radius: 50%; // Makes it a circle
+        }
+      }
 
       li {
-        font-family: 'Poppins',sans-serif;
+        font-family: 'Poppins', sans-serif;
         font-weight: 500;
         &.coded-hasmenu {
           position: relative;
@@ -142,9 +164,7 @@
             opacity: 0;
             visibility: hidden;
             transform-origin: 50% 50%;
-            transition:
-              transform 0.3s,
-              opacity 0.3s;
+            transition: transform 0.3s, opacity 0.3s;
             transform-style: preserve-3d;
             transform: rotateX(-90deg);
             position: absolute;
@@ -175,11 +195,9 @@
                 margin: 0;
                 display: block;
               }
-              .coded-submenu > {
-                app-nav-item li {
-                  > a {
-                    padding: 12px 30px 10px 25px;
-                  }
+              .coded-submenu > app-nav-item li {
+                > a {
+                  padding: 12px 30px 10px 25px;
                 }
               }
             }
@@ -274,7 +292,7 @@
   .version {
     display: flex;
     flex-direction: row;
-    justify-content: center;
+    justify-content: circle;
     margin-bottom: 16px;
     cursor: pointer;
 

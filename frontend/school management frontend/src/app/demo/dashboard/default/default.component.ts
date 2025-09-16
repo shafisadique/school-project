@@ -38,6 +38,69 @@ import {AnalyticEcommerce,MonthlyTrend,FeeDashboardData,TopDefaulter,Transaction
   styleUrls: ['./default.component.scss']
 })
 export class DefaultComponent implements OnInit, AfterViewInit {
+   managementChartOptions: Partial<ApexOptions> = {
+    chart: {
+      type: 'area',
+      height: 300,
+      toolbar: { show: false }
+    },
+    stroke: {
+      curve: 'smooth',
+      width: 3
+    },
+    dataLabels: { enabled: false },
+    markers: {
+      size: 6,
+      colors: ['#fff'],
+      strokeWidth: 3,
+      strokeColors: ['#ff7043']
+    },
+    series: [
+      {
+        name: 'Present',
+        data: [50, 45, 70, 55, 48, 42],
+        color: '#42a5f5'
+      },
+      {
+        name: 'Late',
+        data: [30, 40, 50, 35, 45, 38],
+        color: '#f2e41fff'
+      },
+      {
+        name: 'Absent',
+        data: [20, 25, 40, 28, 36, 30],
+        color: '#ff7043'
+      }
+    ],
+    fill: {
+  type: "gradient",
+    gradient: {
+      shadeIntensity: 1,
+      type: "vertical",
+      opacityFrom: 0.6,
+      opacityTo: 0.09,
+      stops: [0, 100],
+  },
+},
+
+    xaxis: {
+      categories: ['Week1', 'Week2', 'Week3', 'Week4', 'Week5', 'Week6'],
+      labels: { style: { colors: '#666' } },
+      axisBorder: { show: false },
+      axisTicks: { show: false }
+    },
+    yaxis: {
+      min: 0,
+      max: 120,
+      tickAmount: 6,
+      labels: { style: { colors: '#666' } }
+    },
+    grid: {
+      borderColor: '#eee',
+      strokeDashArray: 4
+    },
+    legend: { show: false }
+  };
   private iconService = inject(IconService);
   private dashboardService = inject(DashboardService);
   private academicYearService = inject(AcademicYearService);

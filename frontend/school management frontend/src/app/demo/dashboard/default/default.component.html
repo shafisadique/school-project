@@ -1,5 +1,87 @@
 <div class="container-fluid">
- 
+  <div class="row ">
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="custom-card blue">
+        <div class="card-content">
+          <div class="text-group">
+            <h2>1256</h2>
+            <p>Students</p>
+          </div>
+          <div class="icon"><img src="https://img.icons8.com/ios-filled/50/ffffff/graduation-cap.png" alt="Students Icon" width="40"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="custom-card purple">
+        <div class="card-content">
+          <div class="text-group">
+            <h2>102</h2>
+            <p>Teachers</p>
+          </div>
+          <div class="icon"><img src="https://img.icons8.com/ios-filled/50/ffffff/conference-call.png" alt="Teachers Icon" width="40"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="custom-card orange">
+        <div class="card-content">
+          <div class="text-group">
+            <h2>102</h2>
+            <p>Private Teachers</p>
+          </div>
+          <div class="icon"><img src="https://img.icons8.com/ios-filled/50/ffffff/businessman.png" alt="Private Teachers Icon" width="40"></div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6 col-lg-3">
+      <div class="custom-card teal">
+        <div class="card-content">
+          <div class="text-group">
+            <h2>102</h2>
+            <p>Private Teachers</p>
+          </div>
+          <div class="icon"><img src="https://img.icons8.com/ios-filled/50/ffffff/businessman.png" alt="Private Teachers Icon" width="40"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+<div class="row">
+  <div class="chart-card col-md-8 col-sm-12">
+    <div style="display: flex;justify-content: space-between;margin: auto;">
+
+      <h4 class="chart-title">Management Value</h4>
+      <div class="chart-filters">
+        <button class="btn-fill orange">Present</button>
+        <button class="btn-outline purple">Late</button>
+        <button class="btn-outline blue">Absent</button>
+      </div>
+    </div>
+  <apx-chart
+    [series]="managementChartOptions.series"
+    [chart]="managementChartOptions.chart"
+    [stroke]="managementChartOptions.stroke"
+    [dataLabels]="managementChartOptions.dataLabels"
+    [markers]="managementChartOptions.markers"
+    [xaxis]="managementChartOptions.xaxis"
+    [yaxis]="managementChartOptions.yaxis"
+    [grid]="managementChartOptions.grid"
+    [fill]="managementChartOptions.fill"
+  ></apx-chart>
+</div>
+<div class="col-md-4 col-lg-4 col-sm-12">
+  <div class="chart-card col-md-8 col-sm-12" style="width: 100%;">
+      <h4 class="chart-title" style="text-align: center;">Daily Reports</h4>
+    <div class="student">
+      <h5 style="font-family: 'Poppins',sans-serif;font-size: 14px;color: gray; font-weight: 400;">Student</h5>
+    </div>
+    <div class="techer">
+      <h5 style="font-family: 'Poppins',sans-serif;font-size: 14px;color: gray; font-weight: 400;">Teacher</h5>
+
+    </div>
+  </div>
+</div>
+</div>
+
   <div class="row">
     <div class="col-md-12 col-xl-6">
       <app-card blockClass="dashboard-card" [backgroundColor]="'linear-gradient(90deg, #4a90e2, #50c9c3)'" >
