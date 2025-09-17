@@ -12,7 +12,9 @@
     "test": "ng test",
     "lint": "ng lint",
     "lint:fix": "ng lint --fix",
-    "prettier": "prettier --write ./src"
+    "prettier": "prettier --write ./src",
+    "build:github": "ng build --configuration=production --base-href=\"/school-project/\"",
+    "deploy": "npm run build:github && npx angular-cli-ghpages --dir=dist"
   },
   "private": false,
   "dependencies": {
