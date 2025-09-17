@@ -14,7 +14,8 @@
     "lint:fix": "ng lint --fix",
     "prettier": "prettier --write ./src",
     "build:github": "ng build --configuration=production --base-href=\"/school-project/\"",
-    "deploy": "npm run build:github && npx angular-cli-ghpages --dir=dist"
+    "deploy": "npm run build:github && npx angular-cli-ghpages --dir=dist --repo=https://github.com/shafisadique/school-project.git"
+
   },
   "private": false,
   "dependencies": {

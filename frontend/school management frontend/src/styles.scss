@@ -1,59 +1,61 @@
-// main framework
+// Import Bootstrap core files with @import (required for compatibility)
 @import 'node_modules/bootstrap/scss/functions';
 @import 'node_modules/bootstrap/scss/variables';
 @import 'node_modules/bootstrap/scss/variables-dark';
+@import 'node_modules/bootstrap/scss/maps';
+@import 'node_modules/bootstrap/scss/mixins'; // Ensures _assert-ascending is available
+@import 'node_modules/bootstrap/scss/root';
 
+// Import template custom settings (use @import to match template structure)
 @import 'scss/settings/color-variables';
 @import 'scss/settings/theme-variables';
 @import 'scss/settings/bootstrap-variables';
 
-// bootstrap import
+// Import template Bootstrap customizations and utilities
 @import 'scss/bootstrap/bootstrap.scss';
-
 @import 'node_modules/bootstrap/scss/utilities';
 @import 'node_modules/bootstrap/scss/utilities/api';
 
-// main framework
+// Import theme and component styles (matching template)
 @import 'scss/themes/generic.scss';
 @import 'scss/themes/general.scss';
-
 @import 'scss/themes/components/components.scss';
-
-// theme
 @import 'scss/themes/layouts/menu/sidebar.scss';
 @import 'scss/themes/layouts/navbar/navbar.scss';
 @import 'scss/themes/layouts/pc-common.scss';
 @import 'scss/themes/layouts/breadcrumb/breadcrumb.scss';
 @import 'scss/themes/layouts/footer/footer.scss';
-
 @import 'scss/themes/preset-style.scss';
 
-@import "~@ng-select/ng-select/themes/default.theme.css";
-// ... or 
-@import "~@ng-select/ng-select/themes/material.theme.css";
+@import '~@ng-select/ng-select/themes/default.theme.css';
+// or
+// @import '~@ng-select/ng-select/themes/material.theme.css';
 
-.form-control{
-    border-radius: 5px;
-    margin-top: 2px;
+// Custom CSS rules (place after all imports)
+.form-control {
+  border-radius: 5px;
+  margin-top: 2px;
 }
-.error{
-    color: red;
+
+.error {
+  color: red;
 }
 
 :root {
-            --primary: #2C3E50;
-            --secondary: #3498DB;
-            --success: #27AE60;
-            --warning: #F39C12;
-            --danger: #E74C3C;
-            --light: #F8F9FA;
-            --dark: #212529;
-            --gray: #6C757D;
-            --light-gray: #E9ECEF;
-            --border-radius: 8px;
-            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-/* Existing styles from student form example */
+  --primary: #2C3E50;
+  --secondary: #3498DB;
+  --success: #27AE60;
+  --warning: #F39C12;
+  --danger: #E74C3C;
+  --light: #F8F9FA;
+  --dark: #212529;
+  --gray: #6C757D;
+  --light-gray: #E9ECEF;
+  --border-radius: 8px;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+// Existing styles from student form example
 .form-section {
   margin-bottom: 20px;
   border: 1px solid #e0e0e0;
@@ -80,7 +82,6 @@
   margin-bottom: 15px;
 }
 
-/* Additional styles for consistency with student form */
 .form-control-sm.shadow-sm {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
 }
@@ -101,7 +102,6 @@
   color: white;
 }
 
-/* Table and modal styles */
 .table-responsive th {
   background-color: #f8f9fa;
   font-weight: 600;
@@ -115,11 +115,9 @@
   margin-bottom: 15px;
 }
 
-
-.form-select{
+.form-select {
   border-radius: 5px;
 }
-
 
 .custom-btn {
   display: inline-flex;
@@ -129,7 +127,7 @@
   font-size: 14px;
   font-weight: 500;
   font-family: 'Poppins', sans-serif;
-  background: linear-gradient(to right, #2c3e50, #3498db); /* gradient */
+  background: linear-gradient(to right, #2c3e50, #3498db);
   color: white;
   border: none;
   border-radius: 8px;
