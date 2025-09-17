@@ -80,8 +80,8 @@ export class DefaultComponent implements OnInit, AfterViewInit {
       opacityFrom: 0.6,
       opacityTo: 0.09,
       colorStops: [
-    { offset: 0, color: '#2C3E50', opacity: 1 },    // Start color
-    { offset: 100, color: '#3498DB', opacity: 1 }   // End color
+    { offset: 0, color: '#2C3E50', opacity: 0.6 },    // Start color
+    { offset: 100, color: '#3498DB', opacity: 0.6 }   // End color
   ],
   },
 },
