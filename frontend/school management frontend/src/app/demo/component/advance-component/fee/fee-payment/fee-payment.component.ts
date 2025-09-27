@@ -63,7 +63,6 @@ export class FeePaymentComponent implements OnInit {
     }
 
     this.invoiceId = this.route.snapshot.paramMap.get('invoiceId');
-    console.log('Received invoiceId:', this.invoiceId);
     if (this.invoiceId) {
       this.loadInvoice();
     } else {
@@ -214,7 +213,6 @@ downloadReceipt(receiptId: string): void {
   //       ...(method === 'Online' && { transactionId: this.paymentForm.value.transactionId })
   //     };
 
-  //     console.log('Sending payment payload:', paymentPayload);
   //     this.feeService.processPayment(this.invoiceId!, paymentPayload).subscribe({
   //       next: (res) => {
   //         this.toastr.success(res.message || 'Payment processed successfully.');

@@ -7,6 +7,7 @@ import { AdminComponent } from './theme/layouts/admin-layout/admin-layout.compon
 import { GuestLayoutComponent } from './theme/layouts/guest-layout/guest-layout.component';
 import { AuthGuard } from './theme/shared/guard/auth.guard';
 import { PageNotFoundComponent } from './theme/shared/page-not-found/page-not-found.component';
+import { ReportsComponent } from './demo/component/advance-component/reports/reports/reports.component';
 
 export const routes: Routes = [
   {
@@ -105,6 +106,12 @@ export const routes: Routes = [
         path: 'result',
         canActivate:[AuthGuard],
         loadChildren: () => import('./demo/component/advance-component/result/result.router').then((c) => c.resultRouter)
+      },
+      {
+        path: 'admin/reports',
+        component: ReportsComponent,
+        canActivate: [AuthGuard], // Your existing guard
+        data: { roles: ['admin'] } // Admin only
       },
       {
         path: 'settings/profile',

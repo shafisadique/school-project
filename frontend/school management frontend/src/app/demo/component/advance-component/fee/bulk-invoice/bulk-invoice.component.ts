@@ -166,12 +166,10 @@ export class BulkInvoiceComponent implements OnInit {
       isExamMonth: this.isExamMonth,
       miscalculationStudents: miscalculationStudents // Send array of student IDs
     };
-    console.log('Generating invoices with payload:', data); // Debug log
     this.feeService.generateInvoices(data).subscribe({
       next: (res) => {
-        console.log('Generate invoices response:', res);
         this.toastr.success(res.message);
-        this.router.navigate(['/fee/invoice-list'], {
+        this.router.navigate(['fee/bulk-invoice-list'], {
           queryParams: { classId: this.selectedClassId, month: this.month }
         });
       },

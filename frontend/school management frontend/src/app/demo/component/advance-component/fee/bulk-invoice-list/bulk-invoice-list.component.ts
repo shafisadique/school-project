@@ -74,9 +74,7 @@ export class BulkInvoiceListComponent implements OnInit {
           this.toastr.warning('No classes found for this school.');
         }
         this.route.queryParams.subscribe(params => {
-            console.log('working 1',params['classId'])
           if (params['classId'] && params['month']) {
-            console.log('working 2')
             this.selectedClassId = params['classId'];
             this.month = params['month'];
             const selectedClass = this.classList.find(cls => cls.id === this.selectedClassId);
@@ -106,7 +104,6 @@ export class BulkInvoiceListComponent implements OnInit {
       this.studentService.getStudentsByClass(this.selectedClassId, this.activeAcademicYearId).subscribe({
         next: (res: any[]) => {
           this.students = res;
-          console.log('Loaded students:', this.students);
           if (this.students.length === 0) {
             this.toastr.warning('No students found for the selected class.');
           }
@@ -152,7 +149,6 @@ export class BulkInvoiceListComponent implements OnInit {
   }
 
   loadInvoices(): void {
-    console.log('working')
     if (!this.selectedClassId || !this.month || !this.activeAcademicYearId) {
       this.toastr.error('Please select a class and month.');
       return;
@@ -160,9 +156,7 @@ export class BulkInvoiceListComponent implements OnInit {
 
     this.feeService.getInvoicesByClassAndMonth(this.selectedClassId, this.month, this.activeAcademicYearId).subscribe({
       next: (res) => {
-        console.log('Invoices response:', res);
         this.invoices = res.data || [];
-        console.log('Parsed invoices:', this.invoices);
         this.totalItems = this.invoices.length;
         this.filterInvoices();
         if (this.invoices.length === 0) {
@@ -201,7 +195,6 @@ export class BulkInvoiceListComponent implements OnInit {
     const start = (this.currentPage - 1) * this.pageSize;
     const end = start + this.pageSize;
     this.filteredInvoices = filtered.slice(start, end);
-    console.log('Filtered invoices:', this.filteredInvoices);
   }
 
   setViewMode(mode: 'class' | 'student'): void {
@@ -244,10 +237,8 @@ export class BulkInvoiceListComponent implements OnInit {
   }
 
 processPayment(invoiceId: string, amount: number): void {
-    console.log('Processing payment for invoiceId:', invoiceId); // Debug log
     this.feeService.getInvoiceById(invoiceId).subscribe({
       next: (invoice) => {
-        console.log('Invoice data:', invoice); // Debug the full response
         if (invoice && invoice.data && invoice.data.student && invoice.data.student._id) {
           this.router.navigate(['/fee/payment', invoiceId]); // Navigate without queryParams
         } else {
@@ -269,7 +260,6 @@ processPayment(invoiceId: string, amount: number): void {
 
     this.feeService.notifyParents(this.selectedClassId, this.month, this.activeAcademicYearId).subscribe({
       next: (res) => {
-        console.log('Notify parents response:', res);
         this.toastr.success(res.message);
       },
       error: (err) => {
@@ -298,4 +288,5 @@ processPayment(invoiceId: string, amount: number): void {
     date.setFullYear(date.getFullYear() + 1);
     return this.datePipe.transform(date, 'yyyy-MM') || '';
   }
+  
 }

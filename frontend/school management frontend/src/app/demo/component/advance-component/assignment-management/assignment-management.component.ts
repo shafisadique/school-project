@@ -52,7 +52,6 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
     const academicYearId = this.authService.getActiveAcademicYearId();
     const teacherId = localStorage.getItem('teacherId'); // Get teacherId from localStorage
     const role = this.authService.getUserRole();
-    console.log('User Info:', { schoolId, academicYearId, teacherId, role }); // Debug
 
     if (!schoolId || !academicYearId || !teacherId) {
       this.toasterService.error('Missing school, year, or teacher info. Check your login!');
@@ -72,9 +71,7 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
       this.classSubjectService.getAssignmentsByTeacher(teacherId, academicYearId).subscribe({
         next: (data) => {
           this.assignments = data;
-          console.log('Teacher Assignments:', this.assignments); // Debug
           this.classes = [...new Map(this.assignments.map(a => [a.classId._id, { _id: a.classId._id, name: a.classId.name }])).values()];
-          console.log('Unique Classes:', this.classes); // Debug
           this.updateSubjects(); // Update subjects for all classes
           this.isLoading = false;
           if (this.classes.length === 0) {
@@ -96,7 +93,6 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
     if (classId) {
       this.selectedClassId = classId;
       const academicYearId = this.authService.getActiveAcademicYearId();
-      console.log('Selected Class:', classId, 'Year:', academicYearId);
       if (academicYearId) {
         this.loadStudents(classId, academicYearId);
         this.updateSubjectsForSelectedClass(); // Update subjects for the selected class
@@ -116,7 +112,6 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
     this.selectedSubjects = [...new Map(this.assignments
       .filter(a => a.classId._id === this.selectedClassId)
       .map(a => [a.subjectId._id, { _id: a.subjectId._id, name: a.subjectId.name }])).values()];
-    console.log('Subjects for Selected Class:', this.selectedSubjects); // Debug
     this.assignmentForm.get('subjectId')?.setValue(this.selectedSubjects.length > 0 ? this.selectedSubjects[0]._id : null);
   }
 
@@ -124,7 +119,6 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
   updateSubjects(): void {
     this.selectedSubjects = [...new Map(this.assignments
       .map(a => [a.subjectId._id, { _id: a.subjectId._id, name: a.subjectId.name }])).values()];
-    console.log('All Subjects:', this.selectedSubjects); // Debug
   }
 
   // Load students for the selected class
@@ -133,7 +127,6 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
       this.studentService.getStudentsByClass(classId, academicYearId).subscribe({
         next: (data) => {
           this.students = data.students || [];
-          console.log('Students:', this.students);
           if (this.students.length === 0) {
             this.toasterService.warning('No students in this class.');
           }

@@ -107,46 +107,87 @@
           </div>
 
           <!-- Step 3: Address Information -->
-          <!-- Step 3: Address Information -->
-<div *ngIf="step() === 3">
-  <form [formGroup]="addressForm" (ngSubmit)="nextStep()">
-    <input type="text" formControlName="street" placeholder="Street Address" class="form-control p-2 mb-3 border rounded"
-           [class.is-invalid]="a['street']?.invalid && a['street']?.touched">
-    <div *ngIf="a['street']?.invalid && a['street']?.touched" class="invalid-feedback">
-      Street is required
-    </div>
+          <div *ngIf="step() === 3">
+            <form [formGroup]="addressForm" (ngSubmit)="nextStep()">
+              <input type="text" formControlName="street" placeholder="Street Address" class="form-control p-2 mb-3 border rounded"
+                    [class.is-invalid]="a['street']?.invalid && a['street']?.touched">
+              <div *ngIf="a['street']?.invalid && a['street']?.touched" class="invalid-feedback">
+                Street is required
+              </div>
 
-    <input type="text" formControlName="city" placeholder="City" class="form-control p-2 mb-3 border rounded"
-           [class.is-invalid]="a['city']?.invalid && a['city']?.touched">
-    <div *ngIf="a['city']?.invalid && a['city']?.touched" class="invalid-feedback">
-      City is required
-    </div>
+              <input type="text" formControlName="city" placeholder="City" class="form-control p-2 mb-3 border rounded"
+                    [class.is-invalid]="a['city']?.invalid && a['city']?.touched">
+              <div *ngIf="a['city']?.invalid && a['city']?.touched" class="invalid-feedback">
+                City is required
+              </div>
 
-    <input type="text" formControlName="state" placeholder="State" class="form-control p-2 mb-3 border rounded"
-           [class.is-invalid]="a['state']?.invalid && a['state']?.touched">
-    <div *ngIf="a['state']?.invalid && a['state']?.touched" class="invalid-feedback">
-      State is required
-    </div>
+              <input type="text" formControlName="state" placeholder="State" class="form-control p-2 mb-3 border rounded"
+                    [class.is-invalid]="a['state']?.invalid && a['state']?.touched">
+              <div *ngIf="a['state']?.invalid && a['state']?.touched" class="invalid-feedback">
+                State is required
+              </div>
 
-    <input type="text" formControlName="country" placeholder="Country" class="form-control p-2 mb-3 border rounded"
-           [class.is-invalid]="a['country']?.invalid && a['country']?.touched">
-    <div *ngIf="a['country']?.invalid && a['country']?.touched" class="invalid-feedback">
-      Country is required
-    </div>
+              <input type="text" formControlName="country" placeholder="Country" class="form-control p-2 mb-3 border rounded"
+                    [class.is-invalid]="a['country']?.invalid && a['country']?.touched">
+              <div *ngIf="a['country']?.invalid && a['country']?.touched" class="invalid-feedback">
+                Country is required
+              </div>
 
-    <input type="text" formControlName="postalCode" placeholder="Postal Code" class="form-control p-2 mb-3 border rounded"
-           [class.is-invalid]="a['postalCode']?.invalid && a['postalCode']?.touched">
-    <div *ngIf="a['postalCode']?.invalid && a['postalCode']?.touched" class="invalid-feedback">
-      Postal Code is required
-    </div>
+              <input type="text" formControlName="postalCode" placeholder="Postal Code" class="form-control p-2 mb-3 border rounded"
+                    [class.is-invalid]="a['postalCode']?.invalid && a['postalCode']?.touched">
+              <div *ngIf="a['postalCode']?.invalid && a['postalCode']?.touched" class="invalid-feedback">
+                Postal Code is required
+              </div>
 
-    <div class="d-flex gap-2">
-      <button type="button" (click)="prevStep()" class="btn btn-secondary">Back</button>
-      <button type="submit" [disabled]="addressForm.invalid" class="btn btn-success">Submit</button>
-    </div>
-    <a [routerLink]="['/auth/login']" class="link-primary mt-3 d-block">Already have an account?</a>
-  </form>
-</div>
+              <!-- Google Map for clicking to set location -->
+              <div class="mb-3">
+                <label class="form-label">Click on the map to set your school location</label>
+                <div style="height: 300px; width: 100%; border: 1px solid #ccc; border-radius: 4px;">
+                  <google-map
+                    height="300px"
+                    width="100%"
+                    [center]="center"
+                    [zoom]="zoom"
+                    (mapClick)="onMapClick($event)">
+                    <!-- Marker for clicked position -->
+                    <map-marker 
+                      *ngIf="markerPosition" 
+                      [position]="markerPosition"
+                      [title]="'Selected Location'">
+                    </map-marker>
+                  </google-map>
+                </div>
+                <div *ngIf="addressError" class="text-danger mt-2">{{ addressError }}</div>
+                <small class="text-muted">Click anywhere on the map to set your exact location</small>
+              </div>
+
+              <div class="row mb-3">
+                <div class="col">
+                  <input type="number" 
+                        formControlName="latitude" 
+                        placeholder="Latitude (auto-filled)" 
+                        class="form-control p-2 border rounded" 
+                        readonly>
+                </div>
+                <div class="col">
+                  <input type="number" 
+                        formControlName="longitude" 
+                        placeholder="Longitude (auto-filled)" 
+                        class="form-control p-2 border rounded" 
+                        readonly>
+                </div>
+              </div>
+              <div *ngIf="a['latitude']?.invalid || a['longitude']?.invalid" class="text-danger mb-3">
+                Valid location is required. Please click on the map to set your position.
+              </div>
+
+              <div class="d-flex gap-2">
+                <button type="button" (click)="prevStep()" class="btn btn-secondary">Back</button>
+                <button type="submit" [disabled]="addressForm.invalid" class="btn btn-success">Submit</button>
+              </div>
+              <a [routerLink]="['/auth/login']" class="link-primary mt-3 d-block">Already have an account?</a>
+            </form>
+          </div>
         </div>
       </div>
       

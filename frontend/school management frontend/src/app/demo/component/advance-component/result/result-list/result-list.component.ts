@@ -95,7 +95,6 @@ export class ResultListComponent implements OnInit {
     } else if (role === 'teacher') {
       this.resultService.getExamsByTeacher().subscribe({
         next: (exams) => { 
-          console.log('Teacher exams:', exams); 
           this.exams = exams; 
           this.selectedExamId = exams.length > 0 ? exams[0]._id : ''; 
           this.loadResults(); 

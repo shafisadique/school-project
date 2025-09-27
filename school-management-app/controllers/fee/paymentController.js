@@ -5,7 +5,9 @@ const fs = require('fs').promises; // Promise-based fs
 const AdmZip = require('adm-zip');
 const School = require('../../models/school');
 const Receipt = require('../../models/receipt');
-const { Payment, Student, FeeInvoice } = require('../../models');
+const { FeeInvoice } = require('../../models');
+const Student = require ('../../models/student')
+const Payment = require('../../models/payment');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const SchoolInvoice = require('../../models/schoolInvoice');
@@ -203,7 +205,7 @@ exports.processPayment = async (req, res) => {
     if (!studentId) throw new Error('Student ID is required');
     if (typeof amount !== 'number' || amount <= 0) throw new Error('Invalid amount');
 
-    const invoices = await FeeInvoice.find({
+    const invoices = await feeInvoice.find({
       studentId,
       schoolId,
       status: { $in: ['Pending', 'Partial', 'Overdue'] }
@@ -257,7 +259,7 @@ exports.processPayment = async (req, res) => {
       let delta = -amountToApply;
       let currentMonthDate = moment.tz(invoice.month + '-01', 'YYYY-MM-DD', 'Asia/Kolkata');
       let nextMonth = currentMonthDate.add(1, 'month').format('YYYY-MM');
-      let nextInvoice = await FeeInvoice.findOne({
+      let nextInvoice = await feeInvoice.findOne({
         studentId: studentId,
         schoolId,
         month: nextMonth
@@ -270,7 +272,7 @@ exports.processPayment = async (req, res) => {
 
         currentMonthDate = moment.tz(nextInvoice.month + '-01', 'YYYY-MM-DD', 'Asia/Kolkata');
         nextMonth = currentMonthDate.add(1, 'month').format('YYYY-MM');
-        nextInvoice = await FeeInvoice.findOne({
+        nextInvoice = await feeInvoice.findOne({
           studentId: studentId,
           schoolId,
           month: nextMonth
@@ -425,7 +427,6 @@ exports.getStudentFeeSummary = async (req, res) => {
 
 exports.getInvoiceDetails = async (req, res) => {
   try {
-    console.log('is this working',req.params.id)
     const invoice = await feeInvoice.findById(req.params.id)
       .populate('studentId', 'name admissionNo className')
       .populate('academicYear', 'name')
@@ -877,7 +878,7 @@ exports.generateInvoicePDF = async (req, res) => {
     const { id } = req.params;
     const schoolId = req.user.schoolId;
 
-    const invoice = await FeeInvoice.findOne({ _id: id, schoolId })
+    const invoice = await feeInvoice.findOne({ _id: id, schoolId })
       .populate({
         path: 'studentId',
         select: 'name admissionNo classId',
@@ -1023,7 +1024,7 @@ exports.processRefund = async (req, res) => {
   try {
     session.startTransaction();
     const { invoiceId, amount, reason } = req.body;
-    const invoice = await FeeInvoice.findById(invoiceId).session(session);
+    const invoice = await feeInvoice.findById(invoiceId).session(session);
     if (!invoice) {
       throw new Error('Invoice not found');
     }

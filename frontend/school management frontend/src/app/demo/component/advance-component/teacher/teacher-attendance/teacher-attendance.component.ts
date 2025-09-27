@@ -18,7 +18,7 @@ import { HttpErrorResponse } from '@angular/common/http';
   styleUrls: ['./teacher-attendance.component.scss']
 })
 export class TeacherAttendanceComponent implements OnInit {
-  selectedDate: string = new Date().toISOString().split('T')[0]; // August 14, 2025
+  selectedDate: string = new Date().toISOString().split('T')[0];
   selectedStatus: string = 'Present';
   leaveType: string | null = null;
   remarks: string = '';
@@ -26,10 +26,12 @@ export class TeacherAttendanceComponent implements OnInit {
   successMessage: string = '';
   isHoliday: boolean = false;
   weeklyHolidayDay: string = 'Sunday'; // Default, will be fetched
+  maxDate: string = new Date().toISOString().split('T')[0]; // Prevent future dates
   minDate: string = new Date().toISOString().split('T')[0]; // Restrict to today or past
-  
   statuses = ['Present', 'Absent', 'On Leave', 'Holiday'];
   leaveTypes = ['Casual', 'Sick', 'Unpaid', null];
+  currentLocation: { lat: number; lng: number } | null = null;
+  isSubmitting = false;
 
   constructor(
     private holidayService: HolidayService,
@@ -49,6 +51,15 @@ export class TeacherAttendanceComponent implements OnInit {
     this.loadWeeklyHolidayDay();
     this.checkHoliday();
   }
+  getStatusIcon(status: string): string {
+  switch (status) {
+    case 'Present': return 'fas fa-user-check';
+    case 'Absent': return 'fas fa-user-times';
+    case 'On Leave': return 'fas fa-umbrella-beach';
+    case 'Holiday': return 'fas fa-calendar-times';
+    default: return 'fas fa-question-circle';
+  }
+}
 
   loadWeeklyHolidayDay(): void {
     const schoolId = this.authService.getSchoolId();
@@ -120,7 +131,40 @@ export class TeacherAttendanceComponent implements OnInit {
     this.checkHolidayAndWeekly();
   }
 
-  onSubmit(): void {
+  // New method to get current location using Geolocation API
+  private getCurrentLocation(): Promise<{ lat: number; lng: number }> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject('Geolocation is not supported by your browser.');
+      } else {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            });
+          },
+          (error) => {
+            let msg = 'Unable to retrieve your location.';
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                msg = 'Location permission denied. Please enable location access in your browser settings.';
+                break;
+              case error.POSITION_UNAVAILABLE:
+                msg = 'Location information is unavailable.';
+                break;
+              case error.TIMEOUT:
+                msg = 'The request to get location timed out.';
+                break;
+            }
+            reject(msg);
+          }
+        );
+      }
+    });
+  }
+
+  async onSubmit(): Promise<void> {
     const activeAcademicYearId = this.authService.getActiveAcademicYearId();
     if (!activeAcademicYearId) {
       this.errorMessage = 'No active academic year found. Please contact administrator.';
@@ -133,29 +177,39 @@ export class TeacherAttendanceComponent implements OnInit {
       return;
     }
 
-    const payload = {
-      teacherId: this.authService.getUserId(),
-      schoolId: this.authService.getSchoolId(),
-      academicYearId: activeAcademicYearId,
-      date: this.selectedDate,
-      status: this.selectedStatus,
-      leaveType: this.selectedStatus === 'On Leave' ? this.leaveType : null,
-      remarks: this.remarks || undefined
-    };
+    try {
+      // Get current location before submitting
+      const location = await this.getCurrentLocation();
+      
+      const payload = {
+        teacherId: this.authService.getUserId(),
+        schoolId: this.authService.getSchoolId(),
+        academicYearId: activeAcademicYearId,
+        date: this.selectedDate,
+        status: this.selectedStatus,
+        leaveType: this.selectedStatus === 'On Leave' ? this.leaveType : null,
+        remarks: this.remarks || undefined,
+        lat: location.lat,
+        lng: location.lng
+      };
 
-    this.teacherService.markAttendance(payload).subscribe(
-      (response: any) => {
-        this.successMessage = 'Attendance marked successfully';
-        this.toastr.success(this.successMessage);
-        this.errorMessage = '';
-        setTimeout(() => (this.successMessage = ''), 3000);
-      },
-      (error: HttpErrorResponse) => {
-        this.handleServerError(error);
-        this.errorMessage = ''; // Clear errorMessage if handled by toastr
-        this.successMessage = '';
-      }
-    );
+      this.teacherService.markAttendance(payload).subscribe(
+        (response: any) => {
+          this.successMessage = 'Attendance marked successfully';
+          this.toastr.success(this.successMessage);
+          this.errorMessage = '';
+          setTimeout(() => (this.successMessage = ''), 3000);
+        },
+        (error: HttpErrorResponse) => {
+          this.handleServerError(error);
+          this.errorMessage = ''; // Clear errorMessage if handled by toastr
+          this.successMessage = '';
+        }
+      );
+    } catch (locationError) {
+      this.errorMessage = locationError as string;
+      this.toastr.error(this.errorMessage);
+    }
   }
 
   isWeeklyHoliday(): boolean {
@@ -165,7 +219,6 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   private handleServerError(error: HttpErrorResponse): void {
-    console.error('Server Error Details:', error); // Log full error for debugging
     let errorMessage = 'An unexpected error occurred.';
 
     // Handle the backend response structure

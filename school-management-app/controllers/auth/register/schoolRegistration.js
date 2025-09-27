@@ -4,7 +4,6 @@ const User = require('../../../models/user');
 const School = require('../../../models/school');
 const AcademicYear = require('../../../models/academicyear');
 const subscriptionSchema = require('../../../models/subscription');
-const pendingSchool = require('../../../models/pendingSchool');
 const auditLogs = require('../../../models/auditLogs');
 
 
@@ -12,8 +11,11 @@ const registerSchool = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      const { schoolName, adminName, username, email, password, mobileNo, address } = req.body;
+      // ✅ FIXED: Extract latitude and longitude from req.body
+      const { schoolName, adminName, username, email, password, mobileNo, address, latitude, longitude } = req.body;
       const pendingSchoolId = req.body.pendingSchoolId; // Optional
+
+      console.log('Received data:', { latitude, longitude }); // Debug log
 
       // Validate user session
       if (!req.user || !req.user.id) {
@@ -30,10 +32,15 @@ const registerSchool = async (req, res) => {
       }
 
       // Validate required fields
-      const requiredFields = ['schoolName', 'adminName', 'username', 'email', 'password', 'mobileNo', 'address'];
+      const requiredFields = ['schoolName', 'adminName', 'username', 'email', 'password', 'mobileNo', 'address', 'latitude', 'longitude'];
       const missingFields = requiredFields.filter(field => !req.body[field]);
       if (missingFields.length > 0) {
         throw { status: 400, message: `Missing required fields: ${missingFields.join(', ')}` };
+      }
+
+      // Validate latitude and longitude
+      if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+        throw { status: 400, message: 'Latitude and longitude must be valid numbers' };
       }
 
       // Validate and structure address
@@ -61,14 +68,19 @@ const registerSchool = async (req, res) => {
         };
       }
 
-      // Create school
+      // Create school WITH latitude and longitude
       const newSchool = new School({
         name: schoolName,
         address: addressObj,
         mobileNo,
         email,
+        latitude: latitude,        // ✅ Now properly set
+        longitude: longitude,      // ✅ Now properly set
+        radius: 100,               // Default radius for GPS validation
         createdBy: null, // Will be set after user creation
       });
+
+      console.log('Creating school with location:', { latitude, longitude }); // Debug log
 
       // Create academic year with isActive: true
       const defaultYear = new AcademicYear({
@@ -123,7 +135,7 @@ const registerSchool = async (req, res) => {
       await new auditLogs({
         userId: req.user.id,
         action: 'create_school',
-        details: { schoolId: newSchool._id, schoolName, pendingSchoolId },
+        details: { schoolId: newSchool._id, schoolName, latitude, longitude, pendingSchoolId },
       }).save({ session });
 
       res.status(201).json({
@@ -133,6 +145,10 @@ const registerSchool = async (req, res) => {
           academicYear: defaultYear.name,
           userId: adminUser._id,
           subscriptionId: subscription._id,
+          location: {
+            latitude: latitude,
+            longitude: longitude
+          }
         },
       });
     });
@@ -161,18 +177,6 @@ const getPendingSchools = async (req, res) => {
     res.status(500).json({ message: 'Error fetching pending schools', error: err.message });
   }
 };
-// const getPendingSchools = async (req, res) => {
-//   try {
-//     const pendingSchools = await PendingSchool.aggregate([
-//       { $match: { status: 'pending' } },
-//       { $sort: { createdAt: -1 } },
-//       { $project: { name: 1, email: 1, mobileNo: 1, address: 1, createdAt: 1 } }
-//     ]);
-//     res.status(200).json({ message: 'Pending schools retrieved', data: pendingSchools });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Error fetching pending schools', error: err.message });
-//   }
-// };
 
 const getSchoolById = async (req, res) => {
   try {

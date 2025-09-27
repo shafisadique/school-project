@@ -42,7 +42,6 @@ export class AcademicYearComponent implements OnInit {
     this.academicYearService.getActiveAcademicYear(this.schoolId).subscribe({
       next: (data) => {
         this.currentAcademicYear = data;
-        console.log('Active Academic Year:', data);
       },
       error: () => this.showError('Failed to load active session'),
     });
@@ -50,7 +49,6 @@ export class AcademicYearComponent implements OnInit {
     this.academicYearService.getAllAcademicYears(this.schoolId).subscribe({
       next: (data) => {
         this.availableYears = data;
-        console.log('All Academic Years:', data);
       },
       error: () => this.showError('Failed to load sessions'),
     });

@@ -1,61 +1,60 @@
-<div class="container">
-  <!-- Toggle Switch -->
-  <div class="d-flex justify-content-start mb-3">
-    <div class="btn-group" role="group">
-      <button 
-        class="btn btn-sm" 
-        [ngClass]="{'btn-primary': viewMode === 'class', 'btn-outline-primary': viewMode !== 'class'}"
+<div class="invoice-container">
+  <!-- Header Section -->
+  <div class="header-section">
+    <h1 class="title">Invoice Management Dashboard</h1>
+    <p class="subtitle">Manage and track invoices for students and classes efficiently.</p>
+  </div>
+
+  <!-- Toggle Switch and Filters -->
+  <div class="controls-section">
+    <div class="toggle-group">
+      <button
+        class="toggle-btn"
+        [ngClass]="{'active': viewMode === 'class'}"
         (click)="setViewMode('class')">
         Class View
       </button>
-      <button 
-        class="btn btn-sm" 
-        [ngClass]="{'btn-primary': viewMode === 'student', 'btn-outline-primary': viewMode !== 'student'}"
+      <button
+        class="toggle-btn"
+        [ngClass]="{'active': viewMode === 'student'}"
         (click)="setViewMode('student')"
         [disabled]="!selectedClassId">
         Student View
       </button>
     </div>
-  </div>
 
-  <!-- Filters and Search -->
-  <div class="d-flex justify-content-between align-items-center mb-1">
-    <!-- Left Side: Filters and Notify Button -->
-    <div class="filters d-flex align-items-center">
-      <select 
-        class="form-control form-control-sm me-2" 
-        [(ngModel)]="selectedClassId" 
+    <div class="filter-group">
+      <select
+        class="form-select"
+        [(ngModel)]="selectedClassId"
         (change)="updateClassSelection($event)"
-        style="width: 150px;">
-        <option value="">All Classes</option>
+        [disabled]="classList.length === 0">
+        <option value="">Select Class</option>
         <option *ngFor="let classItem of classList" [value]="classItem.id">{{ classItem.name }}</option>
       </select>
 
-      <select 
+      <select
         *ngIf="viewMode === 'student'"
-        class="form-control form-control-sm me-2" 
-        [(ngModel)]="selectedStudentId" 
+        class="form-select"
+        [(ngModel)]="selectedStudentId"
         (change)="updateStudentSelection($event)"
-        style="width: 150px;"
-        [disabled]="!selectedClassId">
-        <option value="">All Students</option>
+        [disabled]="!selectedClassId || students.length === 0">
+        <option value="">Select Student</option>
         <option *ngFor="let student of students" [value]="student._id">{{ student.name }} ({{ student.admissionNo }})</option>
       </select>
 
-      <input 
-        type="date" 
-        class="form-control form-control-sm me-2" 
-        [(ngModel)]="month" 
-        (change)="loadInvoices()" 
-        [min]="minMonth" 
-        [max]="maxMonth"
-        style="width: 150px;">
+      <input
+        type="month"
+        class="form-input"
+        [(ngModel)]="month"
+        (change)="loadInvoices()"
+        [min]="minMonth"
+        [max]="maxMonth" style="width: 100%;">
 
-      <select 
-        class="form-control form-control-sm me-2" 
-        [(ngModel)]="statusFilter" 
-        (change)="filterInvoices()"
-        style="width: 150px;">
+      <select
+        class="form-select"
+        [(ngModel)]="statusFilter"
+        (change)="filterInvoices()">
         <option value="">All Statuses</option>
         <option value="Pending">Pending</option>
         <option value="Partial">Partial</option>
@@ -63,77 +62,73 @@
         <option value="Overdue">Overdue</option>
       </select>
 
-      <button 
-        class="btn btn-primary btn-sm me-2" 
-        (click)="notifyParents()" 
+      <button
+        class="btn-notify"
+        (click)="notifyParents()"
         [disabled]="!selectedClassId || !month">
-        <i class="bi bi-bell me-1"></i>Notify Parents
+        Notify Parents
       </button>
     </div>
-
-    <!-- Right Side: Title -->
-    <h2 *ngIf="selectedClassName && month" class="mb-0">
-      Invoices for {{ viewMode === 'class' ? selectedClassName : (selectedStudent?.name || 'Selected Student') }} ({{ month }})
-    </h2>
   </div>
 
-  <!-- Invoice Table -->
-  <div class="table-container">
-    <table class="professional-table table-striped table-sm">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Student Name</th>
-          <th>Total Amount</th>
-          <th>Remaining Due</th>
-          <th>Status</th>
-          <th>Due Date</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let invoice of filteredInvoices; let i = index">
-          <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
-          <td class="profile-cell">
-            <div class="profile-wrapper">
-              <div class="avatar-placeholder">
-                {{ getInitials(invoice.studentId?.name || 'Unknown') }}
-              </div>
-              <span class="student-name">{{ invoice.studentId?.name || 'Unknown' }}</span>
-            </div>
-          </td>
-          <td>{{ invoice.totalAmount | currency:'INR' }}</td>
-          <td>{{ invoice.remainingDue | currency:'INR' }}</td>
-          <td>
-            <span class="badge" [ngClass]="{
-              'bg-success': invoice.status === 'Paid',
-              'bg-warning': invoice.status === 'Pending',
-              'bg-info': invoice.status === 'Partial',
-              'bg-danger': invoice.status === 'Overdue'
-            }">
-              {{ invoice.status }}
-            </span>
-          </td>
-          <td>{{ invoice.dueDate | date:'mediumDate' }}</td>
-          <td class="text-center">
-            <button class="btn btn-sm btn-outline-primary me-2" (click)="downloadInvoicePDF(invoice._id)">
-              <i class="bi bi-download me-1"></i>Download PDF
-            </button>
-            <button *ngIf="invoice.status !== 'Paid'" class="btn btn-sm btn-outline-success" (click)="processPayment(invoice._id, invoice.remainingDue)">
-              <i class="bi bi-cash-stack me-1"></i>Pay Now
-            </button>
-          </td>
-        </tr>
-        <tr *ngIf="filteredInvoices.length === 0 && selectedClassId && month">
-          <td colspan="7" style="text-align: center; font-family: 'Poppins', sans-serif; font-weight: 600;">
-            No Invoices Found for the {{ viewMode === 'class' ? 'Selected Class' : 'Selected Student' }} and Month
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Invoice Title -->
+  <div class="invoice-title" *ngIf="selectedClassName && month">
+    <h2>Invoices for {{ viewMode === 'class' ? selectedClassName : (selectedStudent?.name || 'Selected Student') }} - {{ month }}</h2>
   </div>
 
-  <!-- Pagination Component -->
+<!-- Invoice Table -->
+<div class="table-wrapper">
+  <table class="professional-table invoice-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Student</th>
+        <th>Total Amount</th>
+        <th>Remaining Due</th>
+        <th>Status</th>
+        <th>Due Date</th>
+        <th class="text-center">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let invoice of filteredInvoices; let i = index">
+        <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
+        <td class="profile-cell">
+          <div class="profile-wrapper">
+            <div class="avatar-placeholder">{{ getInitials(invoice.studentId?.name || 'Unknown') }}</div>
+            <span class="teacher-name">{{ invoice.studentId?.name || 'Unknown' }}</span>
+          </div>
+        </td>
+        <td>{{ invoice.totalAmount | currency:'INR' }}</td>
+        <td>{{ invoice.remainingDue | currency:'INR' }}</td>
+        <td>
+          <span class="badge" [ngClass]="{
+            'bg-success': invoice.status === 'Paid',
+            'bg-warning': invoice.status === 'Pending',
+            'bg-info': invoice.status === 'Partial',
+            'bg-danger': invoice.status === 'Overdue'
+          }">
+            {{ invoice.status }}
+          </span>
+        </td>
+        <td>{{ invoice.dueDate | date:'dd-MMM-yyyy' }}</td>
+        <td class="text-center">
+          <button class="btn-material btn-outline-primary me-2" (click)="downloadInvoicePDF(invoice._id)">
+            <i class="fas fa-download"></i> Download
+          </button>
+          <button *ngIf="invoice.status !== 'Paid'" class="btn-material btn-outline-success" (click)="processPayment(invoice._id, invoice.remainingDue)">
+            <i class="fas fa-money-bill-wave"></i> Pay Now
+          </button>
+        </td>
+      </tr>
+      <tr *ngIf="filteredInvoices.length === 0 && selectedClassId && month">
+        <td colspan="7" class="text-center no-data">No invoices found for the selected criteria.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+  <!-- Pagination -->
   <app-pagination
     *ngIf="filteredInvoices.length > 0"
     [currentPage]="currentPage"

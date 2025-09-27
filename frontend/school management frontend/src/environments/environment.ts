@@ -7,10 +7,13 @@ import packageInfo from '../../package.json';
 export const environment = {
   appVersion: packageInfo.version,
   production: false,
-  apiUrl: 'https://school-management-backend-khaki.vercel.app', 
+  // apiUrl: 'https://school-management-backend-khaki.vercel.app',
+  apiUrl: 'http://localhost:5675', 
   razorpayKey: 'rzp_test_xxxxxxxxxxxx', // Replace with your Razorpay test key
-  razorpayKeyId:''
+  razorpayKeyId:'',
+  googleMapsApiKey:'AIzaSyDKsK100m1obqgkQJILOEafWm2mReD0whA'
 };
+
 
 /*
  * For easier debugging in development mode, you can import the following file

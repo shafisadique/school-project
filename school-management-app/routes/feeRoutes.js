@@ -72,30 +72,6 @@ router.get('/download-receipt/:filename', authMiddleware, (req, res) => {
   });
 });
 
-// Fetch Invoices by Class and Month
-// Fetch Invoices by Class and Month
-// router.get('/invoices/class/:classId/month/:month', authMiddleware, async (req, res) => {
-//   try {
-//     const { classId, month } = req.params;
-//     const { academicYearId } = req.query;
-//     const schoolId = req.user.schoolId;
-
-//     if (!classId || !month || !academicYearId) {
-//       return res.status(400).json({ message: 'Missing required fields: classId, month, and academicYearId are required.' });
-//     }
-
-//     const invoices = await Invoice.find({
-//       schoolId,
-//       academicYear: academicYearId,
-//       month, // Ensure month matches the format in the database (e.g., "2025-06")
-//       studentId: { $in: (await Student.find({ schoolId, classId: classId })).map(s => s._id) }
-//     }).populate('studentId', 'name admissionNo _id'); // Add _id to ensure it's available
-
-//     res.status(200).json({ message: 'Invoices retrieved successfully', data: invoices });
-//   } catch (error) {
-//     res.status(500).json({ message: error.message });
-//   }
-// });
 
 router.get('/invoices/class/:classId/month/:month',authMiddleware, invoiceService.getInvoicesByClassAndMonth);
 

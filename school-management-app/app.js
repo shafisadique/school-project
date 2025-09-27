@@ -133,7 +133,7 @@ const authMiddleware = require('./middleware/authMiddleware');
 const studentDashboard = require('./routes/admin-dashboard/dashboard.routes');
 const { isAdmin } = require('./middleware/roleMiddleware');
 const assignmentRoutes = require('./routes/assignmentRoutes');
-
+const reportsRouters = require('./routes/reportsRoutes');
 
 // Add upload endpoint with enhanced debugging
 app.post('/api/upload-image', upload.single('image'), async (req, res) => {
@@ -167,6 +167,7 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   }
 });
 
+
 app.use('/api/auth', authRoutes);
 app.use('/api/schools', authMiddleware, schoolRoutes);
 app.use('/api/students', authMiddleware, (req, res, next) => {
@@ -189,10 +190,11 @@ app.use('/api/teacher-absences', authMiddleware, teacherAbsenceRoutes);
 app.use('/api/teacher-attendance', authMiddleware, teacherAttendanceRoutes);
 app.use('/api/exams', authMiddleware, exam);
 app.use('/api/subscriptions', authMiddleware, subscriptionRoutes);
-app.use('/api/results', resultRoutes);
-app.use('/api/routes', transporatationRoute);
-app.use('/api/admin', studentDashboard);
+app.use('/api/results', authMiddleware,resultRoutes);
+app.use('/api/routes',authMiddleware, transporatationRoute);
+app.use('/api/admin', authMiddleware,studentDashboard);
 app.use('/api/assignments', authMiddleware, assignmentRoutes);
+app.use('/api/reports',reportsRouters );
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

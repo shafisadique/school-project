@@ -1,65 +1,192 @@
-  <!-- src/app/teacher-attendance/teacher-attendance.component.html -->
-  <div class="container mt-4">
-    <!-- <h2>Mark Your Attendance</h2> -->
+<!-- src/app/teacher-attendance/teacher-attendance.component.html -->
+<div class="attendance-wrapper">
+  <!-- Header Section -->
+  <div class="header-section">
+    <div class="header-content">
+      <div class="icon-wrapper">
+        <i class="fas fa-user-check"></i>
+      </div>
+      <div class="header-text">
+        <h2 class="title">Mark Attendance</h2>
+        <p class="subtitle">Record your daily attendance</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location Status -->
+  <div class="location-status" *ngIf="currentLocation">
+    <div class="location-icon">
+      <i class="fas fa-map-marker-alt"></i>
+    </div>
+    <div class="location-text">
+      <span class="status-text">GPS Active</span>
+      <span class="location-info">{{ currentLocation.lat.toFixed(4) }}, {{ currentLocation.lng.toFixed(4) }}</span>
+    </div>
+  </div>
+
+  <!-- Form Card -->
+  <div class="form-card">
     <form (ngSubmit)="onSubmit()" #attendanceForm="ngForm">
+      
+      <!-- Date Field -->
       <div class="form-group">
-        <label for="date">Date</label>
-        <input
-          type="date"
-          id="date"
-          class="form-control"
-          [(ngModel)]="selectedDate"
-          name="date"
-          (ngModelChange)="onDateChange()"
-          [min]="minDate"
-          required
-        />
-        <div *ngIf="attendanceForm.controls['date']?.invalid && attendanceForm.controls['date']?.touched" class="text-danger">
-          Date is required.
+        <label class="form-label">
+          <i class="fas fa-calendar-alt"></i>
+          <span>Date</span>
+        </label>
+        <div class="input-wrapper">
+          <input
+            type="date"
+            id="date"
+            class="form-input"
+            [(ngModel)]="selectedDate"
+            name="date"
+            (ngModelChange)="onDateChange()"
+            [max]="maxDate"
+            required
+          />
+          <div class="input-icon">
+            <i class="fas fa-calendar"></i>
+          </div>
+        </div>
+        <div *ngIf="attendanceForm.controls['date']?.invalid && attendanceForm.controls['date']?.touched" class="error-message">
+          <i class="fas fa-exclamation-circle"></i>
+          Date is required
         </div>
       </div>
+
+      <!-- Status Field -->
       <div class="form-group">
-        <label for="status">Status</label>
-        <select
-          id="status"
-          class="form-control"
-          [(ngModel)]="selectedStatus"
-          name="status"
-          required
-          [disabled]="(isHoliday || isWeeklyHoliday()) && selectedStatus !== 'Holiday'"
-        >
-          <option *ngFor="let status of statuses" [value]="status">{{ status }}</option>
-        </select>
+        <label class="form-label">
+          <i class="fas fa-clipboard-check"></i>
+          <span>Status</span>
+        </label>
+        <div class="input-wrapper select-wrapper">
+          <select
+            id="status"
+            class="form-input"
+            [(ngModel)]="selectedStatus"
+            name="status"
+            required
+            [disabled]="(isHoliday || isWeeklyHoliday()) && selectedStatus !== 'Holiday'"
+          >
+            <option value="">Select Status</option>
+            <option *ngFor="let status of statuses" [value]="status">
+              <i [class]="getStatusIcon(status)"></i>
+              {{ status }}
+            </option>
+          </select>
+          <div class="input-icon">
+            <i class="fas fa-chevron-down"></i>
+          </div>
+        </div>
+        <div *ngIf="attendanceForm.controls['status']?.invalid && attendanceForm.controls['status']?.touched" class="error-message">
+          <i class="fas fa-exclamation-circle"></i>
+          Status is required
+        </div>
       </div>
+
+      <!-- Leave Type Field -->
       <div class="form-group" *ngIf="selectedStatus === 'On Leave' && !isHoliday && !isWeeklyHoliday()">
-        <label for="leaveType">Leave Type</label>
-        <select
-          id="leaveType"
-          class="form-control"
-          [(ngModel)]="leaveType"
-          name="leaveType"
-          required
-        >
-          <option *ngFor="let type of leaveTypes" [value]="type">{{ type || 'None' }}</option>
-        </select>
+        <label class="form-label">
+          <i class="fas fa-umbrella-beach"></i>
+          <span>Leave Type</span>
+        </label>
+        <div class="input-wrapper select-wrapper">
+          <select
+            id="leaveType"
+            class="form-input"
+            [(ngModel)]="leaveType"
+            name="leaveType"
+            required
+          >
+            <option value="">Select Leave Type</option>
+            <option *ngFor="let type of leaveTypes" [value]="type">
+              {{ type || 'Unspecified' }}
+            </option>
+          </select>
+          <div class="input-icon">
+            <i class="fas fa-chevron-down"></i>
+          </div>
+        </div>
       </div>
+
+      <!-- Remarks Field -->
       <div class="form-group">
-        <label for="remarks">Remarks (Optional)</label>
-        <textarea
-          id="remarks"
-          class="form-control"
-          [(ngModel)]="remarks"
-          name="remarks"
-          maxlength="500"
-        ></textarea>
+        <label class="form-label">
+          <i class="fas fa-comment-dots"></i>
+          <span>Remarks (Optional)</span>
+        </label>
+        <div class="input-wrapper">
+          <textarea
+            id="remarks"
+            class="form-input textarea-input"
+            [(ngModel)]="remarks"
+            name="remarks"
+            rows="3"
+            maxlength="500"
+            placeholder="Add any additional comments..."
+          ></textarea>
+          <div class="input-icon">
+            <i class="fas fa-comment"></i>
+          </div>
+        </div>
+        <div class="character-count" *ngIf="remarks">
+          {{ remarks.length }}/500
+        </div>
       </div>
-      <button type="submit" class="btn btn-primary" [disabled]="!attendanceForm.valid || (isHoliday && selectedStatus !== 'Holiday') || (isWeeklyHoliday() && selectedStatus !== 'Holiday')">
-        Submit
+
+      <!-- Submit Button -->
+      <button 
+        type="submit" 
+        class="submit-btn"
+        [disabled]="!attendanceForm.valid || isSubmitting || ((isHoliday || isWeeklyHoliday()) && selectedStatus !== 'Holiday')"
+        [class.loading]="isSubmitting"
+      >
+        <span *ngIf="!isSubmitting" class="btn-content">
+          <i class="fas fa-check"></i>
+          Mark Attendance
+        </span>
+        <span *ngIf="isSubmitting" class="btn-content">
+          <i class="fas fa-spinner fa-spin"></i>
+          Processing...
+        </span>
       </button>
-      <div *ngIf="errorMessage" class="alert alert-danger mt-2">{{ errorMessage }}</div>
-      <div *ngIf="successMessage" class="alert alert-success mt-2">{{ successMessage }}</div>
-      <div *ngIf="isHoliday || isWeeklyHoliday()" class="alert alert-warning mt-2">
-        This is a {{ isHoliday ? 'holiday' : 'weekly holiday' }}.
-      </div>
     </form>
   </div>
+
+  <!-- Holiday Warning -->
+  <div *ngIf="isHoliday || isWeeklyHoliday()" class="holiday-banner">
+    <div class="banner-icon">
+      <i class="fas fa-exclamation-triangle"></i>
+    </div>
+    <div class="banner-content">
+      <h4 class="banner-title">Holiday Notice</h4>
+      <p class="banner-text">
+        Today is a {{ isHoliday ? 'holiday' : 'weekly holiday' }}. 
+        Please select "Holiday" status to continue.
+      </p>
+    </div>
+  </div>
+
+  <!-- Success/Error Messages -->
+  <div *ngIf="successMessage" class="message success-message">
+    <div class="message-content">
+      <i class="fas fa-check-circle"></i>
+      <span>{{ successMessage }}</span>
+    </div>
+  </div>
+
+  <div *ngIf="errorMessage" class="message error-message">
+    <div class="message-content">
+      <i class="fas fa-times-circle"></i>
+      <span>{{ errorMessage }}</span>
+    </div>
+  </div>
+
+  <!-- Location Permission Notice -->
+  <div class="location-notice">
+    <i class="fas fa-info-circle"></i>
+    <span>GPS location is required to verify you're within school premises.</span>
+  </div>
+</div>

@@ -16,6 +16,7 @@ import { ToastrService } from 'ngx-toastr';
 export class AuthLoginComponent {
   serverErrors: any = {};
   public loginForm: FormGroup;
+  showPassword = false;
   public forgotPasswordForm: FormGroup;
   validationError = false;
   isLoading = false;
@@ -43,7 +44,10 @@ export class AuthLoginComponent {
     this.serverErrors = {};
     this.forgotPasswordForm.reset();
   }
-
+togglePasswordVisibility() {
+    this.showPassword = !this.showPassword;
+  }
+  loaderBtn:any;
   onLoggedin(e: Event) {
     e.preventDefault();
     this.isLoading = true;

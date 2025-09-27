@@ -46,6 +46,10 @@ const schoolSchema = new mongoose.Schema({
     ref: 'AcademicYear',
     required: true
   },
+  latitude: { type: Number, required: true },
+  longitude: { type: Number, required: true },
+  radius: { type: Number, default: 100 },
+  
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

@@ -9,7 +9,7 @@ const academicyear = require('../../models/academicyear');
 let SubscriptionModel = null;
 
 const addSchool = async (req, res) => {
-  const { name, address, mobileNo, email, contactPerson, website, activeAcademicYear } = req.body;
+  const { name, address, mobileNo, email, contactPerson,latitude, longitude, radius, website, activeAcademicYear } = req.body;
 
   try {
     if (!name || !address || !mobileNo || !email || !activeAcademicYear) {
@@ -38,6 +38,7 @@ const addSchool = async (req, res) => {
           address,
           mobileNo,
           email,
+          latitude, longitude, radius,
           contactPerson: contactPerson || {},
           website: website || '',
           activeAcademicYear,
@@ -256,7 +257,7 @@ const getSchoolByUser = async (req, res) => {
 // ✅ Update School
 const updateSchool = async (req, res) => {
   try {
-    const { schoolName, address, mobileNo: contact, email, contactPerson, website, activeAcademicYear, status } = req.body;
+    const { schoolName, address, mobileNo: contact, email, contactPerson, website, activeAcademicYear, status,latitude, longitude, radius } = req.body;
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -270,6 +271,7 @@ const updateSchool = async (req, res) => {
     const updateData = {
       name: schoolName,
       address,
+      latitude, longitude, radius,
       mobileNo: contact,
       email,
       contactPerson: contactPerson || undefined,

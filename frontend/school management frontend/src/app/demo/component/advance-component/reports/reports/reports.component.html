@@ -1,0 +1,162 @@
+<!-- src/app/admin-dashboard/reports/reports.component.html -->
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Admin Reports Dashboard</h3>
+          <div class="card-tools">
+            <button class="btn btn-primary" (click)="toggleCustomBuilder()">
+              <i class="fas fa-plus"></i> Custom Report Builder
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          
+          <!-- Existing Reports Section (keep if any) -->
+          <div class="existing-reports" *ngIf="!showCustomBuilder">
+            <h4>Quick Reports</h4>
+            <div class="row">
+              <div class="col-md-3" *ngFor="let report of availableReports">
+                <div class="card report-card">
+                  <div class="card-body text-center">
+                    <i class="fas fa-file-alt fa-2x mb-2" [style.color]="getReportColor(report.type)"></i>
+                    <h5>{{ report.name }}</h5>
+                    <p class="small">{{ report.description }}</p>
+                    <button class="btn btn-sm btn-outline-primary" (click)="generateQuickReport(report.type)">
+                      Generate
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- UDISE Section -->
+            <div class="udise-section mt-4">
+              <h4>UDISE Compliance Reports</h4>
+              <div class="row">
+                <div class="col-md-4" *ngFor="let template of udiseTemplates">
+                  <div class="card report-card">
+                    <div class="card-body text-center">
+                      <i class="fas fa-certificate fa-2x mb-2 text-warning"></i>
+                      <h5>{{ template.name }}</h5>
+                      <p class="small">{{ template.description }}</p>
+                      <button class="btn btn-sm btn-warning" (click)="generateUDISEReport(template.template)">
+                        Generate UDISE
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Custom Report Builder -->
+          <div class="custom-builder" *ngIf="showCustomBuilder">
+            <h4>Custom Report Builder</h4>
+            <form #customForm="ngForm">
+              <div class="row">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Report Type</label>
+                    <select class="form-control" [(ngModel)]="customConfig.reportType" name="reportType" required>
+                      <option *ngFor="let report of availableReports" [value]="report.type">
+                        {{ report.name }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Report Name</label>
+                    <input type="text" class="form-control" [(ngModel)]="customConfig.reportName" name="reportName" placeholder="e.g., Class 8 Fee Report">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Filters Section -->
+              <div class="row mt-3">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Class</label>
+                    <select class="form-control" [(ngModel)]="selectedClassId" name="classId">
+                      <option value="">All Classes</option>
+                      <!-- Populate from your class service -->
+                      <option value="class1">Class 1</option>
+                      <!-- Add more options dynamically -->
+                    </select>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Academic Year</label>
+                    <select class="form-control" [(ngModel)]="selectedAcademicYear" name="academicYear">
+                      <option value="">Current Year</option>
+                      <!-- Populate from your academic year service -->
+                      <option value="2025-2026">2025-2026</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Columns Selector -->
+              <div class="form-group mt-3">
+                <label>Select Columns to Include</label>
+                <div class="row">
+                  <div class="col-md-4" *ngFor="let col of getAvailableColumns(customConfig.reportType)">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" [id]="'col-' + col" 
+                             [(ngModel)]="customConfig.columns" [ngModelOptions]="{standalone: true}" [value]="col">
+                      <label class="form-check-label" [for]="'col-' + col">
+                        {{ col | titlecase }}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group mt-3">
+                <button type="button" class="btn btn-primary" (click)="generateCustomReport()" [disabled]="!customForm.valid || isLoading">
+                  <i class="fas fa-chart-bar"></i> Generate Report
+                </button>
+                <button type="button" class="btn btn-secondary ms-2" (click)="toggleCustomBuilder()">Cancel</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Report Preview -->
+          <div class="report-preview mt-4" *ngIf="currentReport">
+            <div class="d-flex justify-content-between align-items-center">
+              <h4>{{ currentReport.data.name }}</h4>
+              <div>
+                <span class="badge bg-info">{{ currentReport.data.totalRecords }} Records</span>
+                <button class="btn btn-success btn-sm ms-2" (click)="exportReport('csv')">
+                  <i class="fas fa-download"></i> Export CSV
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive mt-3">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th *ngFor="let col of currentReport.data.columns">{{ col | titlecase }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of currentReport.data.records | slice:0:20; let i = index">
+                    <td *ngFor="let col of currentReport.data.columns">{{ row[col] || 'N/A' }}</td>
+                  </tr>
+                  <tr *ngIf="currentReport.data.records.length > 20">
+                        <td [attr.colspan]="currentReport.data.columns.length" class="text-center">
+                            Showing first 20 of {{ currentReport.data.totalRecords }} records...
+                        </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

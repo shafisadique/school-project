@@ -8,7 +8,6 @@ require('./student');
 require('./academicyear');
 require('./payment');
 require('./school');
-require('./feeInvoice');
 
 // Add other models as needed
 

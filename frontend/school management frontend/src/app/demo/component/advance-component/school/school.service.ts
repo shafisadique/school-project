@@ -15,7 +15,6 @@ export class SchoolService {
 
   getMySchool(): Observable<any> {
     const userId = this.authService.getUserId();
-    console.log('Fetching school for userId:', userId);
     if (!userId) {
       throw new Error('User ID not found');
     }

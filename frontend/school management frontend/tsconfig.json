@@ -1,12 +1,11 @@
-/* To learn more about this file see: https://angular.io/config/tsconfig. */
 {
   "compileOnSave": false,
   "compilerOptions": {
     "baseUrl": "./",
     "outDir": "./dist/out-tsc",
     "forceConsistentCasingInFileNames": true,
-    // "strict": true,
     "resolveJsonModule": true,
+    "types": ["googlemaps"],
     "noImplicitOverride": true,
     "allowSyntheticDefaultImports": true,
     "noPropertyAccessFromIndexSignature": true,
@@ -21,7 +20,8 @@
     "target": "es2022",
     "module": "es2020",
     "useDefineForClassFields": false,
-    "lib": ["es2022", "dom"]
+    "lib": ["es2022", "dom"],
+    "skipLibCheck": true  // Add this line to skip errors in third-party d.ts files
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

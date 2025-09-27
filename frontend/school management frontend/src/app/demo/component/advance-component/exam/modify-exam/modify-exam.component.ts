@@ -57,7 +57,6 @@ export class ModifyExamComponent implements OnInit {
     }
 
     const examId = this.route.snapshot.paramMap.get('examId');
-    console.log('Exam ID:', examId);
     if (examId) {
       this.loadExam(examId);
     }
@@ -85,7 +84,6 @@ export class ModifyExamComponent implements OnInit {
   loadExam(examId: string): void {
   this.examService.getExamById(examId).subscribe({
     next: (exam) => {
-      console.log('Loaded exam:', exam);
       this.exam = { 
         ...exam, 
         startDate: new Date(exam.startDate).toISOString().slice(0, 16), 

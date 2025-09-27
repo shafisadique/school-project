@@ -6,16 +6,20 @@ const Teacher = require('../../models/teacher');
 const Holiday = require('../../models/holiday');
 const APIError = require('../../utils/apiError');
 const School = require('../../models/school');
+const { calculateDistance } = require('../../utils/locationUtils');
 
 exports.markAttendance = async (req, res, next) => {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      const { teacherId, date, status, leaveType, remarks, academicYearId } = req.body;
+      const { teacherId, date, status, leaveType, remarks, academicYearId,lat, lng } = req.body;
       const { schoolId, id: recordedBy } = req.user;
 
       if (!academicYearId) {
         throw new APIError('Academic year ID is required', 400);
+      }
+      if (!lat || !lng) {
+        throw new APIError('Location coordinates are required', 400);
       }
 
       const attendanceDate = new Date(date);
@@ -52,6 +56,12 @@ exports.markAttendance = async (req, res, next) => {
       const holiday = await Holiday.findOne({ schoolId, date: attendanceDate }).session(session);
       if (holiday && status !== 'Holiday') {
         throw new APIError('Cannot mark attendance on a holiday unless status is Holiday', 400);
+      }
+
+      // GPS Validation: Check if within school premises
+      const distance = calculateDistance(lat, lng, school.latitude, school.longitude);
+      if (distance > school.radius) {
+        throw new APIError('Cannot mark attendance outside school premises', 403);
       }
 
       // Check existing attendance

@@ -61,13 +61,11 @@ export class ClassSubjectService {
 
   assignRollNumbers(classId: string): Observable<any> {
     const url = `${this.apiUrl}/api/students/assign-roll-numbers?classId=${classId}`; // Fixed: classId
-    console.log('Calling assignRollNumbers with URL:', url);
     return this.http.post(url, {});
   }
 
   assignRollNumbersAlphabetically(classId: string): Observable<any> {
     const url = `${this.apiUrl}/api/students/assign-roll-numbers-alphabetically?classId=${classId}`; // Fixed: classId
-    console.log('Calling assignRollNumbersAlphabetically with URL:', url);
     return this.http.post(url, {});
   }
 

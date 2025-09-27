@@ -1,9 +1,8 @@
-<div class="auth-main">
+<!-- <div class="auth-main">
   <div class="auth-wrapper v3">
     <div class="auth-form">
       <div class="auth-header">
-        <!-- Optional: Add your logo here with white color for better visibility -->
-        <!-- <a href="javascript:"><img src="assets/images/logo-white.svg" alt="logo" /></a> -->
+
       </div>
       <div class="card my-5">
         <div class="card-body">
@@ -86,6 +85,137 @@
             </form>
           </ng-template>
         </div>
+      </div>
+    </div>
+  </div>
+</div> -->
+
+<div class="auth-wrapper">
+  <div class="login-container">
+    <!-- Left Side - School Section -->
+    <div class="left-panel">
+      <!-- Logo -->
+      <div class="logo">
+        <div class="logo-circle">
+          <span class="logo-text">E</span>
+        </div>
+      </div>
+
+      <!-- School Title -->
+      <div class="school-info">
+        <img src="assets/ED-logo.png" style="width: 240px; height: 140px;justify-content: center;margin: auto;">
+        <!-- <h1 class="school-title">SchoolEase</h1> -->
+        <p class="school-subtitle">All-in-one school management</p>
+      </div>
+
+ 
+      <!-- Description -->
+      <div class="description">
+        <p class="description-text">
+          All-in-one school management system to simplify attendance, exams, fees and communication. Save time, reduce errors, and focus on student success.
+        </p>
+        <p class="goal-text">Whatever your goal—we'll get you there</p>
+      </div>
+    </div>
+
+    <!-- Right Side - Login Form -->
+    <div class="right-panel">
+      <!-- Welcome Section -->
+      <div class="welcome-section">
+        <div class="welcome-emoji">👋</div>
+        <h2 class="welcome-title">Welcome</h2>
+        <p class="welcome-subtitle">Please login your account</p>
+      </div>
+
+      <!-- Login Form -->
+      <ng-container *ngIf="!showForgotPassword; else forgotPasswordTemplate">
+        <form class="login-form" [formGroup]="loginForm" (ngSubmit)="onLoggedin($event)">
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input 
+              type="text" 
+              formControlName="username" 
+              class="form-input" 
+              placeholder="Enter username or email"
+              autocomplete="username"
+            />
+            <div *ngIf="serverErrors?.username" class="error-text">
+              {{ serverErrors?.username }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input 
+              type="password" 
+              formControlName="password" 
+              class="form-input" 
+              placeholder="Enter your password"
+              autocomplete="current-password"
+            />
+            @if(loginForm.controls['password'].touched && loginForm.controls['password'].errors?.['required']){
+              <div class="error-text">Password is required</div>
+            }
+            @if(serverErrors?.password){
+              <div class="error-text">{{ serverErrors?.password }}</div>
+            }
+          </div>
+
+          <div class="form-options">
+            <div class="checkbox-container">
+              <input type="checkbox" id="remember" class="checkbox-input" checked />
+              <label for="remember" class="checkbox-label">Remember me</label>
+            </div>
+            <a href="#" (click)="toggleForgotPassword()" class="forgot-link">Forgot password?</a>
+          </div>
+
+          <button type="submit" class="login-btn" [disabled]="isDisable">
+            <span *ngIf="!isLoading">LOGIN</span>
+            <span *ngIf="isLoading">Signing in...</span>
+          </button>
+        </form>
+      </ng-container>
+
+      <!-- Forgot Password Form -->
+      <ng-template #forgotPasswordTemplate>
+        <form class="forgot-form" [formGroup]="forgotPasswordForm" (ngSubmit)="onForgotPassword()">
+          <h3 class="form-title">Forgot Password?</h3>
+          <p class="form-subtitle">Enter your email to reset your password</p>
+          
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input 
+              type="email" 
+              formControlName="email" 
+              class="form-input" 
+              placeholder="Enter your email"
+              autocomplete="email"
+            />
+            @if(forgotPasswordForm.controls['email'].touched && forgotPasswordForm.controls['email'].errors?.['required']){
+              <div class="error-text">Email is required</div>
+            }
+            @if(forgotPasswordForm.controls['email'].touched && forgotPasswordForm.controls['email'].errors?.['email']){
+              <div class="error-text">Please enter a valid email</div>
+            }
+            @if(serverErrors?.email){
+              <div class="error-text">{{ serverErrors.email }}</div>
+            }
+          </div>
+
+          <div class="form-options">
+            <a href="#" (click)="toggleForgotPassword()" class="back-link">Back to Login</a>
+          </div>
+
+          <button type="submit" class="login-btn" [disabled]="isDisable">
+            <span *ngIf="!isLoading">SEND RESET LINK</span>
+            <span *ngIf="isLoading">Sending...</span>
+          </button>
+        </form>
+      </ng-template>
+
+      <!-- Footer -->
+      <div class="form-footer">
+        <p>Don't have an account? <a href="#" class="register-link">Register now</a></p>
       </div>
     </div>
   </div>

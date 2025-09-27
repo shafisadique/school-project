@@ -7,4 +7,4 @@ router.post('/mark', authMiddleware, attendanceController.markAttendance);
 router.get('/teacher/:teacherId', authMiddleware, attendanceController.getAttendanceByTeacher);
 router.get('/daily', authMiddleware, attendanceController.getDailyAttendance);
 
-module.exports = router;
+module.exports = router;    
