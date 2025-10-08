@@ -21,5 +21,9 @@ export const studentRoutes: Routes = [
   {
     path: 'student-promotion',
     loadComponent: () => import('./student-promotion/student-promotion.component').then((m) => m.StudentPromotionComponent)
+  },
+{
+    path: 'student-progress-reports-weekly',
+    loadComponent: () => import('./student-progress-report/student-progress-report.component').then((m) => m.StudentProgressReportComponent)
   }
 ];

@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const User = require('../../models/user');
 const nodemailer = require('nodemailer');
 const teacherSchema = require('../../models/teacher');
+const logger = require('winston');
 
 // Configure nodemailer transporter
 const transporter = nodemailer.createTransport({
@@ -69,24 +70,31 @@ const forgotPassword = async (req, res) => {
 };
 
 const resetPassword = async (req, res) => {
+  const { token, newPassword } = req.body;
+
   try {
-    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
 
     const user = await User.findOne({
       resetToken: token,
-      resetTokenExpires: { $gt: new Date() }
+      resetTokenExpires: { $gt: Date.now() }
     });
+
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired token' });
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
     }
 
     user.password = bcrypt.hashSync(newPassword, 10);
-    user.resetToken = undefined;
-    user.resetTokenExpires = undefined;
+    user.resetToken = null;
+    user.resetTokenExpires = null;
     await user.save();
 
+    logger.info(`Password reset for user ${user._id}`);
     res.status(200).json({ message: 'Password reset successfully' });
   } catch (err) {
+    logger.error('Password reset error:', err);
     res.status(500).json({ message: 'Error resetting password', error: err.message });
   }
 };

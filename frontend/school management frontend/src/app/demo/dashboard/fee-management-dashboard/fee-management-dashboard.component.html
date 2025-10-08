@@ -1,0 +1,174 @@
+<div class="row" style="margin-top: 10px; margin-bottom: 10px;">
+  <div class="col-12 col-md-3 col-lg-3">
+    <div class="custom-card">
+      <div class="card-content">
+        <div class="text-group">
+          <h2 style="color: #007BFF;">₹{{ summary.totalRemainingDue | number }}</h2>
+          <p style="color: #007BFF;">Total Remaining Due</p>
+        </div>
+        <div class="icon"><img src="https://img.icons8.com/ios-filled/50/007BFF/graduation-cap.png" alt="Due Icon" width="40"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-3 col-lg-3">
+    <div class="custom-card">
+      <div class="card-content">
+        <div class="text-group">
+          <h2 style="color: #007BFF;">₹{{ summary.totalPaid | number }}</h2>
+          <p style="color: #007BFF;">Total Paid</p>
+        </div>
+        <div class="icon"><img src="https://img.icons8.com/ios-filled/50/007BFF/conference-call.png" alt="Paid Icon" width="40"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-3 col-lg-3">
+    <div class="custom-card">
+      <div class="card-content">
+        <div class="text-group">
+          <h2 style="color: #007BFF;">{{ summary.overdueCount }}</h2>
+          <p style="color: #007BFF;">Overdue Invoices</p>
+        </div>
+        <div class="icon"><img src="https://img.icons8.com/?size=100&id=39952&format=png&color=007BFF" alt="Overdue Icon" width="40"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-md-3 col-lg-3">
+    <div class="custom-card">
+      <div class="card-content">
+        <div class="text-group">
+          <h2 style="color: #007BFF;">{{ summary.collectionRate }}%</h2>
+          <p style="color: #007BFF;">Collection Rate</p>
+        </div>
+        <div class="icon"><img src="https://img.icons8.com/?size=100&id=39952&format=png&color=007BFF" alt="Rate Icon" width="40"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-7 col-sm-12 col-lg-7">
+    <div class="card custom-table-card shadow-sm">
+      <div class="card-header bg-gradient text-white p-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Class-wise Fee Breakdown</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover custom-table align-middle table-bordered">
+          <thead class="table-light">
+            <tr>
+              <th (click)="sortTable('className')">Class</th>
+              <th (click)="sortTable('invoiceCount')">Invoices</th>
+              <th (click)="sortTable('totalAmount')">Total Amount (₹)</th>
+              <th (click)="sortTable('totalPaid')">Paid Amount (₹)</th>
+              <th (click)="sortTable('totalRemainingDue')">Remaining Due (₹)</th>
+              <th (click)="sortTable('overdueCount')">Overdue</th>
+              <th (click)="sortTable('collectionRate')">Collection Rate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngIf="breakdownByClass.length; else noBreakdownData">
+              <tr *ngFor="let classData of breakdownByClass | orderBy: sortColumn:sortDirection; trackBy: trackById">
+                <td>{{ classData.className || 'Unknown' }}</td>
+                <td>{{ classData.invoiceCount }}</td>
+                <td>₹{{ classData.totalAmount | number }}</td>
+                <td class="text-success fw-semibold">₹{{ classData.totalPaid | number }}</td>
+                <td>
+                  <span [ngClass]="classData.totalRemainingDue > 0 ? 'badge bg-danger' : 'badge bg-success'">
+                    ₹{{ classData.totalRemainingDue | number }}
+                  </span>
+                </td>
+                <td>{{ classData.overdueCount }}</td>
+                <td>
+                  <div class="progress" style="height: 18px;">
+                    <div class="progress-bar bg-success fw-semibold"
+                         [style.width]="classData.collectionRate + '%'"
+                         role="progressbar"
+                         [attr.aria-valuenow]="classData.collectionRate"
+                         aria-valuemin="0" aria-valuemax="100">
+                      {{ classData.collectionRate | number:'1.0-0' }}%
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
+            <ng-template #noBreakdownData>
+              <tr>
+                <td colspan="7" class="text-center text-muted py-4">No fee data available for the selected filters</td>
+              </tr>
+            </ng-template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h5 class="mb-3">Payment Method & Monthly Trend (Last 6 Months)</h5>
+      <div style="display: flex;">
+        <apx-chart
+          #paymentMethodChart
+          [series]="paymentMethodChartOptions?.series || [1]"
+          [chart]="paymentMethodChartOptions?.chart"
+          [labels]="paymentMethodChartOptions?.labels"
+          [colors]="paymentMethodChartOptions?.colors"
+          [legend]="paymentMethodChartOptions?.legend"
+          [responsive]="paymentMethodChartOptions?.responsive"
+          [fill]="paymentMethodChartOptions?.fill"
+          [dataLabels]="paymentMethodChartOptions?.dataLabels"
+          [plotOptions]="paymentMethodChartOptions?.plotOptions"
+        ></apx-chart>
+        <div *ngIf="!paymentMethods.length" class="text-center">No payment data available</div>
+        <apx-chart
+          #monthlyTrendChart
+          [series]="monthlyTrendChartOptions?.series || []"
+          [chart]="monthlyTrendChartOptions?.chart"
+          [xaxis]="monthlyTrendChartOptions?.xaxis"
+          [colors]="monthlyTrendChartOptions?.colors"
+          [legend]="monthlyTrendChartOptions?.legend"
+          [responsive]="monthlyTrendChartOptions?.responsive"
+          [stroke]="monthlyTrendChartOptions?.stroke"
+          [fill]="monthlyTrendChartOptions?.fill"
+          [markers]="monthlyTrendChartOptions?.markers"
+        ></apx-chart>
+        <div *ngIf="!monthlyTrend.length" class="text-center">No trend data available</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-5 col-sm-12">
+    <div class="card custom-table-card shadow-sm">
+      <div class="card-header bg-gradient text-white p-3">
+        <h5 class="mb-0">Top Defaulters</h5>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover custom-table align-middle">
+          <thead class="table-light">
+            <tr>
+              <th (click)="sortTable('studentName')">Student Name</th>
+              <th (click)="sortTable('admissionNo')">Admission No.</th>
+              <th (click)="sortTable('className')">Class</th>
+              <th (click)="sortTable('remainingDue')">Remaining Due (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngIf="topDefaulters.length; else noDefaultersData">
+              <tr *ngFor="let defaulter of topDefaulters | orderBy: sortColumn:sortDirection; trackBy: trackById">
+                <td>{{ defaulter.studentName || 'Unknown' }}</td>
+                <td>{{ defaulter.admissionNo }}</td>
+                <td>{{ defaulter.className || 'Unknown' }}</td>
+                <td class="text-danger fw-semibold">₹{{ defaulter.remainingDue | number }}</td>
+              </tr>
+            </ng-container>
+            <ng-template #noDefaultersData>
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">No defaulters found</td>
+              </tr>
+            </ng-template>
+          </tbody>
+        </table>
+      </div>
+      <div class="action-buttons">
+        <button class="custom-button primary" (click)="generateReceipts()">Generate Receipts</button>
+        <button class="custom-button warning" (click)="sendSMSReminders()">Send SMS Reminders</button>
+        <button class="custom-button info" (click)="exportData()">View Detailed Report</button>
+      </div>
+    </div>
+  </div>
+</div>

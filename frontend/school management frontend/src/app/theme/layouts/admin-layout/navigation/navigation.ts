@@ -106,7 +106,7 @@ export const NavigationItems: NavigationItem[] = [
         id: 'class-&-subject-management',
         title: 'Class & Subject',
         type: 'item',
-        url: '/class-&-subject-management',
+        url: '/class-&-subject-management/list',
         icon: 'user'
       },
       {

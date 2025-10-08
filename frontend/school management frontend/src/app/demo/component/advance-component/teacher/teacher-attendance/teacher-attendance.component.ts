@@ -180,7 +180,7 @@ export class TeacherAttendanceComponent implements OnInit {
     try {
       // Get current location before submitting
       const location = await this.getCurrentLocation();
-      
+      console.log(location)
       const payload = {
         teacherId: this.authService.getUserId(),
         schoolId: this.authService.getSchoolId(),

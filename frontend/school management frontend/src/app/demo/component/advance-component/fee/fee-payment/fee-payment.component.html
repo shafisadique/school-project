@@ -160,6 +160,26 @@
                       </small>
                     </div>
                   </div>
+                  <div class="col-md-6 col-12" *ngIf="paymentForm.get('method')?.value === 'Online'">
+                    <div class="form-group">
+                      <label>Transaction ID:</label>
+                      <input
+                        type="text"
+                        formControlName="transactionId"
+                        class="form-control form-control-sm shadow-sm"
+                        required
+                      />
+                      <small
+                        *ngIf="
+                          paymentForm.get('transactionId')?.touched &&
+                          paymentForm.get('transactionId')?.hasError('required')
+                        "
+                        class="error"
+                      >
+                        Transaction ID is required for online payments.
+                      </small>
+                    </div>
+                  </div>
                   <div class="col-md-6 col-12">
                     <div class="form-group">
                       <label>Payment Date:</label>
@@ -201,7 +221,7 @@
             <button *ngFor="let receipt of receipts" (click)="downloadReceipt(receipt._id)" class="btn btn-outline-primary me-2">
               Download Receipt {{ receipt.receiptNumber }}
             </button>
-            <button class="btn btn-secondary ms-2" (click)="router.navigate(['/fee/invoice-list'])">Back to Invoice List</button>
+            <button class="btn btn-secondary ms-2" (click)="router.navigate(['/fee/bulk-invoice-list'])">Back to Invoice List</button>
           </div>
         </div>
       </app-card>

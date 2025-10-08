@@ -8,6 +8,7 @@ import { GuestLayoutComponent } from './theme/layouts/guest-layout/guest-layout.
 import { AuthGuard } from './theme/shared/guard/auth.guard';
 import { PageNotFoundComponent } from './theme/shared/page-not-found/page-not-found.component';
 import { ReportsComponent } from './demo/component/advance-component/reports/reports/reports.component';
+import { ConfirmationComponent } from './demo/pages/authentication/auth-register/confirmation.component';
 
 export const routes: Routes = [
   {
@@ -87,6 +88,7 @@ export const routes: Routes = [
         canActivate: [AuthGuard],
         loadChildren: () => import('./demo/component/attendance/attendance.routing').then((c) => c.AttendanceRoute )
     },
+    { path: 'confirmation', component: ConfirmationComponent },
       {
         path: 'academic-year',
         canActivate:[AuthGuard],

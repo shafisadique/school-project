@@ -7,6 +7,7 @@ const Class = require('../../models/class');
 const School = require('../../models/school');
 const Teacher = require('../../models/teacher');
 const Holiday = require('../../models/holiday');
+const classSubjectAssignment = require('../../models/classSubjectAssignment');
 
 const markAttendance = async (req, res, next) => {
   try {
@@ -184,44 +185,69 @@ const getAttendanceHistory = async (req, res, next) => {
     const { academicYearId, startDate, endDate } = req.query;
     const schoolId = req.user.schoolId;
     const userId = req.user.id;
+    const userRole = req.user.role;
 
-    console.log('Query params:', { classId, academicYearId, startDate, endDate, schoolId });
+    console.log('Query params:', { classId, academicYearId, startDate, endDate, schoolId, userRole });
 
+    // Validate required parameters
     if (!classId || !academicYearId) {
       throw new APIError('Class ID and Academic Year ID are required', 400);
     }
 
-    if (req.user.role === 'teacher') {
-      const teacher = await Teacher.findOne({ userId }).select('_id');
-      if (!teacher) {
-        throw new APIError('Teacher profile not found', 404);
+    // Convert IDs to ObjectId with validation
+    const objectIdParams = { classId, academicYearId, schoolId };
+    Object.keys(objectIdParams).forEach(key => {
+      if (!mongoose.Types.ObjectId.isValid(objectIdParams[key])) {
+        throw new APIError(`${key} is not a valid ObjectId`, 400);
       }
+      objectIdParams[key] = new mongoose.Types.ObjectId(objectIdParams[key]);
+    });
+
+    let query = {
+      schoolId: objectIdParams.schoolId,
+      academicYearId: objectIdParams.academicYearId,
+    };
+
+    // Handle role-based access
+    if (userRole === 'teacher') {
+      const teacher = await Teacher.findOne({ userId }).select('_id');
+      if (!teacher) throw new APIError('Teacher profile not found', 404);
       const teacherId = teacher._id.toString();
-      const subjects = await Subject.find({
-        schoolId,
-        'teacherAssignments.teacherId': teacherId,
-        'teacherAssignments.academicYearId': academicYearId,
+
+      // Fetch classes where the teacher is assigned via ClassSubjectAssignment
+      const assignments = await classSubjectAssignment.find({
+        schoolId: objectIdParams.schoolId,
+        teacherId: teacherId,
+        academicYearId: objectIdParams.academicYearId,
       })
-        .populate('classes', '_id')
+        .select('classId')
         .lean();
-      const classIds = subjects.flatMap(subject => subject.classes.map(cls => cls._id.toString()));
-      console.log('Teacher class IDs:', classIds);
+
+      const classIds = assignments.map(assignment => assignment.classId.toString());
+      console.log('Teacher authorized class IDs:', classIds);
+
       if (!classIds.includes(classId)) {
         throw new APIError('You are not authorized to view attendance history for this class', 403);
       }
+      query.classId = objectIdParams.classId; // Restrict to the specific class
+    } else if (userRole === 'admin') {
+      // Admin can view all classes
+      if (classId) query.classId = objectIdParams.classId; // Optional class filter for admin
+    } else {
+      throw new APIError('Unauthorized role', 403);
     }
 
-    const query = {
-      schoolId: new mongoose.Types.ObjectId(schoolId),
-      classId: new mongoose.Types.ObjectId(classId),
-      academicYearId: new mongoose.Types.ObjectId(academicYearId),
-    };
-
+    // Handle date range
     if (startDate && endDate) {
       const istOffset = 5.5 * 60 * 60 * 1000;
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new APIError('Invalid startDate or endDate format', 400);
+      }
       query.date = {
-        $gte: new Date(new Date(startDate).getTime() + istOffset),
-        $lte: new Date(new Date(endDate).getTime() + istOffset)
+        $gte: new Date(start.getTime() + istOffset),
+        $lte: new Date(end.getTime() + istOffset + 86399999), // End of day
       };
     }
 
@@ -231,7 +257,7 @@ const getAttendanceHistory = async (req, res, next) => {
       .populate({
         path: 'students.studentId',
         select: 'name rollNo',
-        model: 'Student'
+        model: 'Student',
       })
       .populate('classId', 'name')
       .populate('subjectId', 'name')
@@ -242,7 +268,7 @@ const getAttendanceHistory = async (req, res, next) => {
     res.status(200).json(attendanceRecords);
   } catch (error) {
     console.error('Error in getAttendanceHistory:', error);
-    next(error);
+    next(error instanceof APIError ? error : new APIError('Internal server error', 500, error));
   }
 };
 

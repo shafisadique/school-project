@@ -1,10 +1,8 @@
 import { Component, OnInit, AfterViewInit, viewChild, inject, TemplateRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpClientModule } from '@angular/common/http';
 import { NgApexchartsModule, ChartComponent } from 'ng-apexcharts';
 import { FormsModule } from '@angular/forms';
-import { CardComponent } from 'src/app/theme/shared/components/card/card.component';
-import { IconService, IconDirective } from '@ant-design/icons-angular';
+import { IconService } from '@ant-design/icons-angular';
 import { FallOutline, GiftOutline, MessageOutline, RiseOutline, SettingOutline } from '@ant-design/icons-angular/icons';
 import { ApexOptions } from 'ng-apexcharts';
 import { DashboardService } from 'src/app/theme/shared/service/dashboard.service';
@@ -18,92 +16,108 @@ import { SalesReportChartComponent } from 'src/app/theme/shared/apexchart/sales-
 import tableData from 'src/fake-data/default-data.json';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { environment } from 'src/environments/environment';
-import {AnalyticEcommerce,MonthlyTrend,FeeDashboardData,TopDefaulter,Transaction,Class,PaymentMethod,ClassBreakdown,AcademicYear,StudentAttendanceData,TeacherDashboardData,FeeSummary} from './dashboard.model'
+import { AnalyticEcommerce, MonthlyTrend, FeeDashboardData, TopDefaulter, Transaction, Class, PaymentMethod, ClassBreakdown, AcademicYear, StudentAttendanceData, TeacherDashboardData, FeeSummary } from './dashboard.model';
+import { OrderByPipe } from "../../../theme/shared/interceptor/order.pipe";
 
 @Component({
   selector: 'app-default',
   standalone: true,
   imports: [
     CommonModule,
-    CardComponent,
-    IconDirective,
-    MonthlyBarChartComponent,
-    IncomeOverviewChartComponent,
-    AnalyticsChartComponent,
-    SalesReportChartComponent,
     NgApexchartsModule,
     FormsModule,
+    OrderByPipe
   ],
   templateUrl: './default.component.html',
   styleUrls: ['./default.component.scss']
 })
 export class DefaultComponent implements OnInit, AfterViewInit {
-   managementChartOptions: Partial<ApexOptions> = {
+  managementChart = viewChild<ChartComponent>('managementChart');
+  managementChartOptions: Partial<ApexOptions> = {
     chart: {
+      height: 295,
       type: 'area',
-      height: 300,
-      toolbar: { show: false }
+      toolbar: { show: false },
+      background: 'transparent',
+      foreColor: '#333'
     },
     stroke: {
       curve: 'smooth',
-      width: 3
+      width: 2
     },
     dataLabels: { enabled: false },
     markers: {
-      size: 6,
+      size: 4,
       colors: ['#fff'],
-      strokeWidth: 3,
-      strokeColors: ['#ff7043']
+      strokeWidth: 2,
+      strokeColors: ['#42a5f5', '#f2e41fff', '#ff7043']
     },
     series: [
       {
         name: 'Present',
-        data: [50, 45, 70, 55, 48, 42],
+        data: [],
         color: '#42a5f5'
       },
       {
         name: 'Late',
-        data: [30, 40, 50, 35, 45, 38],
+        data: [],
         color: '#f2e41fff'
       },
       {
         name: 'Absent',
-        data: [20, 25, 40, 28, 36, 30],
+        data: [],
         color: '#ff7043'
       }
     ],
     fill: {
-  type: "gradient",
-    gradient: {
-      shadeIntensity: 1,
-      type: "vertical",
-      opacityFrom: 0.6,
-      opacityTo: 0.09,
-      colorStops: [
-    { offset: 0, color: '#2C3E50', opacity: 0.6 },    // Start color
-    { offset: 100, color: '#3498DB', opacity: 0.6 }   // End color
-  ],
-  },
-},
-
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 0.8,
+        type: 'vertical',
+        opacityFrom: 0.7,
+        opacityTo: 0.2,
+        colorStops: [
+          { offset: 0, color: '#42a5f5', opacity: 0.7 },
+          { offset: 100, color: '#e0f7fa', opacity: 0.2 }
+        ]
+      }
+    },
     xaxis: {
-      categories: ['Week1', 'Week2', 'Week3', 'Week4', 'Week5', 'Week6'],
-      labels: { style: { colors: '#666' } },
-      axisBorder: { show: false },
+      categories: [],
+      labels: {
+        style: { colors: '#8c8c8c', fontFamily: 'Poppins, sans-serif' }
+      },
+      axisBorder: { show: true, color: '#e0e0e0' },
       axisTicks: { show: false }
     },
     yaxis: {
       min: 0,
-      max: 120,
-      tickAmount: 6,
-      labels: { style: { colors: '#666' } }
+      max: 1000,
+      tickAmount: 5,
+      labels: {
+        style: { colors: '#8c8c8c', fontFamily: 'Poppins, sans-serif' },
+        // formatter: (value) => Math.round(value / 10) * 10
+      }
     },
     grid: {
-      borderColor: '#eee',
-      strokeDashArray: 4
+      strokeDashArray: 4,
+      borderColor: '#e0e0e0'
     },
-    legend: { show: false }
+    theme: {
+      mode: 'light'
+    },
+    legend: {
+      show: true,
+      position: 'bottom',
+      horizontalAlign: 'center',
+      labels: { colors: '#333' }
+    },
+    tooltip: {
+      theme: 'light',
+      x: { show: true }
+    }
   };
+
   private iconService = inject(IconService);
   private dashboardService = inject(DashboardService);
   private academicYearService = inject(AcademicYearService);
@@ -140,6 +154,7 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   selectedClassId: string = '';
   studentChartOptions: Partial<ApexOptions> = {};
   studentChart = viewChild<ChartComponent>('studentChart');
+  selectedPeriod: string = 'weekly';
 
   teacherDashboardData: TeacherDashboardData = {};
   totalTeachers: number = 0;
@@ -161,43 +176,64 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   academicYears: AcademicYear[] = [];
   selectedMonth: string = '';
   selectedAcademicYearId: string = '';
-    selectedPaymentMethod: string = 'razorpay';
-    paymentProof: File | null = null;
-    bankDetails: any = null;
+  selectedPaymentMethod: string = 'razorpay';
+  paymentProof: File | null = null;
+  bankDetails: any = null;
   subscriptionId: string | null = null;
   paymentMethodChart = viewChild<ChartComponent>('paymentMethodChart');
   monthlyTrendChart = viewChild<ChartComponent>('monthlyTrendChart');
   paymentMethodChartOptions: Partial<ApexOptions> = {};
   monthlyTrendChartOptions: Partial<ApexOptions> = {};
   isViewInitialized: boolean = false;
+  totalStudent: number;
+  totalTeacher: number;
+  overallDue: number;
+  overallPaid: number;
+
+  // New property to check if user is admin
+  isAdmin: boolean = false;
 
   constructor() {
     this.iconService.addIcon(...[RiseOutline, FallOutline, SettingOutline, GiftOutline, MessageOutline]);
   }
 
   ngOnInit() {
-    const today = new Date();
-    this.selectedMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    this.fetchClassesAndAcademicYears();
-    this.fetchSubscription();
-    this.fetchDataBasedOnRole();
+    // Check user role immediately
+    this.isAdmin = this.authService.getUserRole() === 'admin';
+
+    if (this.isAdmin) {
+      const today = new Date();
+      this.selectedMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      this.fetchClassesAndAcademicYears();
+      this.fetchSubscription();
+      this.fetchDataBasedOnRole();
+    }
+    // Else: No API calls or data fetching
   }
+
   fetchDataBasedOnRole() {
     const role = this.authService.getUserRole();
-    if (role === 'teacher') {
-      this.fetchStudentAttendance(); // Only fetch student attendance for teachers
-    } else {
-      // Admin role: fetch all data
+    if (role === 'admin') {
       this.fetchStudentAttendance();
       this.fetchTeacherDashboard();
       this.fetchFeeDashboard();
+      this.fetchAllDashboardDetails();
     }
+    // Else: No data fetching
+  }
+
+  fetchAllDashboardDetails() {
+    this.dashboardService.getDashboardStats().subscribe(res => {
+      this.totalStudent = res?.totalActiveStudents;
+      this.totalTeacher = res?.totalActiveTeachers;
+      this.overallDue = res?.overallDue;
+      this.overallPaid = res.overallPaid;
+    });
   }
 
   fetchSubscription() {
     this.dashboardService.getSubscription().subscribe({
       next: (data: any) => {
-        console.log(data)
         this.subscriptionData = data;
         this.isExpiringSoon = data.isExpiringSoon;
         this.isExpired = data.subscriptionStatus === 'expired';
@@ -208,17 +244,17 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   }
 
   openUpgradeModal(template: TemplateRef<any>) {
-      this.selectedPaymentMethod = 'razorpay'; // Reset to default payment method
-      this.paymentProof = null; // Reset file
-      this.bankDetails = null; // Reset bank details
-      this.subscriptionId = null; // Reset subscription ID
-      this.modalService.open(template, {
-        centered: true,
-        size: 'lg',
-        windowClass: 'custom-modal',
-        backdrop: 'static'
-      });
-    }
+    this.selectedPaymentMethod = 'razorpay';
+    this.paymentProof = null;
+    this.bankDetails = null;
+    this.subscriptionId = null;
+    this.modalService.open(template, {
+      centered: true,
+      size: 'lg',
+      windowClass: 'custom-modal',
+      backdrop: 'static'
+    });
+  }
 
   onFileChange(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -236,9 +272,8 @@ export class DefaultComponent implements OnInit, AfterViewInit {
         if (this.selectedPaymentMethod === 'bank_transfer') {
           this.bankDetails = response.bankDetails;
           this.subscriptionId = response.subscriptionId;
-          return; // Wait for proof upload
+          return;
         }
-
         const { order } = response;
         const options = {
           key: environment.razorpayKey,
@@ -252,7 +287,7 @@ export class DefaultComponent implements OnInit, AfterViewInit {
           },
           theme: { color: '#4a90e2' },
           ...(this.selectedPaymentMethod === 'phonepe' && {
-            upi: { flow: 'intent', upi_intent: 'phonepe' } // PhonePe UPI intent
+            upi: { flow: 'intent', upi_intent: 'phonepe' }
           })
         };
         const rzp = new (window as any).Razorpay(options);
@@ -302,8 +337,10 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   }
 
   ngAfterViewInit() {
-    this.isViewInitialized = true;
-    setTimeout(() => this.updateCharts(), 100); // Increased delay for safety
+    if (this.isAdmin) {
+      this.isViewInitialized = true;
+      setTimeout(() => this.updateCharts(), 100);
+    }
   }
 
   fetchClassesAndAcademicYears() {
@@ -328,11 +365,9 @@ export class DefaultComponent implements OnInit, AfterViewInit {
       }
     });
 
-    // Fetch academic years
     this.academicYearService.getAllAcademicYears(schoolId).subscribe({
       next: (data: AcademicYear[]) => {
         this.academicYears = data || [];
-        console.log('Fetched academic years:', this.academicYears);
         if (!this.academicYears.length) {
           console.warn('No academic years found for schoolId:', schoolId);
           this.selectedAcademicYearId = '';
@@ -340,10 +375,9 @@ export class DefaultComponent implements OnInit, AfterViewInit {
           this.academicYearService.getActiveAcademicYear(schoolId).subscribe({
             next: (activeYear: AcademicYear) => {
               this.selectedAcademicYearId = activeYear?._id || this.academicYears[0]?._id || '';
-              console.log('Selected academic year ID:', this.selectedAcademicYearId);
               if (this.selectedAcademicYearId) {
                 this.fetchFeeDashboard();
-                this.fetchStudentAttendance(); // Ensure student attendance is fetched with academicYearId
+                this.fetchStudentAttendance();
               } else {
                 console.warn('No active academic year found for schoolId:', schoolId);
               }
@@ -363,21 +397,26 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   }
 
   fetchStudentAttendance(classId: string = '') {
-  const params = this.selectedAcademicYearId ? { classId, academicYearId: this.selectedAcademicYearId } : { classId };
-  if (this.authService.getUserRole() === 'admin')
-  this.dashboardService.getStudentAttendance(params).subscribe({
-    next: (data: StudentAttendanceData) => {
-      this.studentAttendanceData = data || {};
-      this.totalStudents = data.totalStudents || 0;
-      const attendance = classId ? data.classAttendance : data.overallAttendance;
-      this.studentPresent = attendance?.Present || 0;
-      this.studentAbsent = this.totalStudents - this.studentPresent;
-      this.prepareStudentChartData();
-      console.log('Fetched student attendance:', data);
-    },
-    error: (error) => console.error('Error fetching student attendance:', error)
-  });
-}
+    const params = {
+      classId,
+      academicYearId: this.selectedAcademicYearId,
+      period: this.selectedPeriod,
+      month: this.selectedMonth || undefined
+    };
+    this.dashboardService.getStudentAttendance(params).subscribe({
+      next: (data: StudentAttendanceData) => {
+        this.studentAttendanceData = data || {};
+        this.totalStudents = data.totalStudents || 0;
+        const attendance = data.attendance;
+        this.studentPresent = attendance?.Present.reduce((a, b) => a + b, 0) || 0;
+        this.studentAbsent = attendance?.Absent.reduce((a, b) => a + b, 0) || 0;
+        const totalLate = attendance?.Late.reduce((a, b) => a + b, 0) || 0;
+        this.updateManagementChartData(attendance.Present, attendance.Absent, attendance.Late, data.categories);
+        this.prepareStudentChartData();
+      },
+      error: (error) => console.error('Error fetching student attendance:', error)
+    });
+  }
 
   fetchTeacherDashboard() {
     this.dashboardService.getTeacherDashboard().subscribe({
@@ -398,92 +437,213 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   }
 
   fetchFeeDashboard() {
-  if (!this.selectedAcademicYearId) {
-    console.warn('No academic year selected, skipping fee dashboard fetch');
-    return;
+    if (!this.selectedAcademicYearId) {
+      console.warn('No academic year selected, skipping fee dashboard fetch');
+      return;
+    }
+    const params = {
+      month: this.selectedMonth,
+      classId: this.selectedClassId || undefined,
+      academicYearId: this.selectedAcademicYearId
+    };
+    this.dashboardService.getFeeDashboard(params).subscribe({
+      next: (data: FeeDashboardData) => {
+        this.summary = data.summary || { totalRemainingDue: 0, totalPaid: 0, overdueCount: 0, collectionRate: 0, invoiceCount: 0 };
+        this.breakdownByClass = data.breakdownByClass || [];
+        this.paymentMethods = data.paymentMethods || [];
+        this.topDefaulters = data.topDefaulters || [];
+        this.monthlyTrend = data.monthlyTrend || [];
+        this.prepareCharts();
+      },
+      error: (error) => console.error('Error fetching fee dashboard:', error)
+    });
   }
-  const params = {
-    month: this.selectedMonth,
-    classId: this.selectedClassId || undefined,
-    academicYearId: this.selectedAcademicYearId
-  };
-  console.log('Fetching fee dashboard with params:', params);
-  this.dashboardService.getFeeDashboard(params).subscribe({
-    next: (data: FeeDashboardData) => {
-      this.summary = data.summary || { totalRemainingDue: 0, totalPaid: 0, overdueCount: 0, collectionRate: 0, invoiceCount: 0 };
-      this.breakdownByClass = data.breakdownByClass || [];
-      this.paymentMethods = data.paymentMethods || [];
-      this.topDefaulters = data.topDefaulters || [];
-      this.monthlyTrend = data.monthlyTrend || [];
-      console.log('Fetched fee dashboard data:', data);
-      console.log('Filtered breakdownByClass:', this.breakdownByClass.filter(b => !this.selectedClassId || b.classId === this.selectedClassId));
-      this.prepareCharts();
-    },
-    error: (error) => console.error('Error fetching fee dashboard:', error)
-  });
-}
+
+  updateManagementChartData(present: number[], absent: number[], late: number[], categories: string[]) {
+    const maxLength = categories.length;
+    const paddedPresent = [...present, ...Array(maxLength - present.length).fill(0)].slice(0, maxLength);
+    const paddedAbsent = [...absent, ...Array(maxLength - absent.length).fill(0)].slice(0, maxLength);
+    const paddedLate = [...late, ...Array(maxLength - late.length).fill(0)].slice(0, maxLength);
+
+    this.managementChartOptions = {
+      ...this.managementChartOptions,
+      series: [
+        { name: 'Present', data: paddedPresent, color: '#42a5f5' },
+        { name: 'Late', data: paddedLate, color: '#f2e41fff' },
+        { name: 'Absent', data: paddedAbsent, color: '#ff7043' }
+      ],
+      xaxis: {
+        ...this.managementChartOptions.xaxis,
+        categories: categories
+      }
+    };
+
+    const allData = [...paddedPresent, ...paddedAbsent, ...paddedLate];
+    const maxValue = Math.max(...allData, 10); // Minimum 10 to avoid scaling issues
+    this.managementChartOptions.yaxis = {
+      ...this.managementChartOptions.yaxis,
+      max: Math.ceil(maxValue / 10) * 10 || 120 // Round up to nearest 10
+    };
+
+    if (this.isViewInitialized && this.managementChart()) {
+      try {
+        // Reset chart to clear previous state
+        this.managementChart()?.updateOptions({
+          series: [],
+          xaxis: { categories: [] }
+        }, false, true);
+      } catch (error) {
+        console.error('Error updating chart:', error);
+      }
+    }
+  }
+
+  onPeriodChange(period: string) {
+    this.selectedPeriod = period;
+    this.fetchStudentAttendance(this.selectedClassId);
+  }
+
+  sortColumn: string = '';
+  sortDirection: 'asc' | 'desc' = 'asc';
+
+  sortTable(column: string, dataSource: string) {
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    // Trigger change detection or re-render if needed
+    // Note: The | orderBy pipe will handle the sorting if implemented
+  }
 
   prepareCharts() {
+    // Payment Method Chart (Doughnut)
     this.paymentMethodChartOptions = {
       chart: { type: 'pie', height: 300, toolbar: { show: false } },
       series: this.paymentMethods.length ? this.paymentMethods.map(m => m.totalAmount) : [1],
       labels: this.paymentMethods.length ? this.paymentMethods.map(m => m.method || 'Unknown') : ['No Data'],
-      colors: ['#36A2EB', '#FF6384', '#FFCE56'],
-      legend: { position: 'bottom', labels: { colors: '#FFFFFF' } },
-      responsive: [{ breakpoint: 480, options: { chart: { height: 200 } } }]
+      colors: ['#007BFF', '#198754', '#dc3545'], // Dashboard-aligned colors
+      fill: {
+        type: 'gradient',
+        gradient: {
+          shade: 'light',
+          type: 'vertical',
+          opacityFrom: 0.8,
+          opacityTo: 0.4,
+          stops: [0, 100]
+        }
+      },
+      dataLabels: {
+        enabled: true,
+        formatter: (val) => `${val}%`,
+        style: { colors: ['#fff'], fontSize: '12px', fontFamily: 'Poppins, sans-serif' }
+      },
+      legend: {
+        position: 'bottom',
+        fontSize: '12px',
+        fontFamily: 'Poppins, sans-serif',
+        labels: { colors: '#333' }
+      },
+      plotOptions: {
+        pie: {
+          donut: {
+            size: '65%',
+            labels: {
+              show: true,
+              name: { show: false },
+              value: {
+                show: true,
+                fontSize: '20px',
+                fontFamily: 'Poppins, sans-serif',
+                color: '#333',
+                formatter: () => {
+                  const total = this.paymentMethods.reduce((sum, m) => sum + m.totalAmount, 0);
+                  return total ? `Total: ₹${total.toLocaleString()}` : 'No Data';
+                }
+              }
+            }
+          }
+        }
+      },
+      responsive: [{ breakpoint: 480, options: { chart: { height: 200 }, plotOptions: { pie: { donut: { size: '50%' } } } } }]
     };
 
+    // Monthly Trend Chart (Line with Enhancements)
     this.monthlyTrendChartOptions = {
       chart: {
         type: 'line',
         height: 250,
         toolbar: { show: false },
-        foreColor: '#FFFFFF',
+        foreColor: '#333'
       },
       series: [
-        { name: 'Paid', data: this.monthlyTrend.map(t => t.totalPaid || 0) },
-        { name: 'Remaining Due', data: this.monthlyTrend.map(t => t.totalRemainingDue || 0) }
+        { name: 'Paid', data: this.monthlyTrend.map(t => t.totalPaid || 0), color: '#007BFF' },
+        { name: 'Remaining Due', data: this.monthlyTrend.map(t => t.totalRemainingDue || 0), color: '#dc3545' }
       ],
+      stroke: {
+        curve: 'smooth',
+        width: 3,
+        colors: ['#007BFF', '#dc3545']
+      },
+      fill: {
+        type: 'gradient',
+        gradient: {
+          shade: 'light',
+          type: 'vertical',
+          shadeIntensity: 0.5,
+          gradientToColors: ['#a0afe8', '#f8d7da'], // Lighter gradients
+          opacityFrom: 0.7,
+          opacityTo: 0.3,
+          stops: [0, 100]
+        }
+      },
+      markers: {
+        size: 5,
+        colors: ['#007BFF', '#dc3545'],
+        strokeWidth: 2,
+        strokeColors: '#fff',
+        hover: { size: 7 }
+      },
       xaxis: {
         categories: this.monthlyTrend.map(t => t.month || 'Unknown'),
         labels: {
           style: {
-            colors: ['#FFFFFF'],
+            colors: '#666',
             fontSize: '12px',
-            fontFamily: 'Poppins, sans-serif',
+            fontFamily: 'Poppins, sans-serif'
           }
-        }
+        },
+        axisBorder: { show: true, color: '#e0e0e0' },
+        axisTicks: { show: false }
       },
       yaxis: {
         labels: {
           style: {
-            colors: ['blue'],
+            colors: '#666',
             fontSize: '12px',
-            fontFamily: 'Poppins, sans-serif',
-          }
+            fontFamily: 'Poppins, sans-serif'
+          },
+          formatter: (value) => `₹${value.toLocaleString()}` // Currency formatting
         }
-      },
-      colors: ['#36A2EB', '#FF6384'],
-      legend: {
-        position: 'bottom',
-        labels: {
-          colors: '#FFFFFF',
-        }
-      },
-      tooltip: {
-        theme: 'dark'
       },
       grid: {
-        borderColor: '#4A6FA5'
+        borderColor: '#e0e0e0',
+        strokeDashArray: 4
       },
-      responsive: [
-        {
-          breakpoint: 480,
-          options: {
-            chart: { height: 200 }
-          }
+      legend: {
+        position: 'bottom',
+        fontSize: '12px',
+        fontFamily: 'Poppins, sans-serif',
+        labels: { colors: '#333' }
+      },
+      tooltip: {
+        theme: 'light',
+        y: {
+          formatter: (value) => `₹${value.toLocaleString()}`
         }
-      ]
+      },
+      responsive: [{ breakpoint: 480, options: { chart: { height: 200 } } }]
     };
 
     if (this.isViewInitialized) {
@@ -496,18 +656,15 @@ export class DefaultComponent implements OnInit, AfterViewInit {
     this.studentChartOptions = {
       chart: { type: 'pie', height: 220, toolbar: { show: false } },
       labels: ['Present', 'Absent', 'Late'],
-      series: attendance ? [attendance.Present || 0, this.studentAbsent || 0, attendance.Late || 0] : [0, 0, 0],
+      series: attendance ? [attendance.Present || 0, attendance.Absent || 0, attendance.Late || 0] : [0, 0, 0],
       colors: ['#36A2EB', '#FF6384', '#FFCE56'],
       legend: { position: 'bottom', fontSize: '12px', fontFamily: 'Helvetica, Arial, sans-serif', labels: { colors: '#FFFFFF' } },
       responsive: [{ breakpoint: 480, options: { chart: { width: 150 }, legend: { position: 'bottom' } } }]
     };
     if (this.isViewInitialized) {
       setTimeout(() => {
-        if (this.studentChart()) {
-          this.studentChart()?.updateOptions(this.studentChartOptions, true);
-        } else {
-          console.warn('Student chart component not initialized');
-        }
+        if (this.studentChart()) this.studentChart()?.updateOptions(this.studentChartOptions, true);
+        else console.warn('Student chart component not initialized');
       }, 100);
     }
   }
@@ -523,69 +680,48 @@ export class DefaultComponent implements OnInit, AfterViewInit {
     };
     if (this.isViewInitialized) {
       setTimeout(() => {
-        if (this.teacherChart()) {
-          this.teacherChart()?.updateOptions(this.teacherChartOptions, true);
-        } else {
-          console.warn('Teacher chart component not initialized');
-        }
+        if (this.teacherChart()) this.teacherChart()?.updateOptions(this.teacherChartOptions, true);
+        else console.warn('Teacher chart component not initialized');
       }, 100);
     }
   }
 
   updateCharts() {
-    if (this.studentChart() && this.studentChartOptions.series) {
-      this.studentChart()?.updateOptions(this.studentChartOptions, true);
-    } else {
-      console.warn('Student chart not updated: component or options missing');
-    }
-    if (this.teacherChart() && this.teacherChartOptions.series) {
-      this.teacherChart()?.updateOptions(this.teacherChartOptions, true);
-    } else {
-      console.warn('Teacher chart not updated: component or options missing');
-    }
-    if (this.paymentMethodChart() && this.paymentMethodChartOptions.series) {
-      this.paymentMethodChart()?.updateOptions(this.paymentMethodChartOptions, true);
-    } else {
-      console.warn('Payment method chart not updated: component or options missing');
-    }
-    if (this.monthlyTrendChart() && this.monthlyTrendChartOptions.series) {
-      this.monthlyTrendChart()?.updateOptions(this.monthlyTrendChartOptions, true);
-    } else {
-      console.warn('Monthly trend chart not updated: component or options missing');
-    }
+    if (this.studentChart() && this.studentChartOptions.series) this.studentChart()?.updateOptions(this.studentChartOptions, true);
+    else console.warn('Student chart not updated: component or options missing');
+    if (this.teacherChart() && this.teacherChartOptions.series) this.teacherChart()?.updateOptions(this.teacherChartOptions, true);
+    else console.warn('Teacher chart not updated: component or options missing');
+    if (this.paymentMethodChart() && this.paymentMethodChartOptions.series) this.paymentMethodChart()?.updateOptions(this.paymentMethodChartOptions, true);
+    else console.warn('Payment method chart not updated: component or options missing');
+    if (this.monthlyTrendChart() && this.monthlyTrendChartOptions.series) this.monthlyTrendChart()?.updateOptions(this.monthlyTrendChartOptions, true);
+    else console.warn('Monthly trend chart not updated: component or options missing');
   }
 
   onClassChange(event: Event) {
     const target = event.target as HTMLSelectElement;
     this.selectedClassId = target.value;
-    console.log('Selected classId:', this.selectedClassId);
     this.fetchStudentAttendance(this.selectedClassId);
     this.fetchFeeDashboard();
   }
 
   onFilterChange() {
-    console.log('Filter changed:', { month: this.selectedMonth, classId: this.selectedClassId, academicYearId: this.selectedAcademicYearId });
     this.fetchFeeDashboard();
   }
 
   generateReceipts() {
     console.log('Generate receipts for', this.selectedClassId, this.selectedMonth);
-    // Implement endpoint call to generateClassReceipts
   }
 
   sendSMSReminders() {
     console.log('Send SMS reminders for defaulters');
-    // Implement endpoint call for SMS
   }
 
   exportData() {
     console.log('Export data as CSV/PDF');
-    // Implement export logic
   }
 
   createAcademicYear() {
     console.log('Navigate to create academic year page or trigger API call');
-    // Placeholder: Implement navigation or API call to create academic year
   }
 
   getMonthsForYear(): { value: string; label: string }[] {

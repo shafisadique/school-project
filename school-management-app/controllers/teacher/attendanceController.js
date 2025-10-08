@@ -57,7 +57,7 @@ exports.markAttendance = async (req, res, next) => {
       if (holiday && status !== 'Holiday') {
         throw new APIError('Cannot mark attendance on a holiday unless status is Holiday', 400);
       }
-
+      console.log('kecking scholool latet', lat, lng, school.latitude, school.longitude)
       // GPS Validation: Check if within school premises
       const distance = calculateDistance(lat, lng, school.latitude, school.longitude);
       if (distance > school.radius) {

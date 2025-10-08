@@ -41,6 +41,9 @@ deleteStudents(studentIds: string[]): Observable<any> {
   searchStudents(schoolId: string, query: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/students/search/${query}`);
   }
+  studentProgressReport(data:any):Observable<any>{
+    return this.http.post(`${this.apiUrl}/api/notifications/submit-progress-report`,data)
+  }
 
   getStudentsByClass(classId: string, academicYearId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/students/get-student-by-class/${classId}`, {

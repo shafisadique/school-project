@@ -476,7 +476,7 @@ exports.getFeeCollectionReport = async (req, res) => {
       matchStage.studentId = { $in: students.map(s => s._id) };
     }
 
-    const invoices = await FeeInvoice.aggregate([
+    const invoices = await feeInvoice.aggregate([
       { $match: matchStage },
       {
         $lookup: {
@@ -674,7 +674,6 @@ exports.generateClassReceipts = async (req, res) => {
 
 exports.getFeeCollectionDetailsReport = async (req, res) => {
   try {
-    console.log('Image path:', path.join(__dirname, 'incoce.jpg'));
     const { startDate, endDate, classId, section, method } = req.query;
     const schoolId = req.user.schoolId;
 
@@ -764,7 +763,7 @@ exports.getFeeCollectionDetailsReport = async (req, res) => {
       { $sort: { date: -1 } }
     ];
 
-    const transactions = await FeeInvoice.aggregate(aggregation);
+    const transactions = await feeInvoice.aggregate(aggregation);
     
     // Calculate summary
     const summary = {

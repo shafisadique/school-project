@@ -7,6 +7,31 @@ const Holiday = require('../../models/holiday');
 const School = require('../../models/school');
 const APIError = require('../../utils/apiError');
 
+
+const getAllTeacherDashboard = async (user) => {
+  try {
+    const { schoolId, activeAcademicYear: academicYearId } = user;
+    if (!mongoose.Types.ObjectId.isValid(schoolId) || !mongoose.Types.ObjectId.isValid(academicYearId)) {
+      throw new APIError('Invalid school ID or academic year ID', 400);
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+
+    // Total active teachers
+    const totalActiveTeachers = await Teacher.countDocuments({
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      academicYearId: new mongoose.Types.ObjectId(academicYearId),
+      status: true
+    });
+
+    return { totalActiveTeachers };
+  } catch (error) {
+    throw error; // Propagate error to be caught by the route
+  }
+};
+
 const getTeacherDashboard = async (req, res, next) => {
   try {
     const { schoolId, activeAcademicYear: academicYearId } = req.user;
@@ -162,4 +187,4 @@ const getTeacherDashboard = async (req, res, next) => {
   }
 };
 
-module.exports = { getTeacherDashboard };
+module.exports = { getTeacherDashboard ,getAllTeacherDashboard};

@@ -77,6 +77,10 @@ export class ClassSubjectService {
     return this.http.post(`${this.apiUrl}/api/class-subject-management/classes`, classData);
   }
 
+  deleteAssignment(data: { classId: string, subjectId: string, academicYearId: string }) {
+    return this.http.delete(`${this.apiUrl}/api/class-subject-management/assign-subject`, { body: data });
+  }
+
   createSubject(subjectData: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/class-subject-management/subject`, subjectData);
   }

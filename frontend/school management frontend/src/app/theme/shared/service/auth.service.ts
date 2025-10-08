@@ -57,14 +57,8 @@ export class AuthService {
     );
   }
 
-  resetPassword(data: { token: string; newPassword: string }): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/user/reset-password`, data).pipe(
-      map(() => {
-        this.toastr.success('Password reset successfully');
-        return true;
-      }),
-      catchError(this.handleError)
-    );
+  resetPassword(data: { token: string, newPassword: string, confirmPassword: string }) {
+    return this.http.post('/api/user/reset-password', data);
   }
   
   getTeacherId(): string | null {

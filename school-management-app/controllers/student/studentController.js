@@ -14,7 +14,8 @@ const subscriptionSchema = require('../../models/subscription');
 const crypto = require('crypto');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { toR2Key } = require('../../utils/image');
-const path = require('path')
+const path = require('path');
+const classSubjectAssignment = require('../../models/classSubjectAssignment');
 
 // Configure multer for file uploads
 // const storage = multer.memoryStorage({
@@ -126,6 +127,7 @@ const getStudentsByClass = async (req, res, next) => {
   try {
     const { classId } = req.params;
     const { academicYearId } = req.query;
+
     // Validate classId
     if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
       throw new APIError('Valid Class ID is required', 400);
@@ -133,6 +135,7 @@ const getStudentsByClass = async (req, res, next) => {
     if (!req.user || !req.user.id) {
       throw new APIError('Authentication required', 401);
     }
+
     // Validate academicYearId if provided
     let academicYearFilter;
     if (academicYearId) {
@@ -163,14 +166,22 @@ const getStudentsByClass = async (req, res, next) => {
       }
       const teacherId = teacher._id;
 
-      const subjects = await Subject.find({
+      // Check if the teacher is assigned to the class via ClassSubjectAssignment
+      const assignment = await classSubjectAssignment.findOne({
         schoolId: req.user.schoolId,
-        'teacherAssignments.teacherId': teacherId,
-        'teacherAssignments.academicYearId': academicYearFilter,
-      }).populate('classes');
+        classId: new mongoose.Types.ObjectId(classId),
+        teacherId: teacherId,
+        academicYearId: academicYearFilter,
+      });
 
-      const classIds = subjects.flatMap(subject => subject.classes.map(cls => cls._id.toString()));
-      if (!classIds.includes(classId)) {
+      // Check if the teacher is the primary or substitute attendance teacher
+      const isAttendanceTeacher = classExists.attendanceTeacher && classExists.attendanceTeacher.toString() === teacherId.toString();
+      const isSubstituteTeacher = classExists.substituteAttendanceTeachers.some(
+        (subTeacherId) => subTeacherId.toString() === teacherId.toString()
+      );
+
+      // If the teacher is neither assigned to the class nor an attendance teacher
+      if (!assignment && !isAttendanceTeacher && !isSubstituteTeacher) {
         throw new APIError('You are not authorized to view students in this class', 403);
       }
     }
@@ -180,7 +191,7 @@ const getStudentsByClass = async (req, res, next) => {
       schoolId: new mongoose.Types.ObjectId(req.user.schoolId),
       classId: new mongoose.Types.ObjectId(classId),
       academicYearId: academicYearFilter,
-      status: true // Only fetch active students
+      status: true, // Only fetch active students
     };
 
     // Use the pagination helper
@@ -197,7 +208,7 @@ const getStudentsByClass = async (req, res, next) => {
       total: result.total,
       page: result.page,
       limit: result.limit,
-      totalPages: result.totalPages
+      totalPages: result.totalPages,
     });
   } catch (error) {
     console.log('Error in getStudentsByClass:', error.message);

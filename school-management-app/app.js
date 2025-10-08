@@ -130,11 +130,11 @@ const transporatationRoute = require('./routes/routeRouter');
 const teacherAttendanceRoutes = require('./routes/teacherAttendanceRouters');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const authMiddleware = require('./middleware/authMiddleware');
-const studentDashboard = require('./routes/admin-dashboard/dashboard.routes');
+const adminDashboard = require('./routes/admin-dashboard/dashboard.routes');
 const { isAdmin } = require('./middleware/roleMiddleware');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const reportsRouters = require('./routes/reportsRoutes');
-
+const parentRoutes = require('./routes/parentRoutes')
 // Add upload endpoint with enhanced debugging
 app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   try {
@@ -192,9 +192,11 @@ app.use('/api/exams', authMiddleware, exam);
 app.use('/api/subscriptions', authMiddleware, subscriptionRoutes);
 app.use('/api/results', authMiddleware,resultRoutes);
 app.use('/api/routes',authMiddleware, transporatationRoute);
-app.use('/api/admin', authMiddleware,studentDashboard);
+app.use('/api/admin', authMiddleware,adminDashboard);
 app.use('/api/assignments', authMiddleware, assignmentRoutes);
 app.use('/api/reports',reportsRouters );
+app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/parent', parentRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

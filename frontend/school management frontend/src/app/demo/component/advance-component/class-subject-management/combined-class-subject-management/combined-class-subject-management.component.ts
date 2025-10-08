@@ -314,14 +314,13 @@
 //   }
 // }
 
-
-import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ClassSubjectService } from '../class-subject.service';
 import { AcademicYearService } from '../../academic-year/academic-year.service';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-combined-class-subject-management',
@@ -341,8 +340,9 @@ export class CombinedClassSubjectManagementComponent implements OnInit, OnDestro
   schoolId: string = '';
   selectedAcademicYearId: string = '';
   loading: boolean = false;
-  isEditing: boolean = false; // Flag for edit mode
-  editingAssignmentId: string | null = null; // Track the assignment being edited
+  isEditing: boolean = false;
+  editingAssignmentId: string | null = null;
+  originalSubjectId: string | null = null;
 
   private destroy$ = new Subject<void>();
 
@@ -399,7 +399,6 @@ export class CombinedClassSubjectManagementComponent implements OnInit, OnDestro
     this.destroy$.complete();
   }
 
-  // Simplified data loading
   loadData() {
     this.loadClasses();
     this.loadSubjects();
@@ -462,7 +461,10 @@ export class CombinedClassSubjectManagementComponent implements OnInit, OnDestro
     }
     this.loading = true;
     this.classSubjectService.getCombinedAssignments(this.schoolId, this.selectedAcademicYearId).subscribe({
-      next: (data) => { this.assignments = data; this.loading = false;console.log(this.assignments) },
+      next: (data) => { 
+        this.assignments = data; 
+        this.loading = false;
+      },
       error: (err) => { this.toastr.error(err.error?.message || 'Error fetching assignments', 'Error'); this.loading = false; }
     });
   }
@@ -480,7 +482,6 @@ export class CombinedClassSubjectManagementComponent implements OnInit, OnDestro
     }
   }
 
-  // Handle both add and update
   submitAssignment() {
     if (this.assignForm.invalid) {
       this.toastr.error('Please fill all required fields', 'Error');
@@ -491,20 +492,47 @@ export class CombinedClassSubjectManagementComponent implements OnInit, OnDestro
     const formData = this.assignForm.value;
 
     if (this.isEditing) {
-      // Update existing assignment
-      this.classSubjectService.updateAssignment(formData).subscribe({
-        next: () => {
-          this.toastr.success('Assignment updated successfully', 'Success');
-          this.resetForm();
-          this.loadAssignments();
-        },
-        error: (err) => {
-          this.toastr.error(err.error?.message || 'Failed to update assignment', 'Error');
-          this.loading = false;
-        }
-      });
+      if (formData.subjectId !== this.originalSubjectId) {
+        // Subject change: Delete old and create new
+        this.classSubjectService.deleteAssignment({
+          classId: formData.classId,
+          subjectId: this.originalSubjectId,
+          academicYearId: formData.academicYearId
+        }).subscribe({
+          next: () => {
+            this.classSubjectService.assignSubjectToClass(formData.classId, formData.subjectId, formData.teacherId, formData.academicYearId).subscribe({
+              next: () => {
+                this.toastr.success('Assignment updated (subject changed)', 'Success');
+                this.resetForm();
+                this.loadAssignments();
+              },
+              error: (err) => { this.toastr.error(err.error?.message || 'Failed to update', 'Error'); this.loading = false; }
+            });
+          },
+          error: (err) => { this.toastr.error(err.error?.message || 'Failed to delete old assignment', 'Error'); this.loading = false; }
+        });
+      } else {
+        // Only teacher change
+        this.classSubjectService.updateAssignment(formData).subscribe({
+          next: () => {
+            this.toastr.success('Assignment updated successfully', 'Success');
+            this.resetForm();
+            this.loadAssignments();
+          },
+          error: (err) => {
+            this.toastr.error(err.error?.message || 'Failed to update assignment', 'Error');
+            this.loading = false;
+          }
+        });
+      }
     } else {
-      // Add new assignment
+      // Check for duplicates client-side (optional, backend enforces)
+      const existing = this.assignments.find(a => a.classId === formData.classId && a.subjectId === formData.subjectId && a.academicYearId === formData.academicYearId);
+      if (existing) {
+        this.toastr.error('This subject is already assigned to this class for this year. Edit the existing one.', 'Duplicate Detected');
+        this.loading = false;
+        return;
+      }
       this.classSubjectService.assignSubjectToClass(formData.classId, formData.subjectId, formData.teacherId, formData.academicYearId).subscribe({
         next: () => {
           this.toastr.success('Subject assigned successfully', 'Success');
@@ -519,10 +547,10 @@ export class CombinedClassSubjectManagementComponent implements OnInit, OnDestro
     }
   }
 
-  // Start editing
   editAssignment(assignment: any) {
     this.isEditing = true;
-    this.editingAssignmentId = assignment._id; // Use the assignment _id
+    this.editingAssignmentId = assignment._id;
+    this.originalSubjectId = assignment.subjectId;
     this.assignForm.patchValue({
       classId: assignment.classId,
       subjectId: assignment.subjectId,
@@ -531,15 +559,32 @@ export class CombinedClassSubjectManagementComponent implements OnInit, OnDestro
     });
   }
 
-  // Cancel editing
+  deleteAssignment(assignment: any) {
+    if (confirm('Are you sure you want to delete this assignment?')) {
+      this.classSubjectService.deleteAssignment({
+        classId: assignment.classId,
+        subjectId: assignment.subjectId,
+        academicYearId: this.selectedAcademicYearId
+      }).subscribe({
+        next: () => {
+          this.toastr.success('Assignment deleted successfully', 'Success');
+          this.loadAssignments();
+        },
+        error: (err) => {
+          this.toastr.error(err.error?.message || 'Failed to delete assignment', 'Error');
+        }
+      });
+    }
+  }
+
   cancelEdit() {
     this.resetForm();
   }
 
-  // Reset form to add mode
   resetForm() {
     this.isEditing = false;
     this.editingAssignmentId = null;
+    this.originalSubjectId = null;
     this.assignForm.reset({
       academicYearId: this.selectedAcademicYearId,
     });

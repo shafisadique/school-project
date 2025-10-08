@@ -15,6 +15,10 @@ export class DashboardService {
   getSubscription(): Observable<any> {
     return this.http.get(`${this.baseUrl}/current`, { withCredentials: true });
   }
+  
+  getDashboardStats(): Observable<any> {
+  return this.http.get(`${this.apiUrl}/stats`, { withCredentials: true });
+  }
 
   upgradeSubscription(data: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/upgrade`, data, { withCredentials: true });
@@ -35,16 +39,15 @@ export class DashboardService {
   }
 
 
-  getStudentAttendance(params: { classId?: string; academicYearId?: string }): Observable<any> {
+  getStudentAttendance(params: { classId?: string; academicYearId?: string; period?: string; month?: string }): Observable<any> {
     let url = `${this.apiUrl}/student-attendance`;
-    let queryParams = new HttpParams();
-    if (params.classId) {
-      queryParams = queryParams.set('classId', params.classId);
-    }
-    if (params.academicYearId) {
-      queryParams = queryParams.set('academicYearId', params.academicYearId);
-    }
-    return this.http.get(url, { params: queryParams, withCredentials: true });
+    let queryParams = new HttpParams()
+      .set('classId', params.classId || '')
+      .set('academicYearId', params.academicYearId || '')
+      .set('period', params.period || 'weekly') // Default to 'weekly' if not provided
+      .set('month', params.month || ''); // Optional, only set if provided
+
+    return this.http.get<any>(url, { params: queryParams, withCredentials: true });
   }
 
   getTeacherDashboard(): Observable<any> {

@@ -6,6 +6,41 @@ const AcademicYear = require('../../models/academicyear');
 const Class = require('../../models/class'); // Added missing import
 const APIError = require('../../utils/apiError');
 
+const getAllFeeDashboard = async (user) => {
+  try {
+    const { schoolId, activeAcademicYear: defaultAcademicYearId } = user;
+    const { academicYearId = defaultAcademicYearId } = {}; // Use default if no query params
+
+    if (!mongoose.Types.ObjectId.isValid(schoolId) || !mongoose.Types.ObjectId.isValid(academicYearId)) {
+      throw new APIError('Invalid school ID or academic year ID', 400);
+    }
+
+    const today = moment.tz('Asia/Kolkata');
+    const currentMonth = today.format('YYYY-MM');
+
+    const baseMatch = {
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      academicYear: new mongoose.Types.ObjectId(academicYearId),
+      month: currentMonth
+    };
+
+    const summaryAgg = await FeeInvoice.aggregate([
+      { $match: baseMatch },
+      {
+        $group: {
+          _id: null,
+          overallDue: { $sum: '$remainingDue' },
+          overallPaid: { $sum: '$paidAmount' }
+        }
+      }
+    ]);
+
+    const feeStats = summaryAgg[0] || { overallDue: 0, overallPaid: 0 };
+    return feeStats;
+  } catch (error) {
+    throw error;
+  }
+};
 const getFeeDashboard = async (req, res, next) => {
   try {
     const { schoolId, activeAcademicYear: defaultAcademicYearId } = req.user;
@@ -260,4 +295,4 @@ const getFeeDashboard = async (req, res, next) => {
   }
 };
 
-module.exports = { getFeeDashboard };
+module.exports = { getFeeDashboard,getAllFeeDashboard };

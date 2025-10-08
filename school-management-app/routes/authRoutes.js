@@ -4,6 +4,8 @@ const login = require('../controllers/auth/login');
 const registerTeacher = require('../controllers/auth/register/teacherRegister');
 const registerStudent = require('../controllers/auth/register/studentRegister');
 const { registerSchool, getSchoolById } = require('../controllers/auth/register/schoolRegistration');
+
+
 const { approveSchoolRequest,requestSchool, updateSubscription } =require('../controllers/school/schoolController');
 const { changePassword, forgotPassword, resetPassword, getProfile, updateProfile, getUsers, updateUser } = require('../controllers/user/user');
 const validateRequest = require('../middleware/validateRequest');
@@ -41,19 +43,28 @@ const paymentLimiter = rateLimiter({
   ]), approveSchoolRequest);
 
 // ✅ Register School (No Auth Required)
-  router.post('/register-school',authMiddleware,isSuperAdmin, validateRequest([
+router.post(
+  '/register-school',
+  authMiddleware,
+  isSuperAdmin,
+  validateRequest([
     body('schoolName').notEmpty().withMessage('School name is required'),
     body('adminName').notEmpty().withMessage('Admin name is required'),
     body('username').notEmpty().withMessage('Username is required'),
     body('email').isEmail().withMessage('Valid email is required'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     body('mobileNo').notEmpty().matches(/^\+?[1-9]\d{9,14}$/).withMessage('Valid mobile number is required'),
+    body('preferredChannel').isIn(['sms', 'whatsapp', 'both']).withMessage('Valid preferred channel is required'),
+    body('whatsappOptIn').isBoolean().withMessage('WhatsApp opt-in must be a boolean'),
     body('address.street').notEmpty().withMessage('Street is required'),
     body('address.city').notEmpty().withMessage('City is required'),
     body('address.state').notEmpty().withMessage('State is required'),
     body('address.country').notEmpty().withMessage('Country is required'),
-    body('address.postalCode').notEmpty().withMessage('Postal code is required')
-  ]), registerSchool);
+    body('address.postalCode').notEmpty().withMessage('Postal code is required'),
+    body('latitude').isFloat().withMessage('Valid latitude is required'),
+    body('longitude').isFloat().withMessage('Valid longitude is required')
+  ]),
+  registerSchool
+);
 
   router.post('/payment/create-order', isSuperAdmin, validateRequest([
     body('schoolId').notEmpty().withMessage('School ID is required'),
@@ -109,17 +120,16 @@ router.patch('/user/change-password', authMiddleware, validateRequest([
     body('email').isEmail().withMessage('Valid email is required')
   ]), forgotPassword);
 
-// ✅ Reset Password (Public)
-  router.post('/user/reset-password', validateRequest([
-    body('token').notEmpty().withMessage('Reset token is required'),
-    body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
-    body('confirmPassword').custom((value, { req }) => {
-      if (value !== req.body.newPassword) {
-        throw new Error('Passwords do not match');
-      }
-      return true;
-    })
-  ]), resetPassword);
+router.post('/user/reset-password', validateRequest([
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+  body('confirmPassword').custom((value, { req }) => {
+    if (value !== req.body.newPassword) {
+      throw new Error('Passwords do not match');
+    }
+    return true;
+  })
+]), resetPassword);
 
 // ✅ Get Profile (Protected)
   router.get('/user/profile', authMiddleware, getProfile);
@@ -143,7 +153,6 @@ router.post('/subscription/update', authMiddleware, isSuperAdmin, validateReques
   body('planType').isIn(['trial', 'basic', 'premium']).withMessage('Invalid plan type'),
   body('expiresAt').optional().isISO8601().withMessage('Invalid date format')
 ]), updateSubscription);
-
 
 
 module.exports = router;

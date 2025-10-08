@@ -21,15 +21,11 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
   step = signal(1);
   formData = signal<any>({});
   isSubmitting = signal(false);
-  showPassword = false;
-  showConfirmPassword = false;
   addressError: string | null = null;
 
   schoolForm: FormGroup;
-  passwordForm: FormGroup;
   addressForm: FormGroup;
 
-  // Map properties
   center: google.maps.LatLngLiteral = { lat: 28.6139, lng: 77.2090 }; // Default to New Delhi
   zoom = 12;
   markerPosition: google.maps.LatLngLiteral | null = null;
@@ -46,13 +42,10 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
       adminName: ['', Validators.required],
       username: ['', [Validators.required, Validators.minLength(4)]],
       email: ['', [Validators.required, Validators.email]],
-      mobileNo: ['', [Validators.required, Validators.pattern('^\\+?[1-9]\\d{9,14}$')]]
+      mobileNo: ['', [Validators.required, Validators.pattern('^\\+?[1-9]\\d{9,14}$')]],
+      preferredChannel: ['sms', Validators.required],
+      whatsappOptIn: [false]
     });
-
-    this.passwordForm = this.fb.group({
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', Validators.required]
-    }, { validators: this.passwordMatchValidator });
 
     this.addressForm = this.fb.group({
       street: ['', Validators.required],
@@ -67,12 +60,6 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {}
 
-  passwordMatchValidator(form: FormGroup) {
-    const password = form.get('password')?.value;
-    const confirmPassword = form.get('confirmPassword')?.value;
-    return password === confirmPassword ? null : { mismatch: true };
-  }
-
   nextStep() {
     if (this.step() === 1) {
       this.schoolForm.markAllAsTouched();
@@ -81,19 +68,13 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
         this.step.set(2);
       }
     } else if (this.step() === 2) {
-      this.passwordForm.markAllAsTouched();
-      if (this.passwordForm.valid) {
-        this.formData.set({ ...this.formData(), ...this.passwordForm.value });
-        this.step.set(3);
-      }
-    } else if (this.step() === 3) {
       this.addressForm.markAllAsTouched();
       if (this.addressForm.valid && !this.isSubmitting()) {
-        this.formData.set({ 
-          ...this.formData(), 
-          address: this.addressForm.value, 
-          latitude: this.addressForm.value.latitude, 
-          longitude: this.addressForm.value.longitude 
+        this.formData.set({
+          ...this.formData(),
+          address: this.addressForm.value,
+          latitude: this.addressForm.value.latitude,
+          longitude: this.addressForm.value.longitude
         });
         this.submitForm();
       }
@@ -106,59 +87,61 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
     }
   }
 
-submitForm() {
-  if (this.isSubmitting()) return;
-  this.isSubmitting.set(true);
+  submitForm() {
+    if (this.isSubmitting()) return;
+    this.isSubmitting.set(true);
 
-  const { confirmPassword, ...cleanData } = this.formData();
-  
-  // Restructure data to match backend expectations
-  const finalData = {
-    schoolName: cleanData.schoolName,
-    adminName: cleanData.adminName,
-    username: cleanData.username,
-    email: cleanData.email,
-    password: cleanData.password,
-    mobileNo: cleanData.mobileNo,
-    // Address object WITHOUT lat/lng
-    address: {
-      street: cleanData.address?.street || '',
-      city: cleanData.address?.city || '',
-      state: cleanData.address?.state || '',
-      country: cleanData.address?.country || '',
-      postalCode: cleanData.address?.postalCode || ''
-    },
-    // Latitude and longitude as TOP-LEVEL fields (what backend expects)
-    latitude: cleanData.address?.latitude || cleanData.latitude,
-    longitude: cleanData.address?.longitude || cleanData.longitude,
-    activeAcademicYear: 'someAcademicYearId',
-    createdBy: 'currentUserId'
-  };
+    const finalData = {
+      schoolName: this.formData().schoolName,
+      adminName: this.formData().adminName,
+      username: this.formData().username,
+      email: this.formData().email,
+      mobileNo: this.formData().mobileNo,
+      preferredChannel: this.formData().preferredChannel,
+      whatsappOptIn: this.formData().whatsappOptIn,
+      address: {
+        street: this.formData().address?.street || '',
+        city: this.formData().address?.city || '',
+        state: this.formData().address?.state || '',
+        country: this.formData().address?.country || '',
+        postalCode: this.formData().address?.postalCode || ''
+      },
+      latitude: this.formData().address?.latitude || this.formData().latitude,
+      longitude: this.formData().address?.longitude || this.formData().longitude
+    };
 
-  // Log the final payload for debugging
-  console.log('Sending to backend:', finalData);
+    console.log('Sending to backend:', finalData);
 
-  this.authService.registerSchool(finalData).subscribe({
-    next: (res: any) => {
-      this.toastr.success('Registration Successful! Redirecting...', 'Success');
-      setTimeout(() => {
-        this.router.navigate(['/auth/login']);
+    this.authService.registerSchool(finalData).subscribe({
+      next: (res: any) => {
+        this.toastr.success(
+          `Welcome to ${res.data.schoolName}! Your school has been registered. Check your email (${finalData.email}) and ${finalData.preferredChannel === 'sms' ? 'SMS' : finalData.preferredChannel === 'whatsapp' ? 'WhatsApp' : 'SMS/WhatsApp'} (${finalData.mobileNo}) for a link to set your password.`,
+          'Registration Successful',
+          { timeOut: 5000 }
+        );
+        setTimeout(() => {
+          this.router.navigate(['/confirmation'], {
+            queryParams: {
+              schoolName: finalData.schoolName,
+              email: finalData.email,
+              mobileNo: finalData.mobileNo,
+              preferredChannel: finalData.preferredChannel
+            }
+          });
+          this.isSubmitting.set(false);
+        }, 2000);
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Registration Failed', 'Error');
+        console.error('Registration Failed', err);
         this.isSubmitting.set(false);
-      }, 2000);
-    },
-    error: (err) => {
-      this.toastr.error(err.error?.message || 'Registration Failed', 'Error');
-      console.error('Registration Failed', err);
-      this.isSubmitting.set(false);
-    }
-  });
-}
+      }
+    });
+  }
 
   get f() { return this.schoolForm.controls; }
-  get p() { return this.passwordForm.controls; }
   get a() { return this.addressForm.controls; }
 
-  // Handle map click to get lat/lng
   onMapClick(event: google.maps.MapMouseEvent): void {
     if (!event.latLng) {
       this.addressError = 'Invalid click position.';
@@ -168,23 +151,17 @@ submitForm() {
     const lat = event.latLng.lat();
     const lng = event.latLng.lng();
 
-    // Update form
     this.addressForm.patchValue({
       latitude: lat,
       longitude: lng
     });
 
-    // Update marker position
     this.markerPosition = { lat, lng };
-
-    // Optional: Reverse geocode to get address details
     this.reverseGeocode(lat, lng);
-
     this.addressError = null;
     this.toastr.success(`Location set: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, 'Success');
   }
 
-  // Reverse geocode to fill address fields (optional)
   private reverseGeocode(lat: number, lng: number): void {
     if (!window.google || !window.google.maps) return;
 

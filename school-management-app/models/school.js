@@ -54,6 +54,7 @@ const schoolSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  preferredChannel: { type: String, enum: ['sms', 'whatsapp', 'both'], default: 'sms' }, 
   weeklyHolidayDay: {
     type: String,
     enum: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
