@@ -16,6 +16,7 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { toR2Key } = require('../../utils/image');
 const path = require('path');
 const classSubjectAssignment = require('../../models/classSubjectAssignment');
+const bcrypt = require('bcryptjs');
 
 // Configure multer for file uploads
 // const storage = multer.memoryStorage({
@@ -1027,22 +1028,13 @@ const promoteStudents = async (req, res, next) => {
   }
 };
 
+  
+
 const createStudentPortal = async (req, res) => {
   try {
     // Check if the logged-in user is an admin
     if (!req.user || req.user.role !== 'admin') {
       throw new APIError('Only admins can create portals', 403);
-    }
-
-    // Check if the admin's school has an active subscription
-    const currentDate = new Date();
-    const subscription = await subscriptionSchema.findOne({
-      schoolId: req.user.schoolId,
-      status: 'active'
-    }).select('expiresAt status');
-
-    if (!subscription || new Date(subscription.expiresAt) < currentDate) {
-      throw new APIError('Admin subscription has expired or is not active. Cannot create portals.', 403);
     }
 
     const { studentId, role } = req.body; // role: 'student' or 'parent'
@@ -1054,55 +1046,40 @@ const createStudentPortal = async (req, res) => {
       throw new APIError('Student not found or does not belong to your school', 404);
     }
 
-    // Convert studentId to ObjectId for proper comparison
     const studentObjectId = new mongoose.Types.ObjectId(studentId);
 
-    // Check if portal already exists for this student and role
-    let query;
+    // Check for existing portal
+    let query = {};
     if (role === 'student') {
-      query = { 
-        schoolId, 
-        role, 
-        'additionalInfo.studentId': studentObjectId 
-      };
+      query = { schoolId, role, 'additionalInfo.studentId': studentObjectId };
     } else if (role === 'parent') {
-      query = { 
-        schoolId, 
-        role, 
-        'additionalInfo.parentOfStudentId': studentObjectId 
-      };
+      query = { schoolId, role, 'additionalInfo.parentOfStudentId': studentObjectId };
+    } else {
+      throw new APIError('Invalid role. Use "student" or "parent"', 400);
     }
 
     const existingUser = await User.findOne(query);
-
     if (existingUser) {
-      const decryptedPassword = decryptPassword(existingUser.password);
+      const decryptedPassword = decryptPassword(existingUser.password) || '112233'; // Default fallback
       return res.status(400).json({
         message: `${role} portal already exists for this student`,
-        credentials: {
-          username: existingUser.username,
-          password: decryptedPassword || '112233' // Default if decryption fails
-        }
+        credentials: { username: existingUser.username, password: decryptedPassword }
       });
     }
 
-    // Generate username
+    // Generate unique username
     let baseUsername = `${student.admissionNo}-${role}`;
     let username = baseUsername;
     let suffix = 0;
-    
-    // Ensure username is unique within the school
     while (await User.findOne({ username, schoolId })) {
       suffix++;
       username = `${baseUsername}-${suffix}`;
     }
 
     // Set name based on role
-    const name = role === 'student' ? 
-      student.name : 
-      (student.parents.fatherName || student.parents.motherName || 'Parent');
+    const name = role === 'student' ? student.name : (student.parents.fatherName || student.parents.motherName || 'Parent');
 
-    // Generate random 8-character password
+    // Generate random password
     const generateRandomPassword = (length = 8) => {
       const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let password = '';
@@ -1113,39 +1090,31 @@ const createStudentPortal = async (req, res) => {
     };
 
     const plainPassword = generateRandomPassword(8);
-    const encryptedPassword = encryptPassword(plainPassword);
+    const encryptedPassword = encryptPassword(plainPassword); // Use AES encryption
 
-    // Create a unique email using school ID and username
+    // Generate email
     const email = `${username}@school-${schoolId.toString().substring(0, 8)}.edu`;
 
-    // Create User with schoolId from admin
+    // Create new user
     const newUser = new User({
       username,
-      password: encryptedPassword,
+      password: encryptedPassword, // Store AES-encrypted password
       role,
       name,
       email,
       schoolId,
       status: true,
-      additionalInfo: role === 'student' ? 
-        { studentId: studentObjectId } : 
-        { parentOfStudentId: studentObjectId }
+      additionalInfo: role === 'student' ? { studentId: studentObjectId } : { parentOfStudentId: studentObjectId }
     });
 
     await newUser.save();
 
-    // Return credentials to admin
     res.status(201).json({
       message: `${role} portal created successfully`,
-      credentials: {
-        username,
-        password: plainPassword
-      }
+      credentials: { username, password: plainPassword }
     });
   } catch (error) {
     console.error('Error creating portal:', error);
-    
-    // Handle duplicate key error (username or email)
     if (error.code === 11000) {
       const field = Object.keys(error.keyValue)[0];
       return res.status(400).json({
@@ -1153,14 +1122,9 @@ const createStudentPortal = async (req, res) => {
         error: `The ${field} '${error.keyValue[field]}' is already in use`
       });
     }
-    
-    res.status(error.statusCode || 500).json({ 
-      message: 'Error creating portal', 
-      error: error.message 
-    });
+    res.status(error.statusCode || 500).json({ message: 'Error creating portal', error: error.message });
   }
 };
-
 // Export all functions, including getStudentsByClass
 module.exports = {
   createStudent,

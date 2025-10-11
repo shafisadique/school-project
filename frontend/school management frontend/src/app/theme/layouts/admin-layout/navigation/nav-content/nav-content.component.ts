@@ -178,6 +178,13 @@ export class NavContentComponent implements OnInit {
               url: '/attendance', // Adjust to match your route
               icon: 'user'
             },
+             {
+              id: 'attendance-details',
+              title: 'Student Weekly Report',
+              type: 'item',
+              url: '/student/student-progress-reports-weekly', // Adjust to match your route
+              icon: 'user'
+            },
           ]
         },
         //  {

@@ -6,12 +6,12 @@ const notificationSchema = new mongoose.Schema({
   senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type: {
     type: String,
-    enum: ['welcome', 'progress-report', 'absence', 'fee-alert', 'general'], // ✅ Include 'welcome'
+    enum: ['welcome', 'progress-report', 'absence', 'fee-alert', 'general'],
     required: true
   },
   title: { type: String, required: true },
   message: { type: String, required: true },
-  recipientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  recipientId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false }, // Made optional
   data: { type: mongoose.Schema.Types.Mixed, default: {} },
   status: { type: String, enum: ['pending', 'sent', 'delivered', 'failed'], default: 'pending' },
   createdAt: { type: Date, default: Date.now }

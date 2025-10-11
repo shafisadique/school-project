@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const User = require('../../models/user');
 const Teacher = require('../../models/teacher');
 const AcademicYear = require('../../models/academicyear');
+const { decryptPassword } = require('../../utils/cryptoUtils');
+
 
 const login = async (req, res) => {
   const { username, email, password } = req.body;
@@ -11,15 +13,37 @@ const login = async (req, res) => {
     if ((!username && !email) || !password) {
       return res.status(400).json({ message: 'Username/Email and password are required' });
     }
- 
-    const user = await User.findOne({
-      $or: [{ username }]
-    });
+
+    const query = {
+      $or: [
+        { username: username || '' },
+        { email: email || '' }
+      ]
+    };
+    const user = await User.findOne(query);
     if (!user) {
       return res.status(401).json({ message: 'Invalid username/email or password' });
     }
-    console.log(password,user.password)
-    const isPasswordValid = bcrypt.compareSync(password, user.password);
+
+    let isPasswordValid = false;
+
+    // Handle password validation based on role
+    if (['admin', 'teacher', 'superadmin'].includes(user.role)) {
+      // Hashed password for admin/teacher/superadmin
+      console.log('Comparing hashed password for role:', user.role);
+      isPasswordValid = bcrypt.compareSync(password, user.password);
+    } else if (['parent', 'student'].includes(user.role)) {
+      // Encrypted password for parent/student
+      console.log('Decrypting password for role:', user.role);
+      const decryptedStoredPassword = decryptPassword(user.password);
+      if (decryptedStoredPassword === null) {
+        return res.status(500).json({ message: 'Error decrypting password' });
+      }
+      isPasswordValid = password === decryptedStoredPassword;
+    } else {
+      // Unknown role - fail safely
+      return res.status(400).json({ message: 'Invalid user role' });
+    }
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Invalid username/email or password' });

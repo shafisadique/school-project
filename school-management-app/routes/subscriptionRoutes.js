@@ -62,7 +62,7 @@ const subscriptionPlans = {
       duration: 30,
       features: [
         "Unlimited students & staff",
-        "Advanced analytics",
+        "Advanced analytics", 
         "Phone & email support",
         "Custom reports",
         "5 admin accounts",

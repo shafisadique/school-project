@@ -95,7 +95,6 @@
                   </button>
                   <div ngbDropdownMenu>
                     <button ngbDropdownItem (click)="openStudentDetails(student, studentDetailsModal)">Student Details</button>
-                    <!-- <button ngbDropdownItem (click)="onUpdateStudent(student._id)">Update</button> -->
                     <button ngbDropdownItem (click)="createPortal(student._id, 'student')">Student Portal</button>
                     <button ngbDropdownItem (click)="createPortal(student._id, 'parent')">Parent Portal</button>
                   </div>
@@ -174,6 +173,10 @@
         <h6>Student Portal Details</h6>
         <p><b>UserName</b> {{ selectedStudent?.portalUsername || '-' }}</p>
         <p><b>Password</b> {{ selectedStudent?.portalPassword || '-' }}</p>
+
+         <h6>Parent Portal Details</h6>
+        <p><b>UserName</b> {{ selectedStudent?.parentPortalUsername || '-' }}</p>
+        <p><b>Password</b> {{ selectedStudent?.parentPortalPassword || '-' }}</p>
       </div>
     </ng-template>
   </div>

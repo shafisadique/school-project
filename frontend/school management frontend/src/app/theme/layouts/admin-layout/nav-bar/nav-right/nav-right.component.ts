@@ -27,11 +27,29 @@ import { NgScrollbarModule } from 'ngx-scrollbar';
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
 import { DashboardService } from 'src/app/theme/shared/service/dashboard.service';
 import { environment } from 'src/environments/environment';
+import { HttpClient } from '@angular/common/http';
+import { ToastrService } from 'ngx-toastr';
 
+interface Notification {
+  _id: string;
+  title: string;
+  message: string;
+  type: string;
+  studentId: { _id: string; name: string; admissionNo: string };
+  senderId: { _id: string; name: string };
+  data: { reportId: string };
+  status: string;
+  createdAt: string;
+}
+
+interface StudentProgress {
+  studentId: string;
+  progress: string;
+}
 @Component({
   selector: 'app-nav-right',
   standalone: true,
-  imports: [IconDirective, FormsModule, RouterModule, NgScrollbarModule, NgbNavModule, NgbDropdownModule, CommonModule],
+  imports: [IconDirective,RouterModule, FormsModule, RouterModule, NgScrollbarModule, NgbNavModule, NgbDropdownModule, CommonModule],
   templateUrl: './nav-right.component.html',
   styleUrls: ['./nav-right.component.scss'],
 })
@@ -41,13 +59,17 @@ export class NavRightComponent {
   private dashboardService = inject(DashboardService);
   public modalService = inject(NgbModal);
   private router = inject(Router);
-
+  private http = inject(HttpClient);
+  private toastr = inject(ToastrService);
+  studentProgress: StudentProgress[] = [];
   styleSelectorToggle = input<boolean>();
   Customize = output();
   windowWidth: number;
   screenFull: boolean = true;
   username: string = '';
   role: string = '';
+  notifications: Notification[] = []; // Store fetched notifications
+  notificationCount: number = 0; // Count of unread notifications (for badge)
 
   isExpiringSoon: boolean = false;
   isExpired: boolean = false;
@@ -86,6 +108,9 @@ export class NavRightComponent {
     this.authService.getProfile().subscribe((profile) => {
       this.username = profile.data.name || 'Unknown Name';
       this.role = profile.data.role || 'Not Available';
+      if (this.role === 'parent') {
+        this.loadNotifications(); // Fetch notifications only for parents
+      }
     });
     this.fetchPlans();
   }
@@ -113,7 +138,6 @@ export class NavRightComponent {
           });
         }
         this.plans = normalizedPlans;
-        console.log('Plans:', this.plans);
       },
       error: (error) => console.error('Error fetching plans:', error),
     });
@@ -184,7 +208,7 @@ export class NavRightComponent {
           }
 
           const options = {
-            key: environment.razorpayKey, // Use environment variable for key
+            key: environment.razorpayKey,
             amount: order.amount,
             currency: order.currency,
             name: 'School Management',
@@ -260,7 +284,6 @@ export class NavRightComponent {
         this.isExpiringSoon = data.daysRemaining !== undefined && data.daysRemaining <= 7 && data.subscriptionStatus === 'active';
         this.isExpired = data.subscriptionStatus === 'expired';
         this.isPending = data.subscriptionStatus === 'pending';
-        console.log('Subscription Data:', this.subscriptionData);
       },
       error: (error) => console.error('Error fetching subscription:', error),
     });
@@ -275,6 +298,60 @@ export class NavRightComponent {
       },
     });
   }
+// New method for teacher to submit progress reports
+  submitProgressReport() {
+    if (this.role !== 'teacher') return;
+
+    // Simple example: Hardcoded for now, replace with a form in UI
+    this.studentProgress = [
+      { studentId: '68bc52d38d80a74ea113d391', progress: 'Excellent' }, // Aayat
+      { studentId: 'anotherStudentId1', progress: 'Good' },      // Rahul
+      { studentId: 'anotherStudentId2', progress: 'Needs improvement' } // Sneha
+    ];
+
+    this.http.post(`${environment.apiUrl}/notifications/submit-progress-report`, { studentProgress: this.studentProgress }).subscribe({
+      next: (response) => {
+        this.toastr.success('Progress reports saved');
+        this.studentProgress = []; // Clear form
+        console.log('Response:', response);
+      },
+      error: (err) => {
+        this.toastr.error('Failed to save progress report: ' + err.message);
+        console.error('Error:', err);
+      }
+    });
+  }
+
+  loadNotifications() {
+    if (this.role !== 'parent') return;
+
+    this.http.get<any>(`${environment.apiUrl}/api/notifications/parent`).subscribe({
+      next: (data) => {
+        console.log(data.notifications)
+        this.notifications = data.notifications.filter(n => n.type === 'progress-report');
+        this.notificationCount = this.notifications.filter(n => n.status !== 'delivered').length;
+      },
+      error: (err) => {
+        this.toastr.error('Failed to load notifications: ' + (err.error?.error || err.message), 'Error');
+      }
+    });
+  }
+
+  markNotificationAsRead(notificationId: string) {
+    this.http.patch(`${environment.apiUrl}/api/notifications/${notificationId}/read`, {}).subscribe({
+      next: () => {
+        const notification = this.notifications.find(n => n._id === notificationId);
+        if (notification) {
+          notification.status = 'delivered';
+          this.notificationCount = this.notifications.filter(n => n.status !== 'delivered').length;
+        }
+      },
+      error: (err) => {
+        this.toastr.error('Failed to mark notification as read: ' + (err.error?.error || err.message), 'Error');
+      }
+    });
+  }
+
 
   profile = [
     { icon: 'anti', title: 'Academic Year', link: '/academic-year/details' },

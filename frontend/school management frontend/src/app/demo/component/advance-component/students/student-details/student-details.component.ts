@@ -27,6 +27,8 @@ interface Student {
   rollNo: string;
   portalUsername: string;
   portalPassword: string;
+  parentPortalPassword:string;
+  parentPortalUsername:string;
   parents: parentsDetails;
   selected?: boolean; // Added for selection tracking
 }
@@ -342,17 +344,34 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     });
   }
 
-  createPortal(studentId: string, role: 'student' | 'parent') {
-    // Assume admin role is checked by backend
+ createPortal(studentId: string, role: 'student' | 'parent') {
+    if (role === 'parent' && localStorage.getItem('role') !== 'admin') {
+      this.toastr.error('Only admins can create parent portals.', 'Error');
+      return;
+    }
+
     this.studentService.createPortal(studentId, role).subscribe({
       next: (res) => {
         this.toastr.success(`${res.message}`, 'Success');
-        // Optionally, show a modal with credentials for admin to print/share
+        if (role === 'parent' && res.parent) {
+          // Optionally open a modal to show credentials
+          this.showPortalCredentials(res.parent);
+        }
       },
       error: (err) => {
         this.toastr.error(err.error.message || 'Error creating portal', 'Error');
       }
     });
+  }
+  showPortalCredentials(parent: any) {
+    const modalRef = this.modalService.open(NgbModal, { size: 'sm', backdrop: 'static' });
+    modalRef.componentInstance.title = 'Parent Portal Credentials';
+    modalRef.componentInstance.body = `
+      <p><strong>Username:</strong> ${parent.username}</p>
+      <p><strong>Password:</strong> ${parent.password || 'Set by parent on first login'}</p>
+      <p>Please share these with the parent securely.</p>
+    `;
+    modalRef.componentInstance.okButton = 'Close';
   }
 
   onSearch(): void {

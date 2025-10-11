@@ -196,7 +196,7 @@ app.use('/api/admin', authMiddleware,adminDashboard);
 app.use('/api/assignments', authMiddleware, assignmentRoutes);
 app.use('/api/reports',reportsRouters );
 app.use('/api/notifications', require('./routes/notificationRoutes'));
-app.use('/api/parent', parentRoutes);
+// app.use('/api/parent', parentRoutes);
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

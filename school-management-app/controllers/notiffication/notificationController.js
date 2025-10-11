@@ -3,7 +3,7 @@ const { sendSMS } = require('../../services/smsService'); // Your existing SMS
 const notificationService = require('../../services/notificationService'); // New service for email/push
 const Joi = require('joi');
 const logger = require('winston'); // Logging
-
+const APIError = require('../../utils/apiError'); // Import APIError
 // Validation schema
 const createNotificationSchema = Joi.object({
   type: Joi.string().valid('progress-report', 'absence', 'fee-alert', 'general').required(),
@@ -41,15 +41,39 @@ exports.sendNotification = async (req, res) => {
 exports.getNotifications = async (req, res) => {
   const { page = 1, limit = 10, type } = req.query;
   const skip = (page - 1) * limit;
-  const filter = { recipientId: req.params.recipientId || req.user._id, schoolId: req.user.schoolId };
-  if (type) filter.type = type;
+  const filter = { schoolId: req.user.schoolId };
 
   try {
+    // Check if user is a parent
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.role === 'parent') {
+      // For parents, filter by their linked studentId
+      const studentId = user.additionalInfo?.parentOfStudentId;
+      if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+        return res.status(200).json({ notifications: [], total: 0, page, pages: 0 });
+      }
+      filter.studentId = studentId;
+      filter.recipientId = req.user._id; // Ensure notifications are for the parent
+    } else {
+      // For other roles, filter by recipientId or senderId
+      filter.$or = [
+        { recipientId: req.user._id },
+        { senderId: req.user._id }
+      ];
+    }
+
+    if (type) filter.type = type;
+
     const notifications = await Notification.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
-      .populate('studentId', 'name'); // User-friendly: Add student name
+      .populate('studentId', 'name admissionNo')
+      .populate('senderId', 'name');
 
     const total = await Notification.countDocuments(filter);
     res.status(200).json({ notifications, total, page, pages: Math.ceil(total / limit) });

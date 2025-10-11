@@ -1,8 +1,7 @@
-<!-- src/app/student-progress-report/student-progress-report.component.html -->
 <div class="container mt-4">
   <div class="card shadow">
     <div class="card-header bg-primary text-white">
-      <h5 class="mb-0">Send Weekly Progress Report</h5>
+      <h5 class="mb-0">Submit Weekly Progress Reports</h5>
     </div>
     <div class="card-body">
       <form [formGroup]="reportForm" (ngSubmit)="onSubmit()">
@@ -15,39 +14,36 @@
           <div *ngIf="reportForm.get('classId')?.invalid && reportForm.get('classId')?.touched" class="invalid-feedback">Class is required</div>
         </div>
 
-        <div class="mb-3">
-          <label for="studentId" class="form-label">Select Student</label>
-          <select id="studentId" formControlName="studentId" class="form-select" (change)="onStudentChange($event)" [ngClass]="{ 'is-invalid': reportForm.get('studentId')?.invalid && reportForm.get('studentId')?.touched }">
-            <option value="">Choose a student...</option>
-            <option *ngFor="let student of students" [value]="student._id">{{ student.name }}</option>
-          </select>
-          <div *ngIf="reportForm.get('studentId')?.invalid && reportForm.get('studentId')?.touched" class="invalid-feedback">Student is required</div>
+        <div *ngIf="students.length > 0" class="table-responsive">
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th>Student Name</th>
+                <th>Admission No</th>
+                <th>Grades</th>
+                <th>Comments</th>
+              </tr>
+            </thead>
+            <tbody formArrayName="studentProgress">
+              <tr *ngFor="let student of students; let i = index" [formGroupName]="i">
+                <td>{{ student.name }}</td>
+                <td>{{ student.admissionNo }}</td>
+                <td>
+                  <input type="text" class="form-control" formControlName="grades" placeholder="e.g., Math: A, Science: B" [ngClass]="{ 'is-invalid': studentProgress.controls[i].get('grades')?.invalid && studentProgress.controls[i].get('grades')?.touched }">
+                  <div *ngIf="studentProgress.controls[i].get('grades')?.invalid && studentProgress.controls[i].get('grades')?.touched" class="invalid-feedback">Valid grades are required (e.g., Math: A)</div>
+                </td>
+                <td>
+                  <textarea class="form-control" formControlName="comments" rows="2" placeholder="Enter comments" [ngClass]="{ 'is-invalid': studentProgress.controls[i].get('comments')?.invalid && studentProgress.controls[i].get('comments')?.touched }"></textarea>
+                  <div *ngIf="studentProgress.controls[i].get('comments')?.invalid && studentProgress.controls[i].get('comments')?.touched" class="invalid-feedback">Comments are required (max 160 characters)</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <div class="mb-3">
-          <label for="message" class="form-label">Message</label>
-          <textarea id="message" formControlName="message" class="form-control" rows="4" [ngClass]="{ 'is-invalid': reportForm.get('message')?.invalid && reportForm.get('message')?.touched }"></textarea>
-          <div *ngIf="reportForm.get('message')?.invalid && reportForm.get('message')?.touched" class="invalid-feedback">Message is required</div>
-        </div>
-
-        <div class="mb-3">
-          <label for="grades" class="form-label">Grades (e.g., Math: A)</label>
-          <input id="grades" formControlName="grades" class="form-control">
-        </div>
-
-        <div class="mb-3">
-          <label for="attendance" class="form-label">Attendance (e.g., 95%)</label>
-          <input id="attendance" formControlName="attendance" class="form-control">
-        </div>
-
-        <div class="mb-3">
-          <label for="comments" class="form-label">Additional Comments</label>
-          <textarea id="comments" formControlName="comments" class="form-control" rows="2"></textarea>
-        </div>
-
-        <button type="submit" class="btn btn-primary w-100" [disabled]="reportForm.invalid || loading || !selectedStudent">
+        <button type="submit" class="btn btn-primary w-100 mt-3" [disabled]="reportForm.invalid || loading || students.length === 0">
           <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
-          {{ loading ? 'Sending...' : 'Send Report' }}
+          {{ loading ? 'Saving...' : 'Save All Reports' }}
         </button>
       </form>
     </div>

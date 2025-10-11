@@ -1,9 +1,7 @@
-// src/app/student-progress-report/student-progress-report.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule } from '@angular/forms';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ToastrService } from 'ngx-toastr'; // Ensure ngx-toastr is installed and configured
+import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { ToastrService } from 'ngx-toastr';
 import { Router } from '@angular/router';
 import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
 import { StudentService } from '../student.service';
@@ -11,13 +9,12 @@ import { StudentService } from '../student.service';
 interface Student {
   _id: string;
   name: string;
-  parentId: string; // Assuming fetched or populated
+  admissionNo: string;
 }
 
 interface Assignment {
   classId: { _id: string; name: string };
   subjectId: { _id: string; name: string };
-  // Other fields as per your Assignment interface
 }
 
 @Component({
@@ -30,7 +27,6 @@ interface Assignment {
 export class StudentProgressReportComponent implements OnInit {
   reportForm: FormGroup;
   students: Student[] = [];
-  selectedStudent: Student | null = null;
   loading: boolean = false;
   assignments: Assignment[] = [];
   classList: { _id: string; name: string }[] = [];
@@ -44,16 +40,16 @@ export class StudentProgressReportComponent implements OnInit {
     private classSubjectService: ClassSubjectService,
     private toastr: ToastrService,
     private router: Router,
-    private studentService: StudentService // Fixed typo from studenProgressService
+    private studentService: StudentService
   ) {
     this.reportForm = this.fb.group({
       classId: ['', Validators.required],
-      studentId: ['', Validators.required],
-      message: ['', Validators.required],
-      grades: [''],
-      attendance: [''],
-      comments: ['']
+      studentProgress: this.fb.array([])
     });
+  }
+
+  get studentProgress(): FormArray {
+    return this.reportForm.get('studentProgress') as FormArray;
   }
 
   ngOnInit(): void {
@@ -71,7 +67,7 @@ export class StudentProgressReportComponent implements OnInit {
 
   loadTeacherAssignments() {
     this.loading = true;
-    const date = new Date().toISOString().split('T')[0]; // Current date for assignments
+    const date = new Date().toISOString().split('T')[0];
     this.classSubjectService.getAssignmentsByTeacher(this.teacherId, this.selectedAcademicYearId, date).subscribe({
       next: (data: any) => {
         this.assignments = data;
@@ -93,29 +89,28 @@ export class StudentProgressReportComponent implements OnInit {
     this.selectedClassId = classId;
     this.reportForm.get('classId')?.setValue(classId);
     this.loadStudents();
-    this.reportForm.get('studentId')?.setValue(''); // Reset student selection
-    this.selectedStudent = null; // Reset selected student
   }
 
   loadStudents() {
     if (!this.selectedClassId) {
       this.students = [];
-      this.reportForm.get('studentId')?.setValue('');
-      this.selectedStudent = null;
+      this.studentProgress.clear();
       return;
     }
     this.loading = true;
-    this.classSubjectService.getStudentsByClass(this.selectedClassId, this.selectedAcademicYearId).subscribe({
+    this.studentService.getStudentsByClass(this.selectedClassId, this.selectedAcademicYearId).subscribe({
       next: (response: any) => {
         this.students = Array.isArray(response) ? response : response?.students || response?.data || [];
+        this.studentProgress.clear();
+        this.students.forEach(student => {
+          this.studentProgress.push(this.fb.group({
+            studentId: [student._id, Validators.required],
+            grades: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9\s,:;]+$/)]],
+            comments: ['', [Validators.required, Validators.maxLength(160)]]
+          }));
+        });
         if (this.students.length === 0) {
           this.toastr.warning('No students found in this class.', 'Warning');
-        } else {
-          // Pre-populate studentId if only one student (optional)
-          if (this.students.length === 1) {
-            this.reportForm.get('studentId')?.setValue(this.students[0]._id);
-            this.onStudentChange({ target: { value: this.students[0]._id } } as any);
-          }
         }
         this.loading = false;
       },
@@ -126,67 +121,25 @@ export class StudentProgressReportComponent implements OnInit {
     });
   }
 
-  onStudentChange(event: Event): void {
-    const studentId = (event.target as HTMLSelectElement).value;
-    this.reportForm.get('studentId')?.setValue(studentId);
-    this.loading = true; // Show loading while fetching student details
-    this.studentService.getStudentById(studentId).subscribe({
-      next: (res: any) => {
-        console.log('Student details response:', res); // Debug: Check the API response
-        this.selectedStudent = {
-          _id: res._id,
-          name: res.name,
-          parentId: res.parentId || (res.parent ? res.parent._id : null) // Handle populated parent or null
-        };
-        console.log('Selected student:', this.selectedStudent); // Debug: Verify parentId
-        this.loading = false;
-        if (!this.selectedStudent.parentId) {
-          this.toastr.warning('No parent associated with this student.', 'Warning');
-        }
-      },
-      error: (err) => {
-        this.loading = false;
-        this.toastr.error('Failed to load student details: ' + err.message, 'Error');
-        this.selectedStudent = null; // Reset on error
-      }
-    });
-  }
-
-  onSubmit(): void {
-    console.log('Form value:', this.reportForm.value); // Debug: Check form data
-    console.log('Selected student:', this.selectedStudent); // Debug: Check if set
+  onSubmit() {
     if (this.reportForm.invalid) {
-      this.toastr.error('Please fill all required fields.', 'Error');
-      return;
-    }
-    if (!this.selectedStudent || !this.selectedStudent.parentId) {
-      this.toastr.error('Please select a student with a parent.', 'Error');
+      this.toastr.error('Please fill all required fields for all students.', 'Error');
       return;
     }
 
     this.loading = true;
-    const formData = this.reportForm.value;
-    const payload = {
-      studentId: formData.studentId,
-      message: formData.message,
-      data: {
-        grades: formData.grades,
-        attendance: formData.attendance,
-        comments: formData.comments
-      },
-      parentId: this.selectedStudent.parentId
-    };
-
+    const payload = { studentProgress: this.studentProgress.value };
     this.studentService.studentProgressReport(payload).subscribe({
       next: () => {
-        this.toastr.success('Progress report sent successfully!', 'Success');
+        this.toastr.success('Progress reports saved successfully!', 'Success');
         this.reportForm.reset();
-        this.selectedStudent = null;
+        this.studentProgress.clear();
         this.students = [];
+        this.selectedClassId = '';
         this.loading = false;
       },
       error: (err) => {
-        this.toastr.error('Failed to send report: ' + (err.error?.error || err.message), 'Error');
+        this.toastr.error('Failed to save reports: ' + (err.error?.message || err.message), 'Error');
         this.loading = false;
       }
     });

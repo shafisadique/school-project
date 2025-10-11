@@ -17,98 +17,52 @@
             Your payment is pending verification. You can only view data until approved.
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>
-          <!-- <button class="btn btn-primary" (click)="openUpgradeModal(upgradeModal)">
-            <i class="fas fa-star me-1" style="font-size: 13px;"></i> Subscription
-          </button> -->
         </div>
       </div>
     </div>
   </li>
-  <li class="dropdown pc-h-item" ngbDropdown>
+
+  <li class="dropdown pc-h-item" ngbDropdown *ngIf="role === 'parent'">
     <a class="pc-head-link dropdown-toggle arrow-none me-0 bg-gray-200" data-bs-toggle="dropdown" ngbDropdownToggle>
       <i antIcon type="bell" theme="outline"></i>
-      <span class="badge bg-primary pc-h-badge">3</span>
+      <span class="badge bg-primary pc-h-badge" *ngIf="notificationCount > 0">{{ notificationCount }}</span>
     </a>
     <div class="dropdown-menu dropdown-notification dropdown-menu-end pc-h-dropdown" ngbDropdownMenu>
       <div class="dropdown-header d-flex align-items-center justify-content-between">
-        <h5 class="m-0">Notification</h5>
-        <a class="bg-transparent"><i class="text-success d-flex f-20" antIcon theme="outline" type="check-circle"></i></a>
+        <h5 class="m-0">Notifications</h5>
+        <a [routerLink]="['/parent/progress-report']" class="link-primary">View Progress Reports</a>
       </div>
       <div class="dropdown-divider"></div>
       <ng-scrollbar style="min-height: 300px" visibility="hover">
-        <div class="dropdown-header px-0 text-wrap header-notification-scroll">
+        <div class="dropdown-header px-0 text-wrap header-notification-scroll" *ngIf="notifications.length > 0; else noNotifications">
           <div class="list-group list-group-flush w-100">
-            <a class="list-group-item list-group-item-action">
-              <div class="d-flex">
-                <div class="flex-shrink-0">
-                  <div class="user-avatar bg-light-success"><i class="d-flex" antIcon theme="outline" type="gift"></i></div>
-                </div>
-                <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">3:00 AM</span>
-                  <p class="text-body mb-0">
-                    It's
-                    <b>Cristina danny's</b>
-                    birthday today.
-                  </p>
-                  <span class="text-muted">2 min ago</span>
-                </div>
-              </div>
-            </a>
-            <a class="list-group-item list-group-item-action">
+            <a class="list-group-item list-group-item-action" *ngFor="let notification of notifications" (click)="markNotificationAsRead(notification._id);">
               <div class="d-flex">
                 <div class="flex-shrink-0">
                   <div class="user-avatar bg-light-primary"><i class="d-flex" antIcon theme="outline" type="message"></i></div>
                 </div>
                 <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">6:00 PM</span>
-                  <p class="text-body mb-1">
-                    <b>Aida Burg</b>
-                    commented your post.
+                  <span class="float-end text-muted">{{ notification.createdAt | date:'shortTime' }}</span>
+                  <p class="text-body mb-0" [ngClass]="{ 'fw-bold': notification.status !== 'delivered' }">
+                    <b>{{ notification.studentId.name }}</b> - {{ notification.message }}
                   </p>
-                  <span class="text-muted">5 August</span>
-                </div>
-              </div>
-            </a>
-            <a class="list-group-item list-group-item-action">
-              <div class="d-flex">
-                <div class="flex-shrink-0">
-                  <div class="user-avatar bg-light-danger"><i class="d-flex" antIcon theme="outline" type="setting"></i></div>
-                </div>
-                <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">2:45 PM</span>
-                  <p class="text-body mb-1">
-                    Your Profile is Complete
-                    <b>60%</b>
-                  </p>
-                  <span class="text-muted">7 hours ago</span>
-                </div>
-              </div>
-            </a>
-            <a class="list-group-item list-group-item-action">
-              <div class="d-flex">
-                <div class="flex-shrink-0">
-                  <div class="user-avatar bg-light-primary"><i class="d-flex" antIcon theme="outline" type="phone"></i></div>
-                </div>
-                <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">9:10 PM</span>
-                  <p class="text-body mb-1">
-                    <b>Cristina Danny</b>
-                    invited to join
-                    <b>Meeting.</b>
-                  </p>
-                  <span class="text-muted">Daily scrum meeting time</span>
+                  <span class="text-muted">By {{ notification.senderId.name }} on {{ notification.createdAt | date:'medium' }}</span>
                 </div>
               </div>
             </a>
           </div>
         </div>
+        <ng-template #noNotifications>
+          <div class="text-center p-3">No notifications available.</div>
+        </ng-template>
       </ng-scrollbar>
       <div class="dropdown-divider"></div>
       <div class="text-center py-2">
-        <a class="link-primary">View all</a>
+        <a [routerLink]="['/parent/progress-report']" class="link-primary">View all progress reports</a>
       </div>
     </div>
   </li>
+
   <li class="dropdown pc-h-item header-user-profile" ngbDropdown>
     <a class="pc-head-link dropdown-toggle arrow-none me-0" ngbDropdownToggle>
       <img src="assets/images/user/avatar-2.jpg" alt="user-image" class="user-avatar me-2" />
