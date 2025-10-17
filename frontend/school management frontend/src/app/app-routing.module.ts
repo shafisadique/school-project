@@ -47,6 +47,11 @@ export const routes: Routes = [
         loadComponent: () => import('./demo/dashboard/default/default.component').then((c) => c.DefaultComponent)
       },
       {
+        path: 'teacher-dashboard',
+        canActivate:[AuthGuard],
+        loadComponent: () => import('./demo/dashboard/teacher-dashboard/teacher-dashboard/teacher-dashboard.component').then((c) => c.TeacherDashboardComponent)
+      },
+      {
         path: 'subscription-management',data: { roles: ['superadmin'] },
         canActivate: [AuthGuard],
         loadComponent: () => import('./demo/component/subscription-management/subscription-management/subscription-management.component').then(c => c.SubscriptionManagementComponent)
@@ -125,9 +130,14 @@ export const routes: Routes = [
         loadComponent: () => import('./demo/component/advance-component/holidays/holiday-calendar/holiday-calendar.component').then(c => c.HolidayCalendarComponent)
       },
       {
-        path: 'assignment', // Define the assignment route
+        path: 'assignment-details', // Define the assignment route
         canActivate: [AuthGuard],
-        loadComponent: () => import('./demo/component/advance-component/assignment-management/assignment-management.component').then(c => c.AssignmentManagementComponent)
+        loadComponent: () => import('./demo/component/advance-component/assignment-management/assignment-details/assignment-details.component').then(c => c.AssignmentDetailsComponent)
+      },
+      {
+        path: 'assignment-create', // Define the assignment route
+        canActivate: [AuthGuard],
+        loadComponent: () => import('./demo/component/advance-component/assignment-management/assignment-create/assignment-create.component').then(c => c.AssignmentCreateComponent)
       }
     ]
   },

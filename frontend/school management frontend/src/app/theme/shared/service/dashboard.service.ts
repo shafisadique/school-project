@@ -50,8 +50,11 @@ export class DashboardService {
     return this.http.get<any>(url, { params: queryParams, withCredentials: true });
   }
 
-  getTeacherDashboard(): Observable<any> {
+  getTeacherData(): Observable<any> {
     return this.http.get(`${this.apiUrl}/teacher-dashboard`, { withCredentials: true });
+  }
+  getTeacherDashboard():Observable<any>{
+    return this.http.get(`${environment.apiUrl}/api/dashboard/teacher-dashboard`)
   }
 
   getFeeDashboard(params: { month?: string; classId?: string; academicYearId: string }): Observable<any> {

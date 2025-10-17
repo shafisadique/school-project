@@ -27,8 +27,9 @@
       <div class="row mb-3">
         <label for="dueDate" class="col-sm-2 col-form-label required">Due Date</label>
         <div class="col-sm-10">
-            <input type="datetime-local" class="form-control" id="dueDate" formControlName="dueDate" required>          <div *ngIf="assignmentForm.get('dueDate')?.invalid && assignmentForm.get('dueDate')?.touched" class="invalid-feedback">
-            Due date is required.
+          <input type="date" class="form-control" id="dueDate" formControlName="dueDate" [min]="today" required>
+          <div *ngIf="assignmentForm.get('dueDate')?.invalid && assignmentForm.get('dueDate')?.touched" class="invalid-feedback">
+            Due date is required and must be a future date.
           </div>
         </div>
       </div>
@@ -65,6 +66,7 @@
           <select class="form-select" id="assignedTo" formControlName="assignedTo" multiple>
             <option *ngFor="let student of students" [value]="student._id">{{ student.name }}</option>
           </select>
+          <small class="text-muted">Leave empty to assign to all students in the class.</small>
         </div>
       </div>
 

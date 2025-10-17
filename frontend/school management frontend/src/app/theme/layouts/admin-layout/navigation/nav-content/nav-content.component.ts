@@ -145,7 +145,7 @@ export class NavContentComponent implements OnInit {
       this.navigations = [
          {
         id: 'dashboard',
-        title: 'Dashboard',
+        title: 'Teacher Dashboard',
         type: 'group',
         icon: 'dashboard',
         children: [
@@ -153,7 +153,7 @@ export class NavContentComponent implements OnInit {
             id: 'default-dash',
             title: 'Default',
             type: 'item',
-            url: '/dashboard/default',
+            url: '/teacher-dashboard',
             icon: 'dashboard'
           }
         ]
@@ -202,7 +202,7 @@ export class NavContentComponent implements OnInit {
           type: 'group',
           icon: 'team',
           children: [
-            { id: 'assignment', title: 'Create Assignment', type: 'item', url: '/assignment', icon: 'user' },
+            { id: 'assignment', title: 'Create Assignment', type: 'item', url: '/assignment-details', icon: 'user' },
           ]
         },
         {

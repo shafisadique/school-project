@@ -74,7 +74,7 @@
               <span class="teacher-name">{{ teacher.name }}</span>
             </div>
           </td>
-          <td>{{ teacher.userId.username }}</td>
+          <td>{{ teacher?.userId?.username }}</td>
           <td>{{ teacher.subjects.join(', ') }}</td>
           <td>{{ teacher.phone }}</td>
           <td [ngClass]="{'text-danger': teacher.leaveBalance < 5}">

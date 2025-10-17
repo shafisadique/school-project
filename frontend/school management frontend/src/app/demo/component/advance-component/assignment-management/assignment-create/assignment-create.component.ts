@@ -3,31 +3,32 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
-import { AssignmentService } from './assignment.service';
-import { ClassSubjectService } from '../class-subject-management/class-subject.service';
-import { StudentService } from '../students/student.service';
+import { AssignmentService } from '../assignment.service';
+import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
+import { StudentService } from '../../students/student.service';
 import { ToastrService } from 'ngx-toastr';
 
 @Component({
-  selector: 'app-assignment-management',
+  selector: 'app-assignment-create',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
-  templateUrl: './assignment-management.component.html',
-  styleUrls: ['./assignment-management.component.scss']
+  imports: [CommonModule, ReactiveFormsModule],
+  templateUrl: './assignment-create.component.html',
+  styleUrl: './assignment-create.component.scss'
 })
-export class AssignmentManagementComponent implements OnInit, OnDestroy {
+export class AssignmentCreateComponent {
   assignmentForm: FormGroup;
-  fileList: File[] = []; // Tracks selected files
-  assignments: any[] = []; // Teacher's assigned data
-  classes: any[] = []; // Unique classes from assignments
+  fileList: File[] = [];
+  classes: { _id: string; name: string }[] = [];
   students: any[] = [];
   selectedClassId: string | null = null;
   isLoading = false;
-  selectedSubjects: { _id: string; name: string }[] = []; // Subjects for selected class
+  selectedSubjects: { _id: string; name: string }[] = [];
+  today: string = new Date().toISOString().split('T')[0]; // Set min date to today
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
   private subscriptions: Subscription = new Subscription();
+  assignments: any[] = []; // Store assignments data
 
   constructor(
     private fb: FormBuilder,
@@ -40,7 +41,7 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
     this.assignmentForm = this.fb.group({
       title: ['', [Validators.required, Validators.maxLength(100)]],
       description: ['', [Validators.required, Validators.maxLength(500)]],
-      dueDate: [null, [Validators.required]], // Ensure it's nullable initially
+      dueDate: [null, [Validators.required]],
       classId: [null, [Validators.required]],
       subjectId: [null, [Validators.required]],
       assignedTo: [[]]
@@ -50,44 +51,74 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const schoolId = this.authService.getSchoolId();
     const academicYearId = this.authService.getActiveAcademicYearId();
-    const teacherId = localStorage.getItem('teacherId'); // Get teacherId from localStorage
-    const role = this.authService.getUserRole();
+    const teacherId = localStorage.getItem('teacherId');
 
+    console.log('Init - schoolId:', schoolId, 'academicYearId:', academicYearId, 'teacherId:', teacherId); // Debug initial values
     if (!schoolId || !academicYearId || !teacherId) {
       this.toasterService.error('Missing school, year, or teacher info. Check your login!');
       return;
     }
-    this.loadTeacherAssignments(teacherId, academicYearId); // Load teacher's assignments
+    this.loadClassesAndSubjects(teacherId, academicYearId);
   }
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
   }
 
-  // Load teacher's assignments and extract classes/subjects
-  loadTeacherAssignments(teacherId: string, academicYearId: string): void {
+  loadClassesAndSubjects(teacherId: string, academicYearId: string): void {
     this.isLoading = true;
     this.subscriptions.add(
       this.classSubjectService.getAssignmentsByTeacher(teacherId, academicYearId).subscribe({
-        next: (data) => {
-          this.assignments = data;
-          this.classes = [...new Map(this.assignments.map(a => [a.classId._id, { _id: a.classId._id, name: a.classId.name }])).values()];
-          this.updateSubjects(); // Update subjects for all classes
+        next: (data: any[]) => {
+          console.log('Assignments response:', data); // Debug the full response
+          this.assignments = Array.isArray(data) ? data : []; // Ensure data is an array
+          this.classes = this.extractUniqueClasses(this.assignments);
+          this.selectedSubjects = this.extractUniqueSubjects(this.assignments); // Initial subjects
+          console.log('Extracted classes:', this.classes); // Debug extracted classes
+          console.log('Extracted subjects:', this.selectedSubjects); // Debug extracted subjects
           this.isLoading = false;
           if (this.classes.length === 0) {
-            this.toasterService.warning('No classes assigned to you.');
+            this.toasterService.warning('No classes assigned to you. Check your assignments.');
+          }
+          if (this.selectedSubjects.length === 0) {
+            this.toasterService.warning('No subjects assigned to you. Check your assignments.');
           }
         },
         error: (err) => {
-          this.toasterService.error('Failed to load your assignments. Try again!');
-          console.error('Error:', err);
+          this.toasterService.error('Failed to load your classes or subjects. Try again! Error:', err.message);
+          console.error('Error details:', err);
           this.isLoading = false;
         }
       })
     );
   }
 
-  // When a class is selected
+  extractUniqueClasses(data: any[]): { _id: string; name: string }[] {
+    const uniqueClasses = new Map<string, { _id: string; name: string }>();
+    data.forEach((a) => {
+      console.log('Processing class item:', a.classId); // Debug each item
+      if (a.classId && a.classId._id && a.classId.name && !uniqueClasses.has(a.classId._id)) {
+        uniqueClasses.set(a.classId._id, { _id: a.classId._id, name: a.classId.name });
+      } else {
+        console.warn('Invalid class data:', a); // Warn if data is malformed
+      }
+    });
+    return Array.from(uniqueClasses.values());
+  }
+
+  extractUniqueSubjects(data: any[]): { _id: string; name: string }[] {
+    const uniqueSubjects = new Map<string, { _id: string; name: string }>();
+    data.forEach((a) => {
+      console.log('Processing subject item:', a.subjectId); // Debug each item
+      if (a.subjectId && a.subjectId._id && a.subjectId.name && !uniqueSubjects.has(a.subjectId._id)) {
+        uniqueSubjects.set(a.subjectId._id, { _id: a.subjectId._id, name: a.subjectId.name });
+      } else {
+        console.warn('Invalid subject data:', a); // Warn if data is malformed
+      }
+    });
+    return Array.from(uniqueSubjects.values());
+  }
+
   onClassChange(): void {
     const classId = this.assignmentForm.get('classId')?.value;
     if (classId) {
@@ -95,7 +126,7 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
       const academicYearId = this.authService.getActiveAcademicYearId();
       if (academicYearId) {
         this.loadStudents(classId, academicYearId);
-        this.updateSubjectsForSelectedClass(); // Update subjects for the selected class
+        this.updateSubjectsForSelectedClass();
       } else {
         this.toasterService.error('Academic year not found.');
       }
@@ -107,21 +138,17 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Update subjects for the selected class
   updateSubjectsForSelectedClass(): void {
-    this.selectedSubjects = [...new Map(this.assignments
-      .filter(a => a.classId._id === this.selectedClassId)
-      .map(a => [a.subjectId._id, { _id: a.subjectId._id, name: a.subjectId.name }])).values()];
-    this.assignmentForm.get('subjectId')?.setValue(this.selectedSubjects.length > 0 ? this.selectedSubjects[0]._id : null);
+    const classId = this.assignmentForm.get('classId')?.value;
+    if (classId && this.assignments) {
+      this.selectedSubjects = [...new Map(this.assignments
+        .filter((a: any) => a.classId._id === classId)
+        .map((a: any) => [a.subjectId._id, { _id: a.subjectId._id, name: a.subjectId.name }])).values()];
+      console.log('Filtered subjects for class', classId, ':', this.selectedSubjects); // Debug filtered subjects
+      this.assignmentForm.get('subjectId')?.setValue(this.selectedSubjects.length > 0 ? this.selectedSubjects[0]._id : null);
+    }
   }
 
-  // Update subjects for all classes (new method)
-  updateSubjects(): void {
-    this.selectedSubjects = [...new Map(this.assignments
-      .map(a => [a.subjectId._id, { _id: a.subjectId._id, name: a.subjectId.name }])).values()];
-  }
-
-  // Load students for the selected class
   loadStudents(classId: string, academicYearId: string): void {
     this.subscriptions.add(
       this.studentService.getStudentsByClass(classId, academicYearId).subscribe({
@@ -153,38 +180,27 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
 
   handleUpload(): void {
     if (this.assignmentForm.invalid) {
-      this.toasterService.warning('Please fill all fields correctly!');
+      this.toasterService.warning('Please fill all required fields correctly!');
       return;
     }
 
     this.isLoading = true;
     const formValue = this.assignmentForm.value;
     const files = this.fileList;
+    const teacherId = localStorage.getItem('teacherId') || '';
 
-    // Convert dueDate to Date object and handle invalid cases
-    let dueDate: Date;
-    if (formValue.dueDate instanceof Date) {
-      dueDate = formValue.dueDate;
-    } else if (typeof formValue.dueDate === 'string') {
-      dueDate = new Date(formValue.dueDate);
-    } else {
-      this.toasterService.error('Invalid due date format. Please select a valid date.');
-      this.isLoading = false;
-      return;
-    }
-
+    let dueDate = new Date(formValue.dueDate);
     if (isNaN(dueDate.getTime())) {
       this.toasterService.error('Invalid due date. Please select a valid date.');
       this.isLoading = false;
       return;
     }
 
-    const teacherId = localStorage.getItem('teacherId') || ''; // Get teacherId for query param
     this.subscriptions.add(
       this.assignmentService.createAssignment({
         title: formValue.title,
         description: formValue.description,
-        dueDate: dueDate.toISOString(), // Use the validated Date object
+        dueDate: dueDate.toISOString(),
         classId: formValue.classId,
         subjectId: formValue.subjectId,
         assignedTo: formValue.assignedTo
@@ -194,7 +210,7 @@ export class AssignmentManagementComponent implements OnInit, OnDestroy {
           this.resetForm();
         },
         error: (err) => {
-          this.toasterService.error('Oops! Couldn’t create assignment.');
+          this.toasterService.error('Oops! Couldn’t create assignment. ' + (err.error?.message || ''));
           console.error('Error creating assignment:', err);
         }
       }).add(() => {

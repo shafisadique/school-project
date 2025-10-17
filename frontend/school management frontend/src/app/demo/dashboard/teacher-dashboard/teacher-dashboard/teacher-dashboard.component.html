@@ -1,0 +1,239 @@
+<div class="dashboard-container p-3 p-md-4">
+  <!-- Header -->
+  <div class="dashboard-header text-center mb-4">
+    <h1 class="display-6 fw-bold text-primary">Teacher Dashboard</h1>
+    <p class="text-muted">Welcome, {{ teacherDashboardData.data.teacher.name || 'Teacher' }}!</p>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-md-3">
+      <div class="card h-100 shadow-sm border-0 rounded-4 bg-gradient-light">
+        <div class="card-body text-center">
+          <div class="icon-circle bg-primary bg-opacity-10 text-primary mb-3">
+            <i class="bi bi-person-fill" style="font-size: 1.5rem;"></i>
+          </div>
+          <h5 class="card-title text-muted">My Attendance</h5>
+          <h3 class="fw-bold" [ngClass]="{
+            'text-success': personalAttendanceStatus === 'Present',
+            'text-danger': personalAttendanceStatus === 'Absent',
+            'text-warning': personalAttendanceStatus === 'On Leave'
+          }">{{ personalAttendanceStatus }}</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3">
+      <div class="card h-100 shadow-sm border-0 rounded-4 bg-gradient-light">
+        <div class="card-body text-center">
+          <div class="icon-circle bg-info bg-opacity-10 text-info mb-3">
+            <i class="bi bi-pencil-fill" style="font-size: 1.5rem;"></i>
+          </div>
+          <h5 class="card-title text-muted">Pending Assignments</h5>
+          <h3 class="fw-bold text-info">{{ pendingAssignmentsCount }}</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3">
+      <div class="card h-100 shadow-sm border-0 rounded-4 bg-gradient-light">
+        <div class="card-body text-center">
+          <div class="icon-circle bg-warning bg-opacity-10 text-warning mb-3">
+            <i class="bi bi-calendar-fill" style="font-size: 1.5rem;"></i>
+          </div>
+          <h5 class="card-title text-muted">Pending Leaves</h5>
+          <h3 class="fw-bold text-warning">{{ pendingLeavesCount }}</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3">
+      <div class="card h-100 shadow-sm border-0 rounded-4 bg-gradient-light">
+        <div class="card-body text-center">
+          <div class="icon-circle bg-success bg-opacity-10 text-success mb-3">
+            <i class="bi bi-gift-fill" style="font-size: 1.5rem;"></i>
+          </div>
+          <h5 class="card-title text-muted">Upcoming Holidays</h5>
+          <h3 class="fw-bold text-success">{{ upcomingHolidaysCount }}</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accordion Sections -->
+  <div class="accordion" id="dashboardAccordion">
+    <!-- My Attendance Overview -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#attendanceOverviewCollapse">
+          <i class="bi bi-bar-chart-fill me-2"></i> My Attendance Overview
+        </button>
+      </h2>
+      <div id="attendanceOverviewCollapse" class="accordion-collapse collapse" data-bs-parent="#dashboardAccordion">
+        <div class="accordion-body p-0">
+          <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body position-relative" style="min-height: 250px;">
+             <apx-chart
+  #attendanceChart
+  [series]="attendanceChartOptions.series"
+  [chart]="attendanceChartOptions.chart"
+  [labels]="attendanceChartOptions.labels"
+  [colors]="attendanceChartOptions.colors"
+  [legend]="attendanceChartOptions.legend"
+  [responsive]="attendanceChartOptions.responsive">
+</apx-chart>
+              <div *ngIf="hasNoAttendanceData" class="position-absolute top-50 start-50 translate-middle text-center text-muted">
+                No attendance data available for today
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Assignments -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#assignmentsCollapse">
+          <i class="bi bi-pencil-square me-2"></i> Pending Assignments
+        </button>
+      </h2>
+      <div id="assignmentsCollapse" class="accordion-collapse collapse" data-bs-parent="#dashboardAccordion">
+        <div class="accordion-body p-0">
+          <div class="card shadow-sm border-0 rounded-4">
+            <div class="table-responsive">
+              <table class="table table-hover table-borderless mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th scope="col" class="sortable" (click)="sortTable('title')">
+                      Title 
+                      <i class="bi" [ngClass]="{
+                        'bi-sort-alpha-down': sortColumn === 'title' && sortDirection === 'asc',
+                        'bi-sort-alpha-down-alt': sortColumn === 'title' && sortDirection === 'desc'
+                      }"></i>
+                    </th>
+                    <th scope="col" class="sortable" (click)="sortTable('dueDate')">
+                      Due Date 
+                      <i class="bi" [ngClass]="{
+                        'bi-sort-numeric-down': sortColumn === 'dueDate' && sortDirection === 'asc',
+                        'bi-sort-numeric-down-alt': sortColumn === 'dueDate' && sortDirection === 'desc'
+                      }"></i>
+                    </th>
+                    <th scope="col">Class</th>
+                    <th scope="col">Subject</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let assignment of getPendingAssignments()">
+                    <td>{{ assignment.title || 'Untitled' }}</td>
+                    <td>{{ assignment.dueDate | date:'mediumDate' }}</td>
+                    <td>{{ assignment.classId?.name || 'N/A' }}</td>
+                    <td>{{ assignment.subjectId?.name || 'N/A' }}</td>
+                  </tr>
+                  <tr *ngIf="hasNoPendingAssignments">
+                    <td colspan="4" class="text-center text-muted py-4">No pending assignments</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Leaves -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#leavesCollapse">
+          <i class="bi bi-calendar-check me-2"></i> Pending Leave Requests
+        </button>
+      </h2>
+      <div id="leavesCollapse" class="accordion-collapse collapse" data-bs-parent="#dashboardAccordion">
+        <div class="accordion-body p-0">
+          <div class="card shadow-sm border-0 rounded-4">
+            <div class="table-responsive">
+              <table class="table table-hover table-borderless mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th scope="col" class="sortable" (click)="sortTable('date')">
+                      Date 
+                      <i class="bi" [ngClass]="{
+                        'bi-sort-numeric-down': sortColumn === 'date' && sortDirection === 'asc',
+                        'bi-sort-numeric-down-alt': sortColumn === 'date' && sortDirection === 'desc'
+                      }"></i>
+                    </th>
+                    <th scope="col" class="sortable" (click)="sortTable('reason')">
+                      Reason 
+                      <i class="bi" [ngClass]="{
+                        'bi-sort-alpha-down': sortColumn === 'reason' && sortDirection === 'asc',
+                        'bi-sort-alpha-down-alt': sortColumn === 'reason' && sortDirection === 'desc'
+                      }"></i>
+                    </th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let leave of getPendingLeaves()">
+                    <td>{{ leave.date | date:'mediumDate' }}</td>
+                    <td>{{ leave.reason || 'Not specified' }}</td>
+                    <td>{{ leave.leaveType || 'N/A' }}</td>
+                    <td><span class="badge bg-warning text-dark">{{ leave.status || 'Pending' }}</span></td>
+                  </tr>
+                  <tr *ngIf="hasNoPendingLeaves">
+                    <td colspan="4" class="text-center text-muted py-4">No pending leave requests</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upcoming Holidays -->
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#holidaysCollapse">
+          <i class="bi bi-gift-fill me-2"></i> Upcoming Holidays
+        </button>
+      </h2>
+      <div id="holidaysCollapse" class="accordion-collapse collapse" data-bs-parent="#dashboardAccordion">
+        <div class="accordion-body p-0">
+          <div class="card shadow-sm border-0 rounded-4">
+            <div class="table-responsive">
+              <table class="table table-hover table-borderless mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th scope="col" class="sortable" (click)="sortTable('date')">
+                      Date 
+                      <i class="bi" [ngClass]="{
+                        'bi-sort-numeric-down': sortColumn === 'date' && sortDirection === 'asc',
+                        'bi-sort-numeric-down-alt': sortColumn === 'date' && sortDirection === 'desc'
+                      }"></i>
+                    </th>
+                    <th scope="col" class="sortable" (click)="sortTable('title')">
+                      Title 
+                      <i class="bi" [ngClass]="{
+                        'bi-sort-alpha-down': sortColumn === 'title' && sortDirection === 'asc',
+                        'bi-sort-alpha-down-alt': sortColumn === 'title' && sortDirection === 'desc'
+                      }"></i>
+                    </th>
+                    <th scope="col">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let holiday of getUpcomingHolidays()">
+                    <td>{{ holiday.date | date:'mediumDate' }}</td>
+                    <td>{{ holiday.title || 'Untitled' }}</td>
+                    <td>{{ holiday.description || 'No description' }}</td>
+                  </tr>
+                  <tr *ngIf="hasNoUpcomingHolidays">
+                    <td colspan="3" class="text-center text-muted py-4">No upcoming holidays</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -418,8 +418,8 @@ export class DefaultComponent implements OnInit, AfterViewInit {
     });
   }
 
-  fetchTeacherDashboard() {
-    this.dashboardService.getTeacherDashboard().subscribe({
+  fetchTeacherDashboard() { 
+    this.dashboardService.getTeacherData().subscribe({
       next: (data: TeacherDashboardData) => {
         this.teacherDashboardData = data || {};
         this.totalTeachers = data.totalTeachers || 0;

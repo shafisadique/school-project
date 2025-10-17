@@ -141,6 +141,7 @@ const authMiddleware = async (req, res, next) => {
           subscription.status = 'expired';
         }
       }
+      
 
       // Check access permissions based on subscription status
       const allowedMethods = ['GET', 'OPTIONS', 'HEAD'];

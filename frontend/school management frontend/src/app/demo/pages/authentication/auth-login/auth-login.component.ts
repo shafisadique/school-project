@@ -61,7 +61,9 @@ togglePasswordVisibility() {
           this.router.navigate(['/auth/register']);
         } else if (role === 'admin') {
           this.router.navigate(['/']);
-        } else {
+        } else if (role === 'teacher') {
+           this.router.navigate(['/teacher-dashboard']);
+        }else {
           this.router.navigate(['/']);
         }
         this.toastrService.success('Login Success', 'Welcome!');

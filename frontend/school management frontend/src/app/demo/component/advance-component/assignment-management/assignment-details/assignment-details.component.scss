@@ -1,0 +1,286 @@
+@import 'bootstrap/scss/functions';
+@import 'bootstrap/scss/variables';
+
+// Custom Variables
+:host {
+  --primary-color: #4361ee;
+  --secondary-color: #3a0ca3;
+  --success-color: #4cc9f0;
+  --light-bg: #f8f9fa;
+}
+
+.container-fluid {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+// Assignment Cards
+.assignment-card {
+  transition: all 0.3s ease;
+  border-radius: 12px;
+  overflow: hidden;
+  
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+  }
+
+  .assignment-meta {
+    .bi {
+      color: var(--primary-color);
+      font-size: 0.9rem;
+    }
+  }
+
+  .btn {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+  }
+}
+
+// Modal Styles
+.modal-content {
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+
+  .modal-header {
+    padding: 1.5rem 1.5rem 0;
+    
+    .modal-title {
+      font-weight: 700;
+      color: var(--secondary-color);
+    }
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+  }
+
+  .modal-footer {
+    padding: 1rem 1.5rem;
+  }
+}
+
+// Quick Actions
+.quick-actions-card {
+  border-radius: 12px;
+  
+  .card-body {
+    padding: 1.25rem;
+  }
+
+  .card-title {
+    color: var(--secondary-color);
+    font-weight: 600;
+    
+    .bi {
+      color: var(--primary-color);
+    }
+  }
+
+  .form-control {
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    
+    &:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+    }
+  }
+}
+
+// Students Section
+.students-section {
+  .student-card {
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    
+    .card-body {
+      padding: 1.25rem;
+    }
+
+    .form-control {
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      
+      &:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+      }
+    }
+  }
+
+  .table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--primary-color);
+      border-radius: 3px;
+    }
+  }
+
+  table {
+    margin: 0;
+    
+    thead {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      
+      th {
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: 600;
+        border: none;
+        padding: 1rem 0.75rem;
+        font-size: 0.875rem;
+      }
+    }
+
+    tbody tr {
+      transition: background-color 0.2s ease;
+      
+      &:hover {
+        background-color: rgba(67, 97, 238, 0.05);
+      }
+      
+      td {
+        padding: 0.75rem;
+        vertical-align: middle;
+        border-color: #e2e8f0;
+      }
+    }
+
+    .form-control {
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      transition: all 0.2s ease;
+      
+      &:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+      }
+    }
+
+    .form-check-input {
+      &:checked {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+      }
+      
+      &:focus {
+        box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+      }
+    }
+  }
+}
+
+// Badges
+.badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+  border-radius: 6px;
+}
+
+// Buttons
+.btn {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-1px);
+  }
+  
+  &.btn-primary {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    
+    &:hover {
+      background: var(--secondary-color);
+      border-color: var(--secondary-color);
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .container-fluid {
+    padding: 1rem;
+  }
+  
+  .assignment-card .card-body {
+    padding: 1.25rem;
+  }
+  
+  .modal-content {
+    margin: 1rem;
+    border-radius: 12px;
+    
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+      padding: 1rem;
+    }
+  }
+  
+  .quick-actions-card .card-body {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .container-fluid {
+    padding: 0.75rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+  
+  .assignment-card {
+    margin-bottom: 1rem;
+  }
+}
+
+// Loading States
+.spinner-border {
+  width: 3rem;
+  height: 3rem;
+}
+
+// Empty State
+.text-muted {
+  color: #6c757d !important;
+}
+
+.bi-inbox {
+  opacity: 0.5;
+}
+
+

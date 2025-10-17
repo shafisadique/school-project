@@ -193,9 +193,10 @@ app.use('/api/subscriptions', authMiddleware, subscriptionRoutes);
 app.use('/api/results', authMiddleware,resultRoutes);
 app.use('/api/routes',authMiddleware, transporatationRoute);
 app.use('/api/admin', authMiddleware,adminDashboard);
-app.use('/api/assignments', authMiddleware, assignmentRoutes);
+app.use('/api/assignments', authMiddleware, assignmentRoutes); 
 app.use('/api/reports',reportsRouters );
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/dashboard',require('./routes/teacher-dashboard/teacher-dashboardRoutes'))
 // app.use('/api/parent', parentRoutes);
 
 app.use((err, req, res, next) => {
