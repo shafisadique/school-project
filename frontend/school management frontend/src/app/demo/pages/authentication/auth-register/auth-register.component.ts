@@ -22,9 +22,14 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
   formData = signal<any>({});
   isSubmitting = signal(false);
   addressError: string | null = null;
+  isMobileVerified = signal(false);
+  otpSent = signal(false);
+  isSendingOtp = signal(false);
+  isVerifyingOtp = signal(false);
 
   schoolForm: FormGroup;
   addressForm: FormGroup;
+  otpForm: FormGroup;
 
   center: google.maps.LatLngLiteral = { lat: 28.6139, lng: 77.2090 }; // Default to New Delhi
   zoom = 12;
@@ -56,6 +61,10 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
       latitude: [null, Validators.required],
       longitude: [null, Validators.required]
     });
+
+    this.otpForm = this.fb.group({
+      otp: ['', [Validators.required, Validators.minLength(4)]]
+    });
   }
 
   ngOnInit(): void {}
@@ -65,16 +74,22 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
       this.schoolForm.markAllAsTouched();
       if (this.schoolForm.valid) {
         this.formData.set({ ...this.formData(), ...this.schoolForm.value });
-        this.step.set(2);
+        this.sendOtp();
       }
     } else if (this.step() === 2) {
+      this.otpForm.markAllAsTouched();
+      if (this.otpForm.valid && this.otpSent() && !this.isVerifyingOtp()) {
+        this.verifyOtp();
+      }
+    } else if (this.step() === 3) {
       this.addressForm.markAllAsTouched();
       if (this.addressForm.valid && !this.isSubmitting()) {
         this.formData.set({
           ...this.formData(),
           address: this.addressForm.value,
           latitude: this.addressForm.value.latitude,
-          longitude: this.addressForm.value.longitude
+          longitude: this.addressForm.value.longitude,
+          isMobileVerified: this.isMobileVerified()
         });
         this.submitForm();
       }
@@ -85,6 +100,47 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
     if (this.step() > 1) {
       this.step.set(this.step() - 1);
     }
+  }
+
+  sendOtp() {
+    if (this.isSendingOtp()) return;
+    this.isSendingOtp.set(true);
+
+    const mobileNo = this.formData().mobileNo;
+    this.http.post(`${environment.apiUrl}/api/auth/send-otp`, { phoneNumber: mobileNo }).subscribe({
+      next: (res: any) => {
+        this.otpSent.set(true);
+        this.toastr.success(`OTP sent to ${mobileNo}`, 'Success');
+        this.step.set(2);
+        this.isSendingOtp.set(false);
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Failed to send OTP', 'Error');
+        console.error('Send OTP failed', err);
+        this.isSendingOtp.set(false);
+      }
+    });
+  }
+
+  verifyOtp() {
+    if (this.isVerifyingOtp()) return;
+    this.isVerifyingOtp.set(true);
+
+    const mobileNo = this.formData().mobileNo;
+    const otp = this.otpForm.value.otp;
+    this.http.post(`${environment.apiUrl}/api/auth/verify-otp`, { phoneNumber: mobileNo, code: otp }).subscribe({
+      next: (res: any) => {
+        this.isMobileVerified.set(true);
+        this.toastr.success('Mobile number verified successfully', 'Success');
+        this.step.set(3);
+        this.isVerifyingOtp.set(false);
+      },
+      error: (err) => {
+        this.toastr.error(err.error?.message || 'Invalid OTP', 'Error');
+        console.error('Verify OTP failed', err);
+        this.isVerifyingOtp.set(false);
+      }
+    });
   }
 
   submitForm() {
@@ -107,7 +163,8 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
         postalCode: this.formData().address?.postalCode || ''
       },
       latitude: this.formData().address?.latitude || this.formData().latitude,
-      longitude: this.formData().address?.longitude || this.formData().longitude
+      longitude: this.formData().address?.longitude || this.formData().longitude,
+      isMobileVerified: this.isMobileVerified()
     };
 
     console.log('Sending to backend:', finalData);
@@ -115,7 +172,9 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
     this.authService.registerSchool(finalData).subscribe({
       next: (res: any) => {
         this.toastr.success(
-          `Welcome to ${res.data.schoolName}! Your school has been registered. Check your email (${finalData.email}) and ${finalData.preferredChannel === 'sms' ? 'SMS' : finalData.preferredChannel === 'whatsapp' ? 'WhatsApp' : 'SMS/WhatsApp'} (${finalData.mobileNo}) for a link to set your password.`,
+          `Welcome to ${res.data.schoolName}! Your school has been registered. Check your ${
+            finalData.preferredChannel === 'sms' ? 'SMS' : finalData.preferredChannel === 'whatsapp' ? 'WhatsApp' : 'SMS/WhatsApp'
+          } (${finalData.mobileNo}) for a link to set your password.`,
           'Registration Successful',
           { timeOut: 5000 }
         );
@@ -141,6 +200,7 @@ export class AuthRegisterComponent implements OnInit, OnDestroy {
 
   get f() { return this.schoolForm.controls; }
   get a() { return this.addressForm.controls; }
+  get o() { return this.otpForm.controls; }
 
   onMapClick(event: google.maps.MapMouseEvent): void {
     if (!event.latLng) {

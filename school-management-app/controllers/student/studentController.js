@@ -10,14 +10,16 @@ const multer = require('multer');
 const { paginate } = require('../../utils/paginationHelper'); // Adjust path as needed
 const Route = require('../../models/route');
 const User = require('../../models/user');
-const subscriptionSchema = require('../../models/subscription');
 const crypto = require('crypto');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { toR2Key } = require('../../utils/image');
 const path = require('path');
 const classSubjectAssignment = require('../../models/classSubjectAssignment');
+const Subscription = require('../../models/subscription');
+const { deliver } = require('../../services/notificationService');
+const Notification = require('../../models/notifiation');
 const bcrypt = require('bcryptjs');
-
+const AuditLog =require('../../models/auditLogs')
 // Configure multer for file uploads
 // const storage = multer.memoryStorage({
 //   destination: (req, file, cb) => {
@@ -219,57 +221,44 @@ const getStudentsByClass = async (req, res, next) => {
 
 const generateAdmissionNo = async (schoolId, academicYearId) => {
   try {
-    // Fetch the school to get the school code
+    // Fetch the school to verify existence
     const school = await School.findById(schoolId);
     if (!school) {
       throw new Error('School not found');
     }
-    const schoolCode = school.code || 'SCH'; // Fallback to 'SCH' if code is not set
 
-    // Fetch the academic year to get the year
+    // Fetch the academic year to verify
     const academicYear = await AcademicYear.findById(academicYearId);
     if (!academicYear) {
       throw new Error('Academic year must be set up');
     }
-    // Assuming academicYear has a name like "2024-2024", extract the start year
-    const year = academicYear.name.split('-')[0]; // e.g., "2024"
 
-    // Find the highest existing admissionNo for this school and academic year
-    const regex = new RegExp(`^${schoolCode}-${year}-\\d+$`); // e.g., matches "SCH-2025-029"
-    const latestStudent = await Student.findOne({
-      schoolId,
-      academicYearId,
-      admissionNo: { $regex: regex }
-    }).sort({ admissionNo: -1 }).select('admissionNo');
-
-    let sequentialNumber = 0;
-    if (latestStudent) {
-      // Extract the sequential number from the latest admissionNo (e.g., "029" from "SCH-2025-029")
-      const match = latestStudent.admissionNo.match(/(\d+)$/);
-      if (match) {
-        sequentialNumber = parseInt(match[1], 10);
-      }
+    // Fetch the school code from AuditLog (create_school action for this school)
+    const auditEntry = await AuditLog.findOne({
+      action: 'create_school',
+      'details.schoolId': new mongoose.Types.ObjectId(schoolId)  // Convert to ObjectId
+    }).sort({ createdAt: -1 });
+    console.log(auditEntry,schoolId)
+    if (!auditEntry || !auditEntry.details?.code) {
+      throw new Error('School code not found in audit log. Ensure school was created via registered process.');
     }
 
-    // Increment to get the next sequential number
-    sequentialNumber += 1;
-    const formattedSequentialNumber = sequentialNumber.toString().padStart(3, '0'); // e.g., "030"
+    const schoolCode = auditEntry.details.code;  // e.g., "NEWI70"
 
-    // Generate the admission number
-    const admissionNo = `${schoolCode}-${year}-${formattedSequentialNumber}`;
+    // Get current count of students for this school and academic year (simple non-atomic seq)
+    const studentCount = await Student.countDocuments({ schoolId, academicYearId, status: true });
+    const sequentialNumber = studentCount + 1;
+    const formattedSequentialNumber = sequentialNumber.toString().padStart(3, '0');
+    
+    const admissionNo = `${schoolCode}-${formattedSequentialNumber}`;  // e.g., "NEWI70-001"
 
-    // Double-check if the generated admissionNo already exists (edge case for concurrent inserts)
-    const existingStudent = await Student.findOne({ admissionNo });
-    if (existingStudent) {
-      // Recursively call to try the next number
-      return generateAdmissionNo(schoolId, academicYearId);
-    }
-
+    console.log('Generated admissionNo:', admissionNo, 'for school:', schoolId);
     return admissionNo;
   } catch (error) {
     throw new Error(`Error generating admission number: ${error.message}`);
   }
 };
+
 
 const validateParent = async (req, res) => {
   try {
@@ -298,7 +287,6 @@ const createStudent = async (req, res, next) => {
     if (!req.user || (!req.user._id && !req.user.id)) {
       return res.status(401).json({ message: 'User not authenticated, ID missing' });
     }
-
     const userId = req.user._id || req.user.id;
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: 'Invalid user ID format' });
@@ -332,6 +320,7 @@ const createStudent = async (req, res, next) => {
 
     const schoolId = req.user.schoolId;
     const admissionNo = await generateAdmissionNo(schoolId, academicYearId);
+    console.log('working first')
 
     const feePreferences = new Map();
     feePreferences.set('usesTransport', usesTransport === 'true');
@@ -357,6 +346,8 @@ const createStudent = async (req, res, next) => {
 
     let profileImageUrl = '';
     if (req.file) {
+      console.log('working second')
+
       const fileBuffer = req.file.buffer;
       const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       const params = {
@@ -394,6 +385,7 @@ const createStudent = async (req, res, next) => {
       routeId: finalRouteId,
       status: true,
     });
+    console.log('working third')
 
     await newStudent.save();
 

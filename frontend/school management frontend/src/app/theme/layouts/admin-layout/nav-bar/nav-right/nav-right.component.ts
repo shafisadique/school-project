@@ -83,7 +83,10 @@ export class NavRightComponent {
   bankDetails: any = null;
   subscriptionId: string | null = null;
   isLoading: boolean = false;
-
+cardNumber: string = '';
+  expiryDate: string = '';
+  cvv: string = '';
+  nameOnCard: string = '';
   constructor() {
     this.windowWidth = window.innerWidth;
     this.iconService.addIcon(...[
@@ -174,87 +177,143 @@ export class NavRightComponent {
     }
   }
 
-  upgradePlan() {
-    if (!this.selectedPlan || !this.selectedPaymentMethod) {
-      alert('Please select both a plan and a payment method.');
-      return;
-    }
-    if (this.selectedPaymentMethod === 'phonepe' && !this.upiId) {
-      alert('Please enter your UPI ID.');
-      return;
-    }
-    this.isLoading = true;
-    this.dashboardService
-      .upgradeSubscription({
-        planType: this.selectedPlan,
-        paymentMethod: this.selectedPaymentMethod,
-        autoRenew: false,
-        upiId: this.upiId,
-      })
-      .subscribe({
-        next: (response: any) => {
-          if (this.selectedPaymentMethod === 'bank_transfer') {
-            this.bankDetails = response.bankDetails;
-            this.subscriptionId = response.subscriptionId;
-            this.isLoading = false;
-            return;
-          }
-
-          const { order } = response;
-          if (!order || !order.id) {
-            alert('Failed to initialize payment. Please try again.');
-            this.isLoading = false;
-            return;
-          }
-
-          const options = {
-            key: environment.razorpayKey,
-            amount: order.amount,
-            currency: order.currency,
-            name: 'School Management',
-            description: `Upgrade to ${this.selectedPlan.split('_')[0]} (${this.selectedPlan.split('_')[1]})`,
-            order_id: order.id,
-            handler: (paymentResponse: any) => this.handlePaymentSuccess(paymentResponse),
-            prefill: { name: this.username, email: this.authService.getUserEmail() },
-            theme: { color: '#4a90e2' },
-            ...(this.selectedPaymentMethod === 'phonepe' && { upi: { flow: 'intent', upi_intent: this.upiId } }),
-          };
-
-          const rzp = new (window as any).Razorpay(options);
-          rzp.on('payment.failed', (response: any) => {
-            console.error('Payment failed:', response.error);
-            alert('Payment failed. Please try again or contact support.');
-            this.isLoading = false;
-          });
-          rzp.open();
-        },
-        error: (error) => {
-          console.error('Error initiating upgrade:', error);
-          alert('Failed to initiate payment. Please try again or contact support.');
-          this.isLoading = false;
-        },
-      });
+  getPlanPrice(planValue: string): number {
+    const plan = this.plans.find(p => p.value === planValue);
+    return plan ? plan.price : 0;
+  }
+upgradePlan() {
+  if (!this.selectedPlan || !this.selectedPaymentMethod) {
+    alert('Please select both a plan and a payment method.');
+    return;
   }
 
-  handlePaymentSuccess(paymentResponse: any) {
-    this.verifyPayment(paymentResponse).subscribe({
-      next: () => {
-        alert('Subscription upgraded successfully!');
+  this.isLoading = true;
+
+  const payload: any = {
+    planType: this.selectedPlan,
+    paymentMethod: this.selectedPaymentMethod,
+    autoRenew: false
+  };
+
+  if (this.selectedPaymentMethod === 'phonepe') {
+    payload.upiId = this.upiId;
+  }
+
+  this.dashboardService.upgradeSubscription(payload).subscribe({
+    next: (response: any) => {
+      if (environment.testMode) {
+        alert('Test mode: Subscription upgraded successfully!');
         this.fetchSubscription();
         this.modalService.dismissAll();
         this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Payment verification failed:', error);
-        alert('Payment verification failed. Please contact support.');
-        this.isLoading = false;
-      },
-    });
-  }
+        return;
+      }
 
-  verifyPayment(paymentResponse: any) {
-    return this.dashboardService.verifyPayment(paymentResponse);
+      if (this.selectedPaymentMethod === 'bank_transfer') {
+        this.bankDetails = response.bankDetails;
+        this.subscriptionId = response.subscriptionId;
+        this.isLoading = false;
+        return;
+      }
+
+      // Handle Razorpay payment
+      if (response.order) {
+        this.initiateRazorpayPayment(response.order, response.plan, response.subscriptionId);
+      } else {
+        alert('Failed to initialize payment. Please try again.');
+        this.isLoading = false;
+      }
+    },
+    error: (error) => {
+      console.error('Error initiating upgrade:', error);
+      alert('Failed to initiate payment. Please try again or contact support.');
+      this.isLoading = false;
+    },
+  });
+}
+
+private initiateRazorpayPayment(order: any, plan: any, subscriptionId: string) {
+  console.log('this is working')
+  const options = {
+    key: environment.razorpayKey,
+    amount: order.amount,
+    currency: order.currency,
+    name: 'School Management System',
+    description: `Upgrade to ${plan.name}`,
+    image: '/assets/images/logo.png', // Add your logo
+    order_id: order.id,
+    prefill: {
+      name: this.username,
+      email: this.authService.getUserEmail(),
+      contact: '' // Add if you have user contact
+    },
+    handler: (response: any) => {
+      console.log('Payment successful:', response);
+      this.handlePaymentSuccess(response, subscriptionId);
+    },
+    modal: {
+      ondismiss: () => {
+        console.log('Payment modal closed');
+        this.isLoading = false;
+        // Optional: Show message that payment was cancelled
+        this.toastr.info('Payment was cancelled. You can try again anytime.');
+      }
+    },
+    theme: {
+      color: '#4a90e2'
+    }
+  };
+
+  try {
+    const rzp = new (window as any).Razorpay(options);
+    
+    rzp.on('payment.failed', (response: any) => {
+      console.error('Payment failed:', response.error);
+      this.toastr.error(`Payment failed: ${response.error.description}`);
+      this.isLoading = false;
+    });
+
+    rzp.open();
+  } catch (error) {
+    console.error('Error opening Razorpay:', error);
+    this.toastr.error('Error initializing payment gateway');
+    this.isLoading = false;
   }
+}
+
+private handlePaymentSuccess(paymentResponse: any, subscriptionId: string) {
+  console.log('Handling payment success:', paymentResponse);
+  
+  // Add subscriptionId to the payment response
+  const verificationData = {
+    ...paymentResponse,
+    subscriptionId: subscriptionId
+  };
+
+  this.dashboardService.verifyPayment(verificationData).subscribe({
+    next: (verificationResponse) => {
+      console.log('Payment verified successfully:', verificationResponse);
+      this.toastr.success('Subscription upgraded successfully!');
+      
+      // Update local subscription data
+      this.fetchSubscription();
+      
+      // Close modal
+      this.modalService.dismissAll();
+      this.isLoading = false;
+      
+      // Optional: Reload page to reflect changes
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    },
+    error: (error) => {
+      console.error('Payment verification failed:', error);
+      this.toastr.error('Payment verification failed. Please contact support with your payment ID.');
+      this.isLoading = false;
+    },
+  });
+}
 
   uploadPaymentProof() {
     if (!this.paymentProof || !this.subscriptionId) {

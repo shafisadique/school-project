@@ -46,5 +46,7 @@ const invoiceSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
+
+
 invoiceSchema.index({ schoolId: 1, studentId: 1, month: 1 }, { unique: true });
 module.exports = mongoose.model('FeeInvoice', invoiceSchema);

@@ -8,6 +8,7 @@
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-end mb-4">
             <h3 class="mb-0"><b>Welcome, create your school account</b></h3>
+            <span>Step {{ step() }} of 3</span>
           </div>
 
           <!-- Step 1: School Information -->
@@ -73,16 +74,40 @@
 
               <div class="d-grid mt-3">
                 <button type="submit" 
-                        [disabled]="schoolForm.invalid"
+                        [disabled]="schoolForm.invalid || isSendingOtp()"
                         class="btn btn-primary w-100">
-                  Next
+                  {{ isSendingOtp() ? 'Sending OTP...' : 'Next' }}
                 </button>
               </div>
             </form>
           </div>
 
-          <!-- Step 2: Address Information -->
+          <!-- Step 2: OTP Verification -->
           <div *ngIf="step() === 2">
+            <form [formGroup]="otpForm" (ngSubmit)="nextStep()">
+              <div class="mb-3">
+                <label for="otp" class="form-label">Enter OTP</label>
+                <input type="text" formControlName="otp" 
+                       placeholder="Enter OTP sent to {{ formData().mobileNo }}" 
+                       class="form-control p-2 mb-3 border rounded"
+                       [class.is-invalid]="o['otp']?.invalid && o['otp']?.touched">
+                <div *ngIf="o['otp']?.invalid && o['otp']?.touched" class="invalid-feedback">
+                  OTP is required and must be at least 4 characters
+                </div>
+                <small class="form-text text-muted">An OTP has been sent to {{ formData().mobileNo }} via SMS.</small>
+              </div>
+
+              <div class="d-flex gap-2">
+                <button type="button" (click)="prevStep()" class="btn btn-secondary">Back</button>
+                <button type="submit" [disabled]="otpForm.invalid || isVerifyingOtp()" class="btn btn-primary">
+                  {{ isVerifyingOtp() ? 'Verifying...' : 'Verify OTP' }}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Step 3: Address Information -->
+          <div *ngIf="step() === 3">
             <form [formGroup]="addressForm" (ngSubmit)="nextStep()">
               <input type="text" formControlName="street" 
                      placeholder="Street Address" 
@@ -103,7 +128,7 @@
               <input type="text" formControlName="state" 
                      placeholder="State" 
                      class="form-control p-2 mb-3 border rounded"
-                     [class.is-invalid]="a['state']?.invalid && a['state']?.touched">
+                     [class.is-invalid]="a['street']?.invalid && a['street']?.touched">
               <div *ngIf="a['state']?.invalid && a['state']?.touched" class="invalid-feedback">
                 State is required
               </div>
@@ -166,7 +191,9 @@
 
               <div class="d-flex gap-2">
                 <button type="button" (click)="prevStep()" class="btn btn-secondary">Back</button>
-                <button type="submit" [disabled]="addressForm.invalid || isSubmitting()" class="btn btn-success">Submit</button>
+                <button type="submit" [disabled]="addressForm.invalid || isSubmitting()" class="btn btn-success">
+                  {{ isSubmitting() ? 'Submitting...' : 'Submit' }}
+                </button>
               </div>
               <a [routerLink]="['/auth/login']" class="link-primary mt-3 d-block">Already have an account?</a>
             </form>

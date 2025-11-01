@@ -7,7 +7,7 @@ export interface SubjectResult {
 export interface Result {
   _id: string;
   studentId: { _id: string; name: string; rollNo: string; id?: string }; // Optional id for compatibility
-  examId: string;
+  examId: any;
   subjects: SubjectResult[]; // Array for compiled results
   marksObtained?: number; // Optional for partial results
   totalMarksObtained?: number; // Optional, calculated for compiled results
@@ -15,5 +15,5 @@ export interface Result {
   percentage?: number; // Optional, calculated for compiled results
   grade?: string; // Optional, derived from percentage
   status?: string; // Optional, derived from grade or marks
-  subjectId?:string;
+  subjectId?:any;
 }

@@ -419,7 +419,6 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   if (profileImage.startsWith('http')) {
     return profileImage;
   }
-    console.log(profileImage)
   // If it's a key (new format), use the proxy endpoint
   const backendUrl = 'https://school-management-backend-khaki.vercel.app'; // Your backend URL
   return `${backendUrl}/api/proxy-image/${encodeURIComponent(profileImage)}`;

@@ -9,6 +9,28 @@ import { StudentService } from '../../students/student.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { PaginationComponent } from '../../pagination/pagination.component';
 
+interface LedgerRow {
+  _id: string;
+  month: string;
+  previousDue: number;
+  currentFee: number;
+  paidAmount: number;
+  totalDues: number;
+  remainingDue: number;
+  carryForward: number;
+  status: string;
+  dueDate: Date;
+  payments: PaymentHistory[];
+}
+
+interface PaymentHistory {
+  date: Date;
+  amount: number;
+  method: string;
+  transactionId: string;
+  processedBy: string;
+}
+
 @Component({
   selector: 'app-bulk-invoice-list',
   standalone: true,
@@ -21,20 +43,25 @@ export class BulkInvoiceListComponent implements OnInit {
   schoolId: string | null = null;
   activeAcademicYearId: string | null = null;
   classList: { id: string; name: string }[] = [];
-  students: any[] = [];
+  studentData: any[] = [];
   selectedClassId: string = '';
   selectedClassName: string = '';
   selectedStudentId: string = '';
-  selectedStudent: any = null; // To store the selected student object
+  selectedStudent: any = null;
   month: string = '';
-  invoices: any[] = [];
-  filteredInvoices: any[] = [];
+  invoices: any[] = []; // For class view
+  filteredInvoices: any[] = []; // Shared for table binding
   statusFilter: string = '';
   currentPage: number = 1;
   pageSize: number = 10;
   totalItems: number = 0;
   pageSizeOptions: number[] = [10, 25, 50, 100];
-  viewMode: 'class' | 'student' = 'class'; // Toggle between class and student view
+  viewMode: 'class' | 'student' = 'class';
+
+  // Student view properties
+  summary: any = null;
+  ledgerData: LedgerRow[] = [];
+  expandedRows: Set<string> = new Set<string>();
 
   constructor(
     private feeService: FeeService,
@@ -97,14 +124,14 @@ export class BulkInvoiceListComponent implements OnInit {
   loadStudents(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.selectedClassId || !this.activeAcademicYearId) {
-        this.students = [];
+        this.studentData = [];
         resolve();
         return;
       }
       this.studentService.getStudentsByClass(this.selectedClassId, this.activeAcademicYearId).subscribe({
-        next: (res: any[]) => {
-          this.students = res;
-          if (this.students.length === 0) {
+        next: (res: any) => {
+          this.studentData = res.students || [];
+          if (this.studentData.length === 0) {
             this.toastr.warning('No students found for the selected class.');
           }
           resolve();
@@ -112,7 +139,7 @@ export class BulkInvoiceListComponent implements OnInit {
         error: (err) => {
           console.error('Error loading students:', err);
           this.toastr.error(err.message || 'Failed to load students.');
-          this.students = [];
+          this.studentData = [];
           reject(err);
         }
       });
@@ -135,17 +162,78 @@ export class BulkInvoiceListComponent implements OnInit {
     } else {
       this.selectedClassId = '';
       this.selectedClassName = '';
-      this.students = [];
+      this.studentData = [];
       this.invoices = [];
       this.filteredInvoices = [];
+      this.ledgerData = [];
+      this.summary = null;
     }
   }
 
   updateStudentSelection(event: Event): void {
     const target = event.target as HTMLSelectElement;
     this.selectedStudentId = target.value;
-    this.selectedStudent = this.students.find(student => student._id === this.selectedStudentId) || null;
-    this.filterInvoices();
+    this.selectedStudent = this.studentData.find(student => student._id === this.selectedStudentId) || null;
+    if (this.selectedStudentId && this.activeAcademicYearId) {
+      this.getStudentInvoicesData(this.selectedStudentId, this.activeAcademicYearId);
+    } else {
+      this.ledgerData = [];
+      this.summary = null;
+      this.filteredInvoices = [];
+    }
+  }
+
+  getStudentInvoicesData(studentId: string, academicYearId: string): void {
+    this.feeService.getStudentInvoices(studentId, academicYearId).subscribe({
+      next: (res: any) => {
+        this.ledgerData = this.transformToLedger(res.data || []);
+        this.summary = res.summary || {};
+        this.totalItems = this.ledgerData.length;
+        this.filteredInvoices = [...this.ledgerData]; // Bind to table
+        if (this.ledgerData.length === 0) {
+          this.toastr.info('No invoices found for this student.');
+        }
+      },
+      error: (err) => {
+        console.error('Error loading student invoices:', err);
+        this.toastr.error(err.error?.message || 'Failed to load student invoices.');
+        this.ledgerData = [];
+        this.filteredInvoices = [];
+      }
+    });
+  }
+
+  private transformToLedger(rawInvoices: any[]): LedgerRow[] {
+    let runningPrevious = 0;
+    return rawInvoices.map((inv) => {
+      const previousDue = runningPrevious;
+      const currentFee = inv.totalAmount - previousDue;
+      const totalDues = inv.totalAmount;
+      const remainingDue = inv.remainingDue;
+      runningPrevious = remainingDue;
+
+      return {
+        _id: inv._id,
+        month: inv.month,
+        previousDue,
+        currentFee,
+        paidAmount: inv.paidAmount,
+        totalDues,
+        remainingDue,
+        carryForward: remainingDue,
+        status: inv.status,
+        dueDate: inv.dueDate,
+        payments: inv.payments || []
+      };
+    });
+  }
+
+  toggleRowExpansion(invoiceId: string): void {
+    if (this.expandedRows.has(invoiceId)) {
+      this.expandedRows.delete(invoiceId);
+    } else {
+      this.expandedRows.add(invoiceId);
+    }
   }
 
   loadInvoices(): void {
@@ -172,24 +260,18 @@ export class BulkInvoiceListComponent implements OnInit {
   }
 
   filterInvoices(): void {
-    const currentDate = new Date('2025-06-17T13:55:00+05:30');
-    let filtered = this.invoices.map(invoice => {
-      const dueDate = new Date(invoice.dueDate);
-      if (invoice.status === 'Pending' && currentDate > dueDate) {
-        return { ...invoice, status: 'Overdue' };
+    let dataSource = this.viewMode === 'class' ? this.invoices : this.ledgerData;
+    let filtered = dataSource.map(item => {
+      const dueDate = new Date(item.dueDate);
+      if (item.status === 'Pending' && new Date() > dueDate) {
+        return { ...item, status: 'Overdue' };
       }
-      return invoice;
+      return item;
     });
 
     if (this.statusFilter) {
-      filtered = filtered.filter(invoice => invoice.status === this.statusFilter);
+      filtered = filtered.filter(item => item.status === this.statusFilter);
     }
-
-    // Apply view mode filtering
-    if (this.viewMode === 'student' && this.selectedStudentId) {
-      filtered = filtered.filter(invoice => invoice.studentId?._id === this.selectedStudentId);
-    }
-    // In class view, no student filter is applied unless explicitly selected
 
     this.totalItems = filtered.length;
     const start = (this.currentPage - 1) * this.pageSize;
@@ -200,8 +282,18 @@ export class BulkInvoiceListComponent implements OnInit {
   setViewMode(mode: 'class' | 'student'): void {
     this.viewMode = mode;
     if (this.viewMode === 'class') {
-      this.selectedStudentId = ''; // Reset student selection in class view
+      this.selectedStudentId = '';
       this.selectedStudent = null;
+      this.ledgerData = [];
+      this.summary = null;
+      if (this.month && this.selectedClassId) {
+        this.loadInvoices(); // Reload class data
+      }
+    } else {
+      // Student view – if student selected, reload ledger
+      if (this.selectedStudentId) {
+        this.getStudentInvoicesData(this.selectedStudentId, this.activeAcademicYearId);
+      }
     }
     this.filterInvoices();
   }
@@ -231,23 +323,24 @@ export class BulkInvoiceListComponent implements OnInit {
       error: (err) => {
         console.error('Error downloading PDF:', err);
         const errorMessage = err.error?.message || err.message || 'Failed to download invoice PDF.';
-        this.toastr.error(errorMessage) ;
+        this.toastr.error(errorMessage);
       }
     });
   }
 
-processPayment(invoiceId: string, amount: number): void {
+  processPayment(invoiceId: string, amount: number): void {
     this.feeService.getInvoiceById(invoiceId).subscribe({
-      next: (invoice) => {
-        if (invoice && invoice.data && invoice.data.student && invoice.data.student._id) {
-          this.router.navigate(['/fee/payment', invoiceId]); // Navigate without queryParams
+      next: (response) => {
+        const invoice = response.data; // Assume { data: Invoice }
+        if (invoice && invoice.student?._id) {
+          this.router.navigate(['/fee/payment', invoiceId]);
         } else {
           this.toastr.error('Invalid invoice data or student not found.');
         }
       },
       error: (err) => {
         this.toastr.error('Failed to load invoice details: ' + (err.error?.message || err.message));
-        console.error('Error fetching invoice:', err); // Debug error
+        console.error('Error fetching invoice:', err);
       }
     });
   }
@@ -288,5 +381,23 @@ processPayment(invoiceId: string, amount: number): void {
     date.setFullYear(date.getFullYear() + 1);
     return this.datePipe.transform(date, 'yyyy-MM') || '';
   }
-  
+
+  // NEW: For ledger table (student view)
+  getRowClass(status: string): string {
+    return status === 'Overdue' ? 'table-danger' : '';
+  }
+
+  getStatusClass(status: string): string {
+    switch (status) {
+      case 'Paid': return 'bg-success text-white';
+      case 'Pending': return 'bg-warning text-dark';
+      case 'Partial': return 'bg-info text-white';
+      case 'Overdue': return 'bg-danger text-white';
+      default: return 'bg-secondary text-white';
+    }
+  }
+
+  getColspan(): number {
+    return this.viewMode === 'student' ? 10 : 7; // Ledger 10 columns, class 7
+  }
 }

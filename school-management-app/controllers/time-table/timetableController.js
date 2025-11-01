@@ -4,6 +4,8 @@ const Class = require('../../models/class');
 const Subject = require('../../models/subject');
 const Teacher = require('../../models/teacher');
 const AcademicYear = require('../../models/academicyear');
+const Student = require('../../models/student');
+const classSubjectAssignment = require('../../models/classSubjectAssignment');
 
 exports.createTimetable = async (req, res) => {
   const { schoolId, classId, subjectId, teacherId, academicYearId, day, startTime, endTime, room } = req.body;
@@ -19,11 +21,13 @@ exports.createTimetable = async (req, res) => {
       return res.status(400).json({ message: 'Invalid ID format' });
     }
 
-    const classData = await Class.findById(classId).populate({
-      path: 'subjects',
-      populate: { path: 'teacherAssignments.teacherId', model: 'Teacher' },
-    });
-    const subject = await Subject.findById(subjectId).populate('teacherAssignments.teacherId');
+    // Optional: Add school authorization check (assuming req.user is admin)
+    if (schoolId !== req.user.schoolId.toString()) {
+      return res.status(403).json({ message: 'Unauthorized: You can only create timetable for your own school' });
+    }
+
+    const classData = await Class.findById(classId);
+    const subject = await Subject.findById(subjectId);
     const teacher = await Teacher.findById(teacherId);
     const academicYear = await AcademicYear.findById(academicYearId);
 
@@ -31,20 +35,27 @@ exports.createTimetable = async (req, res) => {
       return res.status(404).json({ message: 'Class, Subject, Teacher, or Academic Year not found' });
     }
 
-    if (!classData.subjects.some(sub => sub._id.toString() === subjectId)) {
+    // Optional: Check if subject is generally assigned to the class (via class.subjects array)
+    if (!classData.subjects.some(sub => sub.toString() === subjectId)) {
       return res.status(400).json({ message: 'Subject is not assigned to this class' });
     }
 
-    const teacherAssignment = subject.teacherAssignments.find(ta => 
-      ta.teacherId._id.toString() === teacherId && 
-      ta.academicYearId.toString() === academicYearId
-    );
-    if (!teacherAssignment) {
+    // Key change: Validate using the new ClassSubjectAssignment model instead of deprecated teacherAssignments
+    const assignment = await classSubjectAssignment.findOne({
+      schoolId,
+      classId,
+      subjectId,
+      teacherId,
+      academicYearId
+    });
+
+    if (!assignment) {
       return res.status(400).json({ 
-        message: `Teacher ${teacher.name} is not assigned to subject ${subject.name} for the academic year ${academicYear.name}` 
+        message: `No valid assignment found for teacher ${teacher.name} to subject ${subject.name} in class ${classData.name} for academic year ${academicYear.name}` 
       });
     }
 
+    // Teacher conflict check (unchanged, but ensures no overlap for the teacher on that day)
     const teacherConflict = await Timetable.findOne({
       schoolId,
       teacherId,
@@ -61,6 +72,7 @@ exports.createTimetable = async (req, res) => {
       });
     }
 
+    // Class conflict check (unchanged, ensures no overlap for the class on that day)
     const classConflict = await Timetable.findOne({
       schoolId,
       classId,
@@ -174,5 +186,55 @@ exports.deleteTimetableEntry = async (req, res) => {
     res.status(200).json({ message: 'Timetable entry deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+
+// controllers/timetableController.js
+exports.getTimetableByStudent = async (req, res) => {
+  try {
+    const { academicYearId } = req.query;
+
+    // 1. Get logged-in user
+    const user = req.user;
+    if (user.role !== 'student') {
+      return res.status(403).json({ message: 'Only students can access this' });
+    }
+
+    // 2. Extract studentId from additionalInfo
+    const studentId = user.additionalInfo?.studentId;
+    if (!studentId) {
+      return res.status(400).json({ message: 'Student profile not linked' });
+    }
+
+    // 3. Get Student → classId
+    const student = await Student.findById(studentId)
+      .select('classId schoolId')
+      .populate('classId', 'name');
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student profile not found' });
+    }
+
+    if (!student.classId) {
+      return res.status(400).json({ message: 'No class assigned to this student' });
+    }
+
+    // 4. Get Timetable
+    const Timetable = require('../../models/timetable');
+    const timetable = await Timetable.find({
+      schoolId: student.schoolId,
+      classId: student.classId._id,
+      academicYearId
+    })
+      .populate('subjectId', 'name')
+      .populate('teacherId', 'name')
+      .sort({ day: 1, startTime: 1 });
+
+    res.json(timetable);
+
+  } catch (error) {
+    console.error('Error in getTimetableByStudent:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

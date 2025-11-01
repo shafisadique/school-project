@@ -25,10 +25,12 @@ const subscriptionSchema = new mongoose.Schema({
     type: Date, 
     required: true 
   },
+  
   // Grace period after expiration (7 days)
   gracePeriodEnds: { 
     type: Date 
   },
+  razorpayOrderId: { type: String, default: null },
 
   autoRenew: {
     type: Boolean,
@@ -50,7 +52,7 @@ const subscriptionSchema = new mongoose.Schema({
     type: String,
     default: null
   },
-
+  testMode: { type: Boolean, default: false },
   createdAt: { 
     type: Date, 
     default: Date.now 
@@ -79,10 +81,15 @@ const subscriptionSchema = new mongoose.Schema({
     required: true 
   },
   // Track usage for fair usage policy
+  messageLimits: {
+    smsMonthly: { type: Number, default: 0 },  // e.g., 1000 for basic
+    whatsappMonthly: { type: Number, default: 0 }  // same or separate
+  },
   usageStats: {
-    students: { type: Number, default: 0 },
-    staff: { type: Number, default: 0 },
-    storage: { type: Number, default: 0 } // in MB
+    // ... your existing (students, staff) ...
+    smsUsedThisMonth: { type: Number, default: 0 },
+    whatsappUsedThisMonth: { type: Number, default: 0 },
+    lastResetDate: { type: Date, default: Date.now }  // When we last reset counts
   }
 });
 

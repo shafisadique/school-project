@@ -4,7 +4,9 @@ const {
   createResult, getResultsByExam, getStudentResults,
   getResultsByClassAndAcademicYear, createPartialResult,
   compileResult, getPartialResults,
-  getAllResultsForClass
+  getAllResultsForClass,getExamsForResultEntry,
+  updatePartialResult,
+  getResultById
 } = require('../controllers/result/resultController');
 const authMiddleware = require('../middleware/authMiddleware');
 const { isTeacher, externalRoleMiddleware, isAdmin } = require('../middleware/roleMiddleware');
@@ -21,8 +23,10 @@ router.get('/exam/:examId', [isTeacher, externalRoleMiddleware(['teacher'])], ge
 router.get('/student/:studentId', [isTeacher, externalRoleMiddleware(['teacher'])], getStudentResults); // Get student results
 router.get('/class/:classId', [authMiddleware, externalRoleMiddleware(['teacher', 'admin', 'superadmin'])], getResultsByClassAndAcademicYear);
 router.get('/admin/class/:classId', [isAdmin], getAllResultsForClass);
-
+router.get('/result-entry', authMiddleware, isTeacher,getExamsForResultEntry); // NEW: Filtered exams
 // Compilation Route
 router.post('/compile', [isAdmin], compileResult); // Compile partial results
+router.put('/partial/:resultId', [isTeacher], updatePartialResult); 
+router.get('/:resultId', [externalRoleMiddleware(['teacher', 'admin', 'superadmin'])], getResultById);
 
 module.exports = router;

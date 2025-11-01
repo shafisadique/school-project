@@ -1,0 +1,106 @@
+<div class="container-fluid p-4">
+  <header class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="fas fa-edit me-2 text-primary"></i>Edit Marks</h2>
+    <button class="btn btn-primary" (click)="cancel()" [disabled]="isLoading">
+      Result List
+    </button>
+  </header>
+
+  <div class="row g-3 mb-4" *ngIf="!isLoading; else loadingSpinner">
+    <!-- Basic Information Section -->
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Result Information</h5>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Exam</label>
+              <input class="form-control" [value]="result?.examId?.examTitle || 'N/A'" disabled>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Student</label>
+              <input class="form-control" [value]="result?.studentId?.name + ' (Roll No: ' + (result?.studentId?.rollNo || 'N/A') + ')'" disabled>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Subject</label>
+              <input class="form-control" [value]="result?.subjectId?.name || 'N/A'" disabled>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Marks Entry Section -->
+    <div class="col-12" *ngIf="result">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Edit Marks</h5>
+        </div>
+        <div class="card-body">
+          <form [formGroup]="marksForm">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="marksObtained" class="form-label">Marks Obtained <span class="text-danger">*</span></label>
+                <div class="input-group">
+                  <input
+                    type="number"
+                    id="marksObtained"
+                    class="form-control"
+                    formControlName="marksObtained"
+                    min="0"
+                    [max]="maxMarks"
+                    [disabled]="isLoading"
+                  />
+                  <span class="input-group-text">/ {{ maxMarks }}</span>
+                </div>
+                <div *ngIf="marksForm.get('marksObtained')?.invalid && marksForm.get('marksObtained')?.touched" class="text-danger small mt-1">
+                  Marks must be between 0 and {{ maxMarks }}.
+                </div>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Percentage</label>
+                <input class="form-control" [value]="getPercentage() | number:'1.1-1'" disabled>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <div>
+                  <span class="badge" [ngClass]="{
+                    'bg-success': getPercentage() >= 33,
+                    'bg-danger': getPercentage() < 33
+                  }">
+                    {{ getPercentage() >= 33 ? 'Pass' : 'Fail' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row" *ngIf="result">
+      <div class="col-12 text-end">
+        <button type="button" class="btn btn-secondary me-2" (click)="cancel()" [disabled]="isLoading">
+          <i class="fas fa-arrow-left me-1"></i>Cancel
+        </button>
+        <button type="button" class="btn btn-primary" (click)="submitMarks()" [disabled]="isLoading || marksForm.invalid">
+          <i class="fas fa-save me-1"></i>Update Marks
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm ms-2" role="status"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Spinner -->
+  <ng-template #loadingSpinner>
+    <div class="loading-overlay d-flex justify-content-center align-items-center">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="ms-3 mb-0">Loading result...</p>
+    </div>
+  </ng-template>
+</div>

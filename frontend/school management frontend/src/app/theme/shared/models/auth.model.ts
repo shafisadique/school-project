@@ -5,6 +5,7 @@ export interface AuthResponse {
   schoolId: string;
   userId: string;
   teacherId?: string;
+  studentId?:string;
   activeAcademicYearId?: string;
 }
 

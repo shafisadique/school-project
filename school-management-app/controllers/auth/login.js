@@ -5,7 +5,6 @@ const Teacher = require('../../models/teacher');
 const AcademicYear = require('../../models/academicyear');
 const { decryptPassword } = require('../../utils/cryptoUtils');
 
-
 const login = async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -26,11 +25,10 @@ const login = async (req, res) => {
     }
 
     let isPasswordValid = false;
-
+    
     // Handle password validation based on role
     if (['admin', 'teacher', 'superadmin'].includes(user.role)) {
       // Hashed password for admin/teacher/superadmin
-      console.log('Comparing hashed password for role:', user.role);
       isPasswordValid = bcrypt.compareSync(password, user.password);
     } else if (['parent', 'student'].includes(user.role)) {
       // Encrypted password for parent/student
@@ -61,6 +59,15 @@ const login = async (req, res) => {
       teacherId = teacher._id.toString();
     }
 
+    // UPDATED: Extract studentId from user.additionalInfo (no query needed)
+    let studentId = null;
+    if (user.role === 'student') {
+      if (!user.additionalInfo || !user.additionalInfo.studentId) {
+        return res.status(400).json({ message: 'Student profile not linked to this user' });
+      }
+      studentId = user.additionalInfo.studentId.toString();
+    }
+
     let activeAcademicYearId = null;
     if (user.role !== 'superadmin' && user.schoolId) {
       const activeAcademicYear = await AcademicYear.findOne({
@@ -73,8 +80,22 @@ const login = async (req, res) => {
       activeAcademicYearId = activeAcademicYear._id.toString();
     }
 
+    // UPDATED: Add additionalInfo to JWT payload (includes studentId for req.user)
+    const additionalInfo = {};
+    if (user.role === 'student' && studentId) {
+      additionalInfo.studentId = studentId;
+    }
+    if (user.role === 'teacher' && teacherId) {
+      additionalInfo.teacherId = teacherId;
+    }
+
     const token = jwt.sign(
-      { userId: user._id, role: user.role, schoolId: user.schoolId },
+      { 
+        userId: user._id, 
+        role: user.role, 
+        schoolId: user.schoolId,
+        additionalInfo  // Enables req.user.additionalInfo.studentId in controllers
+      },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
@@ -85,6 +106,7 @@ const login = async (req, res) => {
       userId: user._id.toString(),
       schoolId: user.schoolId ? user.schoolId.toString() : null,
       teacherId: (user.role === 'teacher' && teacherId) ? teacherId : null,
+      studentId: (user.role === 'student' && studentId) ? studentId : null,  // From additionalInfo
       email: user.email,
       activeAcademicYearId: (user.role !== 'superadmin' && user.schoolId && activeAcademicYearId) ? activeAcademicYearId : null
     });

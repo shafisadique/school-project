@@ -134,11 +134,35 @@ export const routes: Routes = [
         canActivate: [AuthGuard],
         loadComponent: () => import('./demo/component/advance-component/assignment-management/assignment-details/assignment-details.component').then(c => c.AssignmentDetailsComponent)
       },
+     {
+    path: 'student-assignments-list',
+    canActivate: [AuthGuard],
+    data: { roles: ['student'] },
+    loadComponent: () =>
+      import('./demo/component/advance-component/assignment-management/student-assignments-list/student-assignments-list.component')
+        .then(c => c.StudentAssignmentsListComponent)
+  },
+
+  // ── STUDENT ASSIGNMENT DETAILS (with :id) ────────
+  {
+    path: 'my-assignment-details/:id',
+    canActivate: [AuthGuard],
+    data: { roles: ['student'] },
+    loadComponent: () =>
+      import('./demo/component/advance-component/assignment-management/student-assignment-details/student-assignment-details.component')
+        .then(c => c.StudentAssignmentDetailsComponent)
+  },
+
       {
-        path: 'assignment-create', // Define the assignment route
+        path: 'my-assignment/:id', // Define the assignment route
         canActivate: [AuthGuard],
-        loadComponent: () => import('./demo/component/advance-component/assignment-management/assignment-create/assignment-create.component').then(c => c.AssignmentCreateComponent)
-      }
+        loadComponent: () => import('./demo/component/advance-component/assignment-management/assignment-details/assignment-details.component').then(c => c.AssignmentDetailsComponent)
+      },
+      {
+            path: 'assignment-create', // Define the assignment route
+            canActivate: [AuthGuard],
+            loadComponent: () => import('./demo/component/advance-component/assignment-management/assignment-create/assignment-create.component').then(c => c.AssignmentCreateComponent)
+          }
     ]
   },
   {

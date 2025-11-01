@@ -5,6 +5,7 @@ const Subject = require('../../models/subject');
 const APIError = require('../../utils/apiError');
 const mongoose = require('mongoose');
 const AcademicYear = require('../../models/academicyear');
+const classSubjectAssignmentSchema = require('../../models/classSubjectAssignment')
 const Teacher = require('../../models/teacher'); // Note: Capital T for model
 // Create an exam (Super Admin or Admin only)
 const createExam = async (req, res, next) => {
@@ -170,8 +171,6 @@ const getExamsByTeacher = async (req, res, next) => {
     const academicYearId = req.query.academicYearId || req.user.activeAcademicYear;
     const classId = req.query.classId;
 
-    console.log('Current userId:', userId);
-
     // Find teacher document
     const teacherDoc = await Teacher.findOne({ userId });
     if (!teacherDoc) {
@@ -179,31 +178,29 @@ const getExamsByTeacher = async (req, res, next) => {
       return res.status(200).json([]);
     }
 
-    console.log('Found teacher:', {
-      _id: teacherDoc._id,
-      name: teacherDoc.name
-    });
+    // Find class-subject assignments for the teacher
+    const assignments = await classSubjectAssignmentSchema
+      .find({
+        schoolId,
+        teacherId: teacherDoc._id,
+        academicYearId,
+      })
+      .populate('classId'); // Populate classId to get class details
 
-    const subjects = await Subject.find({
-      schoolId,
-      $or: [
-        { 
-          'teacherAssignments.teacherId': teacherDoc._id, 
-          'teacherAssignments.academicYearId': academicYearId 
-        },
-        { teachers: teacherDoc._id }
-      ]
-    }).populate('classes');
-    console.log('Subjects found:', subjects.length ? subjects.map(s => ({
-      _id: s._id,
-      name: s.name,
-      teacherAssignments: s.teacherAssignments,
-      teachers: s.teachers
-    })) : 'None');
-
-    const classIds = subjects.flatMap(s => 
-      s.classes.map(c => c._id.toString())
+    console.log(
+      'Assignments found:',
+      assignments.length
+        ? assignments.map((a) => ({
+            _id: a._id,
+            classId: a.classId,
+            subjectId: a.subjectId,
+            academicYearId: a.academicYearId,
+          }))
+        : 'None'
     );
+
+    // Extract unique class IDs from assignments
+    const classIds = [...new Set(assignments.map((a) => a.classId._id.toString()))];
     console.log('Authorized classIds:', classIds);
 
     if (!classIds.length) {
@@ -211,13 +208,15 @@ const getExamsByTeacher = async (req, res, next) => {
       return res.status(200).json([]);
     }
 
+    // Build query for exams
     const query = {
       schoolId,
       academicYearId,
-      classId: classId ? classId : { $in: classIds }
+      classId: classId ? classId : { $in: classIds },
     };
     console.log('Final exam query:', query);
 
+    // Fetch exams
     const exams = await Exam.find(query)
       .populate('classId')
       .populate('examPapers.subjectId');
@@ -402,9 +401,14 @@ const getExamsForResultEntry = async (req, res, next) => {
     const schoolId = req.user.schoolId;
     const academicYearId = req.user.activeAcademicYear;
 
+    if (req.user.role !== 'teacher') {
+      throw new APIError('Only teachers can access result entry exams', 403);
+    }
+
     // Find teacher document
     const teacherDoc = await Teacher.findOne({ userId });
     if (!teacherDoc) {
+      console.log('No teacher profile found');
       return res.status(200).json({
         success: false,
         message: "Teacher profile not found",
@@ -412,42 +416,77 @@ const getExamsForResultEntry = async (req, res, next) => {
       });
     }
 
-    // Get assigned subjects
-    const subjects = await Subject.find({
-      schoolId,
-      $or: [
-        { 
-          'teacherAssignments.teacherId': teacherDoc._id,
-          'teacherAssignments.academicYearId': academicYearId 
-        },
-        { teachers: teacherDoc._id }
-      ]
-    }).populate('classes');
+    console.log('Found teacher:', {
+      _id: teacherDoc._id,
+      name: teacherDoc.name
+    });
 
-    const classIds = [...new Set(subjects.flatMap(s => 
-      s.classes.map(c => c._id.toString())
-    ))];
-    
-    const subjectIds = subjects.map(s => s._id.toString());
+    // Get teacher's assigned subjects for ALL classes in this academic year using ClassSubjectAssignment
+    const assignments = await classSubjectAssignmentSchema.find({
+      teacherId: teacherDoc._id,
+      academicYearId,
+      schoolId
+    }).populate('classId', 'name').populate('subjectId', '_id name');
 
-    // Get exams for these classes
+    if (assignments.length === 0) {
+      return res.status(200).json({
+        success: false,
+        message: "No subjects assigned to you for this academic year",
+        exams: []
+      });
+    }
+
+    // Get unique class IDs from assignments
+    const classIds = [...new Set(assignments.map(a => a.classId._id.toString()))];
+
+    if (classIds.length === 0) {
+      return res.status(200).json({
+        success: false,
+        message: "No classes assigned to you",
+        exams: []
+      });
+    }
+
+    // Get exams for teacher's classes
     const exams = await Exam.find({
-      classId: { $in: classIds },
       schoolId,
-      academicYearId
+      academicYearId,
+      classId: { $in: classIds }
     })
+    .populate('classId', 'name')
     .populate({
       path: 'examPapers.subjectId',
       select: '_id name'
-    })
-    .populate('classId');
+    });
 
-    const filteredExams = exams.map(exam => ({
-      ...exam.toObject(),
-      examPapers: exam.examPapers.filter(paper => 
-        subjectIds.includes(paper.subjectId?._id?.toString())
-      )
-    })).filter(exam => exam.examPapers.length > 0);
+    // Filter each exam's examPapers to only teacher's assigned subjects for that class
+    const filteredExams = exams.map(exam => {
+      const examClassId = exam.classId._id.toString();
+
+      // Get teacher's subjects for this specific class only
+      const classAssignments = assignments.filter(a => a.classId._id.toString() === examClassId);
+      const teacherSubjectIds = classAssignments.map(a => a.subjectId._id.toString());
+
+      if (teacherSubjectIds.length === 0) {
+        return null;
+      }
+
+      const filteredPapers = exam.examPapers.filter(paper => {
+        const paperSubjectId = paper.subjectId?._id?.toString() || paper.subjectId;
+        const match = teacherSubjectIds.includes(paperSubjectId);
+        if (match) {
+        }
+        return match;
+      }).map(paper => ({
+        ...paper.toObject(),
+        subjectId: paper.subjectId  // Full populated object
+      }));
+
+      return {
+        ...exam.toObject(),
+        examPapers: filteredPapers  // Only teacher's subjects for this class
+      };
+    }).filter(exam => exam !== null && exam.examPapers.length > 0);  // Only exams with assigned subjects
 
     if (filteredExams.length === 0) {
       return res.status(200).json({
@@ -464,12 +503,8 @@ const getExamsForResultEntry = async (req, res, next) => {
     });
 
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching exams",
-      error: error.message
-    });
+    console.error('Error in getExamsForResultEntry:', error.message, error.stack);
+    next(new APIError('Error fetching exams for result entry: ' + error.message, 500));
   }
 };
 

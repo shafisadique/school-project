@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { AssignmentService } from '../assignment.service';
 import { ToastrService } from 'ngx-toastr';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-assignment-details',
@@ -23,7 +24,8 @@ export class AssignmentDetailsComponent implements OnInit, OnDestroy {
   constructor(
     private assignmentService: AssignmentService,
     private toastr: ToastrService,
-    private modalService: NgbModal
+    private modalService: NgbModal,
+    private router:Router
   ) {}
 
   ngOnInit(): void {
@@ -36,6 +38,10 @@ export class AssignmentDetailsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+  }
+
+  createAssignment(){
+    this.router.navigate(['assignment-create']);
   }
 
   loadAssignments(): void {

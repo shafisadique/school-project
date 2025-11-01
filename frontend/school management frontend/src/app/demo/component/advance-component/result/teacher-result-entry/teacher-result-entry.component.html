@@ -1,83 +1,156 @@
-<div class="container-fluid">
-  <header class="header">
-    <h2>Enter Marks</h2>
+<div class="container-fluid p-4">
+  <header class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="fas fa-graduation-cap me-2 text-primary"></i>Enter Marks</h2>
+    <button class="btn btn-primary" (click)="navigateToResultList()" [disabled]="isLoading">
+      Result List
+    </button>
   </header>
-  <div class="result-form" *ngIf="!isLoading; else loadingSpinner">
+
+  <div class="row g-3 mb-4" *ngIf="!isLoading; else loadingSpinner">
     <!-- Basic Information Section -->
-    <div class="form-section">
-      <h3>Basic Information</h3>
-      <div class="grid-container">
-        <div class="grid-column">
-          <div class="form-group">
-            <label for="exam">Exam</label>
-            <select id="exam" [(ngModel)]="selectedExamId" (ngModelChange)="onExamChange()" name="exam" required>
-              <option value="">Select Exam</option>
-              <option *ngFor="let exam of exams" [value]="exam._id">{{ exam.examTitle }} ({{ exam.classId.name }})</option>
-            </select>
-          </div>
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Basic Information</h5>
         </div>
-        <div class="grid-column">
-          <div class="form-group">
-            <label for="student">Student</label>
-            <select id="student" [(ngModel)]="selectedStudentId" (ngModelChange)="onStudentChange()" [disabled]="!selectedExamId" name="student" required>
-              <option value="">Select Student</option>
-              <option *ngFor="let student of students" [value]="student._id">
-                {{ student.name }} (Roll No: {{ student.rollNo || 'N/A' }})
-              </option>
-            </select>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="exam" class="form-label">Exam <span class="text-danger">*</span></label>
+              <select id="exam" class="form-select" [(ngModel)]="selectedExamId" (ngModelChange)="onExamChange()" [disabled]="isLoading" required>
+                <option value="">Select Exam</option>
+                <option *ngFor="let exam of exams" [value]="exam._id">
+                  {{ exam.examTitle }} - {{ exam.classId.name }} ({{ exam.examDate | date:'shortDate' }})
+                </option>
+              </select>
+              <div *ngIf="selectedExamId === ''" class="invalid-feedback d-block">Please select an exam.</div>
+            </div>
+            <div class="col-md-6">
+              <label for="student" class="form-label">Student <span class="text-danger">*</span></label>
+              <select id="student" class="form-select" [(ngModel)]="selectedStudentId" (ngModelChange)="onStudentChange()" [disabled]="!selectedExamId || isLoading" required>
+                <option value="">Select Student</option>
+                <option *ngFor="let student of students" [value]="student._id">
+                  {{ student.name }} (Roll No: {{ student.rollNo || 'N/A' }})
+                </option>
+              </select>
+              <div *ngIf="selectedStudentId === '' && selectedExamId" class="invalid-feedback d-block">Please select a student.</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Marks Entry Section -->
-    <div class="form-section" *ngIf="subjects.length > 0 && selectedStudent">
-      <h3>Enter Marks</h3>
-      <div class="marks-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Subject</th>
-              <th>Marks Obtained</th>
-              <th>Max Marks</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let subject of subjects; let i = index">
-              <td>{{ subject.subjectId.name }}</td>
-              <td>
-                <input type="number" [(ngModel)]="marks[subject.subjectId._id]" [name]="'marks-' + i" min="0" [max]="subject.maxMarks" required />
-              </td>
-              <td>{{ subject.maxMarks }}</td>
-            </tr>
-            <div *ngIf="exams.length === 0" class="empty-state">
-  No exams available for your assigned subjects.
-</div>
-
-<div *ngIf="selectedExam && subjects.length === 0" class="empty-state">
-  No subjects found for the selected exam.
-</div>
-          </tbody>
-        </table>
+    <div class="col-12" *ngIf="subjects.length > 0 && selectedStudent">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-success text-white">
+          <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Enter Marks</h5>
+        </div>
+        <div class="card-body">
+          <div class="alert alert-info" *ngIf="subjects.length > 0">
+            <i class="fas fa-info-circle me-1"></i>Student: <strong>{{ selectedStudent.name }}</strong> (Roll No: {{ selectedStudent.rollNo || 'N/A' }}) | Exam: <strong>{{ selectedExam.examTitle }}</strong>
+          </div>
+          <!-- FIXED: Wrap the table in <form [formGroup]="marksForm"> for reactive form binding -->
+          <form [formGroup]="marksForm">
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover">
+                <thead class="table-light">
+                  <tr>
+                    <th>Subject</th>
+                    <th>Marks Obtained</th>
+                    <th>Max Marks</th>
+                    <th>Percentage</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let subject of subjects; let i = index; trackBy: trackBySubjectId" class="align-middle">
+                    <td class="fw-bold">{{ subject.subjectId.name }}</td>
+                    <td>
+                      <div class="input-group input-group-sm">
+                        <input 
+                          type="number" 
+                          class="form-control" 
+                          [formControlName]="subject.subjectId._id" 
+                          [name]="'marks-' + i" 
+                          min="0" 
+                          [max]="subject.maxMarks" 
+                          [disabled]="isLoading" />
+                        <div class="input-group-text">
+                          / {{ subject.maxMarks }}
+                        </div>
+                      </div>
+                      <div *ngIf="marksForm.get(subject.subjectId._id)?.invalid && marksForm.get(subject.subjectId._id)?.touched" class="text-danger small mt-1">
+                        Marks must be between 0 and {{ subject.maxMarks }}.
+                      </div>
+                    </td>
+                    <td class="text-center fw-bold">{{ subject.maxMarks }}</td>
+                    <td class="text-center">
+                      <span *ngIf="marksForm.get(subject.subjectId._id)?.value">
+                        {{ (marksForm.get(subject.subjectId._id)?.value / subject.maxMarks * 100) | number:'1.1-1' }}%
+                      </span>
+                      <span *ngIf="!marksForm.get(subject.subjectId._id)?.value" class="text-muted">N/A</span>
+                    </td>
+                    <td>
+                      <span *ngIf="marksForm.get(subject.subjectId._id)?.value" class="badge" [ngClass]="{
+                        'bg-success': marksForm.get(subject.subjectId._id)?.value >= 40,
+                        'bg-danger': marksForm.get(subject.subjectId._id)?.value < 40
+                      }">
+                        {{ marksForm.get(subject.subjectId._id)?.value >= 40 ? 'Pass' : 'Fail' }}
+                      </span>
+                      <span *ngIf="!marksForm.get(subject.subjectId._id)?.value" class="badge bg-secondary">Pending</span>
+                    </td>
+                  </tr>
+                  <tr *ngIf="subjects.length === 0" class="text-center">
+                    <td colspan="5" class="py-4 text-muted">
+                      <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                      <p>No subjects available for this exam.</p>
+                    </td>
+                  </tr>
+                </tbody>
+                <tfoot *ngIf="subjects.length > 0" class="table-light">
+                  <tr>
+                    <th colspan="1" class="text-end">Total:</th>
+                    <th class="text-end fw-bold">{{ getTotalObtained() }} / {{ getTotalMax() }}</th>
+                    <th class="text-center"></th>
+                    <th class="text-center fw-bold" [ngClass]="{ 'text-success': getOverallPercentage() >= 40, 'text-danger': getOverallPercentage() < 40 }">
+                      {{ getOverallPercentage() | number:'1.1-1' }}%
+                    </th>
+                    <th>
+                      <span class="badge" [ngClass]="{ 'bg-success': getOverallPercentage() >= 40, 'bg-danger': getOverallPercentage() < 40 }">
+                        {{ getOverallPercentage() >= 40 ? 'Pass' : 'Fail' }}
+                      </span>
+                    </th>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
 
-    <!-- Form Actions -->
-    <div class="form-actions" *ngIf="subjects.length > 0 && selectedStudent">
-      <button type="button" class="submit-button" (click)="submitMarks()" [disabled]="isLoading">
-        Submit Marks
-      </button>
-      <button type="button" class="cancel-button" (click)="router.navigate(['/result-list'])" [disabled]="isLoading">
-        Back to List
-      </button>
+    <!-- Actions -->
+    <div class="row" *ngIf="subjects.length > 0 && selectedStudent">
+      <div class="col-12 text-end">
+        <button type="button" class="btn btn-secondary me-2" (click)="router.navigate(['/result-list'])" [disabled]="isLoading">
+          <i class="fas fa-arrow-left me-1"></i>Back to List
+        </button>
+        <button type="button" class="btn btn-primary" (click)="submitMarks()" [disabled]="isLoading || marksForm.invalid">
+          <i class="fas fa-save me-1"></i>Submit Marks
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm ms-2" role="status"></span>
+        </button>
+      </div>
     </div>
   </div>
 
   <!-- Loading Spinner -->
   <ng-template #loadingSpinner>
-    <div class="spinner">
-      <div class="spinner-icon"></div>
-      Loading...
+    <div class="loading-overlay d-flex justify-content-center align-items-center">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="ms-3 mb-0">Loading data...</p>
     </div>
   </ng-template>
 </div>

@@ -9,6 +9,8 @@ const PendingSchool = require('../../../models/pendingSchool');
 const Notification = require('../../../models/notifiation');
 const notificationService = require('../../../services/notificationService')
 const subscriptionSchema = require('../../../models/subscription');
+const subscriptionPlans = require('../../../utils/subscriptionPlans');
+const nodemailer = require('nodemailer');
 
 const registerSchool = async (req, res) => {
   const session = await mongoose.startSession();
@@ -25,18 +27,19 @@ const registerSchool = async (req, res) => {
         longitude,
         preferredChannel,
         whatsappOptIn,
-        pendingSchoolId
+        pendingSchoolId,
+        isMobileVerified
       } = req.body;
-
-      console.log('Received data:', { schoolName, adminName, username, email, mobileNo, preferredChannel, whatsappOptIn, latitude, longitude });
 
       // Validate user session
       if (!req.user || !req.user.id) {
         throw { status: 401, message: 'Unauthorized: Invalid user session' };
       }
 
-      // Log superadmin ID for debugging
-      console.log('Superadmin ID:', req.user.id);
+      // Validate mobile verification
+      if (!isMobileVerified) {
+        throw { status: 400, message: 'Mobile number must be verified before registration' };
+      }
 
       // Validate pending school request if provided
       let pendingSchool = null;
@@ -86,6 +89,42 @@ const registerSchool = async (req, res) => {
         country: address.country,
         postalCode: address.postalCode
       };
+        // Auto-generate unique school code for every registration
+        let finalCode;
+        try {
+          // Fetch existing codes for uniqueness check
+          const existingSchools = await School.find({}, 'code').session(session);
+          const existingCodes = existingSchools.map(s => s.code?.toUpperCase() || '');
+
+          // Derive base from schoolName (e.g., "NEWIND" for "New Indus Public School")
+          const nameUpper = schoolName.toUpperCase();
+          let baseCode = nameUpper.split(' ').slice(0, 2).map(word => word.substring(0, 3)).join(''); // First 3 letters of first 2 words
+          if (baseCode.length < 3) {
+            baseCode = nameUpper.substring(0, 4); // Fallback to first 4 chars
+          }
+          baseCode = baseCode.substring(0, 4); // Cap at 4 chars
+
+          // Generate with random suffix until unique
+          let attempt = 0;
+          const maxAttempts = 50; // Reduced for speed
+          while (attempt < maxAttempts) {
+            const randomSuffix = crypto.randomInt(10, 99).toString(); // 2-digit random (10-99)
+            finalCode = (baseCode + randomSuffix).substring(0, 6).toUpperCase(); // 3-6 chars total
+            if (!existingCodes.includes(finalCode)) {
+              break;
+            }
+            attempt++;
+          }
+
+          if (!finalCode || attempt >= maxAttempts) {
+            throw { status: 500, message: 'Failed to generate unique school code automatically. Please try again later.' };
+          }
+
+          console.log(`Auto-generated school code for "${schoolName}": ${finalCode}`); // Debug: Remove after testing
+        } catch (genErr) {
+          console.error('Code generation failed:', genErr);
+          throw { status: 500, message: 'Internal error generating school code' };
+        }
 
       // Check for existing entities
       const [existingUser, existingSchool] = await Promise.all([
@@ -159,12 +198,26 @@ const registerSchool = async (req, res) => {
         schoolId: newSchool._id,
         planType: 'trial',
         status: 'active',
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        durationDays: 30,
+        expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+        durationDays: 14,
         originalAmount: 0,
         discountAmount: 0,
-        finalAmount: 0
+        finalAmount: 0,
+        messageLimits: {
+          smsMonthly: subscriptionPlans.trial.smsMonthlyLimit,
+          whatsappMonthly: subscriptionPlans.trial.whatsappMonthlyLimit
+        },
+        usageStats: {
+          students: 0,
+          staff: 0,
+          storage: 0,
+          smsUsedThisMonth: 0,
+          whatsappUsedThisMonth: 0,
+          lastResetDate: new Date()
+        },
+        testMode: process.env.TEST_MODE === 'true'
       });
+
       await subscription.save({ session });
 
       // Update pending school if provided
@@ -173,14 +226,25 @@ const registerSchool = async (req, res) => {
         await pendingSchool.save({ session });
       }
 
-      // Create welcome notification with reset link
+      // Send welcome email with reset link
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER, // shafisadique123@gmail.com
+          pass: process.env.EMAIL_PASS  // ijes nlam jjdg pmqp
+        },
+        tls: {
+          rejectUnauthorized: false // Temporarily disable certificate validation
+        }
+      });
+
       const resetLink = `${process.env.FRONTEND_URL}/auth/reset-password?token=${resetToken}`;
       const welcomeMessage = `
         Welcome to Our School Management System!
 
         Dear ${adminName},
 
-        Congratulations! Your school, ${schoolName}, has been successfully registered.
+        Congratulations! Your school, ${schoolName} (Code: ${finalCode}), has been successfully registered.
 
         Your login credentials:
         Username: ${username}
@@ -188,34 +252,47 @@ const registerSchool = async (req, res) => {
 
         You can now manage your school's operations, including attendance, fees, and notifications.
 
-        For assistance, contact our support team at support@example.com.
+        For assistance, contact our support team via SMS or WhatsApp.
 
         Best regards,
         The SchoolSync Team
       `;
 
+      const emailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email, // Send to the admin's email
+        subject: `Welcome to ${schoolName}!`,
+        text: welcomeMessage,
+        html: `<p>${welcomeMessage.replace(/\n/g, '<br>')}</p>`
+      };
+
+      const emailInfo = await transporter.sendMail(emailOptions);
+      console.log('Email sent:', emailInfo.response);
+
+      // Create welcome notification (optional, for SMS/WhatsApp)
       const notification = new Notification({
         schoolId: newSchool._id,
         type: 'welcome',
         title: `Welcome to ${schoolName}!`,
-        message: welcomeMessage,
+        message: welcomeMessage.substring(0, 160), // Truncate for SMS/WhatsApp
         recipientId: adminUser._id,
         senderId: req.user.id,
         data: {
           loginUrl: resetLink,
-          username
+          username,
+          recipientPhone: normalizedMobileNo
         }
       });
 
       console.log('Notification data:', notification.toObject());
       await notification.save({ session });
-      await notificationService.deliver(notification, session); // ✅ Pass session
+      await notificationService.deliver(notification, session);
 
       // Log school creation
       await new auditLogs({
         userId: req.user.id,
         action: 'create_school',
-        details: { schoolId: newSchool._id, schoolName, latitude, longitude, preferredChannel, mobileNo: normalizedMobileNo }
+        details: { schoolId: newSchool._id, schoolName,code: finalCode, latitude, longitude, preferredChannel, mobileNo: normalizedMobileNo }
       }).save({ session });
 
       res.status(201).json({
@@ -224,6 +301,7 @@ const registerSchool = async (req, res) => {
           schoolId: newSchool._id,
           academicYear: defaultYear.name,
           userId: adminUser._id,
+          code: finalCode,
           subscriptionId: subscription._id,
           location: { latitude, longitude },
           preferredChannel: newSchool.preferredChannel

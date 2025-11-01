@@ -195,50 +195,50 @@ exports.getAssignmentDetails = async (req, res, next) => {
 };
 
 
-/**
- * @desc    Log manual submission by teacher
- * @route   POST /api/assignments/:id/log-submission
- * @access  Private/Teacher
- */
-exports.logManualSubmission = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      const { id: teacherId } = req.user;
-      const { studentId } = req.body;
-      const assignment = await Assignment.findOne({ _id: req.params.id, teacherId, schoolId: req.user.schoolId }).session(session)
-        .orFail(new APIError('Assignment not found or unauthorized', 404));
+// /**
+//  * @desc    Log manual submission by teacher
+//  * @route   POST /api/assignments/:id/log-submission
+//  * @access  Private/Teacher
+//  */
+// exports.logManualSubmission = async (req, res, next) => {
+//   const session = await mongoose.startSession();
+//   try {
+//     await session.withTransaction(async () => {
+//       const { id: teacherId } = req.user;
+//       const { studentId } = req.body;
+//       const assignment = await Assignment.findOne({ _id: req.params.id, teacherId, schoolId: req.user.schoolId }).session(session)
+//         .orFail(new APIError('Assignment not found or unauthorized', 404));
 
-      if (!assignment.assignedTo.includes(studentId)) throw new APIError('Student not assigned to this assignment', 403);
+//       if (!assignment.assignedTo.includes(studentId)) throw new APIError('Student not assigned to this assignment', 403);
 
-      const submissionIndex = assignment.submissions.findIndex(s => s.studentId.toString() === studentId);
-      const submissionData = {
-        studentId,
-        manuallySubmitted: true
-      };
+//       const submissionIndex = assignment.submissions.findIndex(s => s.studentId.toString() === studentId);
+//       const submissionData = {
+//         studentId,
+//         manuallySubmitted: true
+//       };
 
-      if (submissionIndex >= 0) {
-        assignment.submissions[submissionIndex] = { ...assignment.submissions[submissionIndex], ...submissionData };
-      } else {
-        assignment.submissions.push(submissionData);
-      }
+//       if (submissionIndex >= 0) {
+//         assignment.submissions[submissionIndex] = { ...assignment.submissions[submissionIndex], ...submissionData };
+//       } else {
+//         assignment.submissions.push(submissionData);
+//       }
 
-      await assignment.save({ session });
-      assignment.status = assignment.submissions.every(s => s.manuallySubmitted) ? 'submitted' : 'pending';
-      await assignment.save({ session });
+//       await assignment.save({ session });
+//       assignment.status = assignment.submissions.every(s => s.manuallySubmitted) ? 'submitted' : 'pending';
+//       await assignment.save({ session });
 
-      res.json({
-        success: true,
-        message: 'Manual submission logged successfully',
-        data: assignment
-      });
-    });
-  } catch (error) {
-    next(error);
-  } finally {
-    await session.endSession();
-  }
-};
+//       res.json({
+//         success: true,
+//         message: 'Manual submission logged successfully',
+//         data: assignment
+//       });
+//     });
+//   } catch (error) {
+//     next(error);
+//   } finally {
+//     await session.endSession();
+//   }
+// };
 
 /**
  * @desc    Grade an assignment
@@ -277,6 +277,173 @@ exports.gradeAssignment = async (req, res, next) => {
     next(error);
   } finally {
     await session.endSession();
+  }
+};
+
+
+
+/**
+ * @desc    Get assignments for a student
+ * @route   GET /api/assignments/student
+ * @access  Private/Student
+ * @description Fetches all assignments assigned to the logged-in student, sorted by dueDate.
+ * Includes submission status for each assignment.
+ */
+exports.getStudentAssignments = async (req, res, next) => {
+  try {
+    const { id: userId, role, schoolId } = req.user;
+
+    // 1. Role check
+    if (role !== 'student') {
+      return res.status(403).json({ message: 'Access denied. Student role required.' });
+    }
+
+    // 2. Extract studentId from additionalInfo (consistent with your timetable code)
+    const studentId = req.user.additionalInfo?.studentId;
+    if (!studentId) {
+      return res.status(400).json({ message: 'Student profile not linked' });
+    }
+    console.log(studentId)
+    // 3. Get Student details to fetch classId and verify school
+    const student = await Student.findById(studentId)
+      .select('classId schoolId name')
+      .populate('classId', 'name');
+      console.log(student)
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student profile not found' });
+    }
+
+    if (student.schoolId.toString() !== schoolId) {
+      return res.status(403).json({ message: 'School mismatch' });
+    }
+
+    if (!student.classId) {
+      return res.status(400).json({ message: 'No class assigned to this student' });
+    }
+
+    // 4. Fetch assignments where classId matches AND studentId is in assignedTo
+    // If assignedTo is empty, we'll assume it's for the whole class (optional logic; adjust if needed)
+    const assignments = await Assignment.find({
+      schoolId,
+      classId: student.classId._id,
+      $or: [
+        { assignedTo: studentId }, // Specific to this student
+        { assignedTo: { $size: 0 } } // Or if assignedTo is empty (whole class)
+      ],
+      dueDate: { $gte: new Date() } // Optional: Only upcoming/overdue assignments
+    })
+      .populate('classId', 'name')
+      .populate('subjectId', 'name')
+      .populate('teacherId', 'name')
+      .sort({ dueDate: 1 }) // Sort by due date ascending
+      .lean();
+
+    // 5. Enhance each assignment with student's submission status
+    const enhancedAssignments = assignments.map(assignment => {
+      const studentSubmission = assignment.submissions?.find(
+        s => s.studentId && s.studentId.toString() === studentId.toString()
+      ) || null;
+
+      return {
+        ...assignment,
+        hasSubmitted: !!studentSubmission,
+        submittedAt: studentSubmission?.submittedAt || null,
+        grade: studentSubmission?.grade || null,
+        comments: studentSubmission?.comments || null,
+        isOverdue:  new Date(assignment.dueDate) < new Date(),
+        daysUntilDue: Math.ceil((new Date(assignment.dueDate) - new Date()) / (1000 * 60 * 60 * 24))
+      };
+    });
+
+    res.json({
+      success: true,
+      count: enhancedAssignments.length,
+      data: enhancedAssignments
+    });
+  } catch (error) {
+    console.error('Error in getStudentAssignments:', error);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get details of a specific assignment for a student
+ * @route   GET /api/assignments/my-assignment/:id
+ * @access  Private/Student
+ * @description Fetches a single assignment details if assigned to the student, including their submission status.
+ */
+exports.getStudentAssignmentDetails = async (req, res, next) => {
+  try {
+    const { id: userId, role, schoolId } = req.user;
+    const { id: assignmentId } = req.params; // FIXED: Extract from :id param
+
+    // 1. Role check  
+    if (role !== 'student') {
+      return res.status(403).json({ message: 'Access denied. Student role required.' });
+    }
+
+    // 2. Extract studentId
+    const studentId = req.user.additionalInfo?.studentId;
+    if (!studentId) {
+      return res.status(400).json({ message: 'Student profile not linked' });
+    }
+
+    // 3. Get Student
+    const student = await Student.findById(studentId)
+      .select('classId schoolId')
+      .populate('classId', 'name');
+
+    if (!student || student.schoolId.toString() !== schoolId) {
+      return res.status(403).json({ message: 'Student profile not found or school mismatch' });
+    }
+
+    // 4. Fetch and validate assignment
+    const assignment = await Assignment.findOne({
+      _id: assignmentId,
+      schoolId,
+      classId: student.classId._id,
+      $or: [
+        { assignedTo: studentId },
+        { assignedTo: { $size: 0 } }
+      ]
+    })
+      .populate('classId', 'name')
+      .populate('subjectId', 'name')
+      .populate('teacherId', 'name')
+      .lean();
+
+    if (!assignment) {
+      return res.status(404).json({ message: 'Assignment not found or not assigned to you' });
+    }
+
+    // 5. Get student's submission ONLY (filter full array for privacy)
+    const studentSubmission = assignment.submissions?.find(
+      s => s.studentId && s.studentId.toString() === studentId.toString()
+    ) || null;
+
+    // FIXED: Create enhanced assignment WITHOUT full submissions array (production privacy)
+    const { submissions, ...assignmentWithoutSubmissions } = assignment; // Remove full submissions
+    const enhancedAssignment = {
+      ...assignmentWithoutSubmissions,
+      mySubmission: studentSubmission || null, // Rename to mySubmission for clarity (optional; or just use fields below)
+      hasSubmitted: !!studentSubmission,
+      submittedAt: studentSubmission?.submittedAt || null,
+      submittedFiles: studentSubmission?.submittedFiles || [],
+      submittedText: studentSubmission?.submittedText || null,
+      grade: studentSubmission?.grade || null,
+      comments: studentSubmission?.comments || null,
+      isOverdue: new Date(assignment.dueDate) < new Date(),
+      daysUntilDue: Math.ceil((new Date(assignment.dueDate) - new Date()) / (1000 * 60 * 60 * 24))
+    };
+
+    res.json({
+      success: true,
+      data: enhancedAssignment
+    });
+  } catch (error) {
+    console.error('Error in getStudentAssignmentDetails:', error);
+    next(error);
   }
 };
 /**
@@ -350,5 +517,38 @@ exports.bulkGradeAssignment = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+
+exports.proxyFile = async (req, res) => {
+  try {
+    const { key } = req.params;
+    if (!key) {
+      return res.status(400).json({ message: 'File key is required' });
+    }
+
+    // Optional: Add auth check here if not already in middleware
+    // e.g., if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: key,
+    });
+
+    const { Body, ContentType, ContentLength, ContentDisposition } = await s3Client.send(command);
+
+    // Set headers for streaming
+    res.set({
+      'Content-Type': ContentType || 'application/octet-stream',
+      'Content-Length': ContentLength,
+      'Content-Disposition': ContentDisposition || 'inline',
+    });
+
+    // Stream the body directly (efficient for large files)
+    Body.pipe(res);
+  } catch (error) {
+    console.error('Error proxying file:', error);
+    res.status(500).json({ message: 'Failed to load file' });
   }
 };

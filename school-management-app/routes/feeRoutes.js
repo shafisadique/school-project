@@ -22,6 +22,7 @@ const {
   generateClassReceipts,
   getFeeCollectionDetailsReport,
   generateReceiptPDF,
+  getStudentInvoices,
 } = require('../controllers/fee/paymentController');
 const invoiceService = require('../models/invoice.service');
 const { searchStudents } = require('../controllers/student/studentController');
@@ -119,5 +120,6 @@ router.get('/invoices/:id/pdf', authMiddleware, validateSchoolAccess(Invoice), g
 router.get('/reports/collection', authMiddleware, getFeeCollectionReport);
 router.get('/reports/defaulters', authMiddleware, getDefaultersList);
 router.get('/paid-invoices', authMiddleware, adminOrAccountant,getPaidInvoiceList );
+router.get('/invoices/student/:studentId', authMiddleware, getStudentInvoices);
 router.get('/receipts/:receiptId/pdf', authMiddleware, validateSchoolAccess(Receipt), generateReceiptPDF);
 module.exports = router;

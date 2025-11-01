@@ -1,0 +1,40 @@
+<div class="container-fluid p-4">
+  <h3 class="mb-4">My Class Timetable</h3>
+
+  <div class="mb-3">
+    <label class="form-label">Academic Year:</label>
+    <select class="form-control" [(ngModel)]="selectedYearId" (change)="onYearChange()">
+      <option *ngFor="let y of academicYears" [value]="y._id">{{ y.name }}</option>
+    </select>
+  </div>
+
+  <div *ngIf="timetable.length === 0" class="alert alert-info">
+    No timetable available for your class.
+  </div>
+
+  <div *ngIf="timetable.length > 0" class="table-responsive">
+    <table class="table table-bordered table-hover">
+      <thead class="table-light">
+        <tr>
+          <th>Day</th>
+          <th *ngFor="let slot of timeSlots">
+            {{ slot.start }} - {{ slot.end }}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let day of days; let i = index">
+          <td><strong>{{ day }}</strong></td>
+          <td *ngFor="let cell of grid[i]">
+            <div *ngIf="cell; else empty">
+              <strong>{{ cell.subject }}</strong><br>
+              <small>{{ cell.teacher }}</small><br>
+              <em>Room: {{ cell.room }}</em>
+            </div>
+            <ng-template #empty><span class="text-muted">-</span></ng-template>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -66,4 +66,11 @@ export class TimetableService {
       headers: this.getHeaders()
     });
   }
+
+  getStudentTimetable(academicYearId: string): Observable<any[]> {
+  return this.http.get<any[]>(`${this.apiUrl}/api/timetable/student`, {
+    headers: this.getHeaders(),
+    params: { academicYearId }
+  });
+}
 }

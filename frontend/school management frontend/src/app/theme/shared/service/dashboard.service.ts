@@ -29,7 +29,7 @@ export class DashboardService {
   }
 
   verifyPayment(data: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/subscriptions/verify`, data, { withCredentials: true });
+    return this.http.post(`${this.baseUrl}/verify-payment`, data, { withCredentials: true });
   }
 
   uploadPaymentProof(subscriptionId: string, file: File): Observable<any> {

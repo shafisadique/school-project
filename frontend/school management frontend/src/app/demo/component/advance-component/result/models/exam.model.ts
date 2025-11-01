@@ -30,4 +30,5 @@ export interface Subject {
     endDate: string;
     examStatus: 'Scheduled' | 'Ongoing' | 'Completed';
     examPapers: ExamPaper[];
+    examDate:any
   }

@@ -22,7 +22,6 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
     const currentYear = today.year(); // 2025
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     const monthIndex = monthNames.indexOf(month);
-    console.log(monthIndex)
     if (monthIndex === -1) {
       throw new Error('Invalid month name. Use full names like "June".');
     }
@@ -55,7 +54,6 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
     } else {
       students = await Student.find({ schoolId, classId }).session(session);
     }
-    console.log(`Found ${students.length} students:`, students.map(s => s._id));
     if (students.length === 0) throw new Error(`No students in ${className}.`);
 
     const invoices = [];
@@ -174,7 +172,6 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
           type: 'Penalty',
           frequency: 'OneTime',
         });
-        console.log(`Added miscalculation fee (${miscalculationFee}) for ${student._id}`);
       }
 
       // Apply discounts
@@ -190,8 +187,9 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
         });
       }
       currentCharges -= discountAmount;
-      const totalAmount = baseAmount + currentCharges;
-
+      
+      // const totalAmount = baseAmount + currentCharges;
+      const totalAmount = baseAmount + currentCharges + previousDue;
       // Create invoice
       const invoice = new Invoice({
         schoolId,
@@ -209,7 +207,7 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
         invoiceDetails: feeDetails,
         totalAmount,
         paidAmount: 0,
-        remainingDue: totalAmount + previousDue,
+        remainingDue: previousDue,
         discountsApplied: appliedDiscounts,
         paymentSchedule: 'Monthly',
         status: 'Pending',
@@ -218,7 +216,6 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
 
       await invoice.save({ session });
       invoices.push(invoice);
-      console.log(`Invoice for ${student._id}: total ${totalAmount}, base ${baseAmount}, charges ${currentCharges}, miscalculation ${miscalculationFee}`);
 
       // Send SMS if school has active SMS pack and a parent contact is available
       const parentContact = student.parents.fatherPhone || student.parents.motherPhone;

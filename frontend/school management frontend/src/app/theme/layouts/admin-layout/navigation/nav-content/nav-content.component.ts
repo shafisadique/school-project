@@ -106,58 +106,64 @@ export class NavContentComponent implements OnInit {
     }
   }
 
-  private updateNavigations() {
-    const role = this.authService.getUserRole();
-    if (role === 'superadmin') {
-    this.navigations = [
-      {
-        id: 'dashboard',
-        title: 'Dashboard',
-        type: 'group',
-        icon: 'dashboard',
-        children: [
-          { id: 'default-dash', title: 'Default', type: 'item', url: '/dashboard/default', icon: 'dashboard' }
-        ]
-      },
-      {
-        id: 'subscription',
-        title: 'Subscription Management',
-        type: 'group',
-        icon: 'credit-card',
-        children: [
-          { id: 'manage-subscription', title: 'Manage Subscriptions', type: 'item', url: '/subscription-management', icon: 'credit-card' }
-        ]
-      },
-      {
-        id: 'approve',
-        title: 'Approve',
-        type: 'group',
-        icon: 'check',
-        children: [
-          { id: 'approve-requests', title: 'Approve Requests', type: 'item', url: '/approve', icon: 'check' }
-        ]
-      }
-    ];
-  } 
-    if (role === 'teacher') {
-      
-      // For teachers, show only Dashboard and Attendance
+
+   private updateNavigations() {
+  const role = this.authService.getUserRole();
+  
+  switch (role) {
+    case 'superadmin':
       this.navigations = [
-         {
-        id: 'dashboard',
-        title: 'Teacher Dashboard',
-        type: 'group',
-        icon: 'dashboard',
-        children: [
-          {
-            id: 'default-dash',
-            title: 'Default',
-            type: 'item',
-            url: '/teacher-dashboard',
-            icon: 'dashboard'
-          }
-        ]
-      },
+        {
+          id: 'dashboard',
+          title: 'Dashboard',
+          type: 'group',
+          icon: 'dashboard',
+          children: [
+            { id: 'default-dash', title: 'Default', type: 'item', url: '/dashboard/default', icon: 'dashboard' }
+          ]
+        },
+        {
+          id: 'subscription',
+          title: 'Subscription Management',
+          type: 'group',
+          icon: 'credit-card',
+          children: [
+            { id: 'manage-subscription', title: 'Manage Subscriptions', type: 'item', url: '/subscription-management', icon: 'credit-card' }
+          ]
+        },
+        {
+          id: 'approve',
+          title: 'Approve',
+          type: 'group',
+          icon: 'check',
+          children: [
+            { id: 'approve-requests', title: 'Approve Requests', type: 'item', url: '/approve', icon: 'check' }
+          ]
+        }
+      ];
+      break;
+
+    case 'admin':
+      this.navigations = NavigationItems; // or define specific admin navigation
+      break;
+
+    case 'teacher':
+      this.navigations = [
+        {
+          id: 'dashboard',
+          title: 'Teacher Dashboard',
+          type: 'group',
+          icon: 'dashboard',
+          children: [
+            {
+              id: 'default-dash',
+              title: 'Default',
+              type: 'item',
+              url: '/teacher-dashboard',
+              icon: 'dashboard'
+            }
+          ]
+        },
         {
           id: 'attendance',
           title: 'Attendance',
@@ -165,44 +171,35 @@ export class NavContentComponent implements OnInit {
           icon: 'team',
           children: [
             {
-              id: 'attendance-details',
+              id: 'teacher-attendance',
               title: 'Teacher Attendance',
               type: 'item',
-              url: '/teacher/attendance', // Adjust to match your route
+              url: '/teacher/attendance',
               icon: 'user'
             },
             {
-              id: 'attendance-details',
+              id: 'student-attendance',
               title: 'Student Attendance',
               type: 'item',
-              url: '/attendance', // Adjust to match your route
+              url: '/attendance',
               icon: 'user'
             },
-             {
-              id: 'attendance-details',
+            {
+              id: 'student-weekly-report',
               title: 'Student Weekly Report',
               type: 'item',
-              url: '/student/student-progress-reports-weekly', // Adjust to match your route
+              url: '/student/student-progress-reports-weekly',
               icon: 'user'
             },
           ]
         },
-        //  {
-        //   id: 'Exam',
-        //   title: 'Exam',
-        //   type: 'group',
-        //   icon: 'team',
-        //   children: [
-        //     { id: 'exam-history', title: 'Exam History', type: 'item', url: '/exams-&-progress/exam-list', icon: 'user' }
-        //   ]
-        // },
         {
-          id: 'Assignment',
+          id: 'assignment',
           title: 'Assignment',
           type: 'group',
           icon: 'team',
           children: [
-            { id: 'assignment', title: 'Create Assignment', type: 'item', url: '/assignment-details', icon: 'user' },
+            { id: 'create-assignment', title: 'Create Assignment', type: 'item', url: '/assignment-details', icon: 'user' },
           ]
         },
         {
@@ -216,18 +213,89 @@ export class NavContentComponent implements OnInit {
           ]
         },
         {
-          id: 'Teacher',
-          title: 'Teacher ',
+          id: 'teacher-leave',
+          title: 'Teacher',
           type: 'group',
           icon: 'team',
           children: [
-            { id: '', title: 'Apply for Leave', type: 'item', url: '/teacher/apply-leave', icon: 'user' },
+            { id: 'apply-leave', title: 'Apply for Leave', type: 'item', url: '/teacher/apply-leave', icon: 'user' },
           ]
         }
       ];
-    } else {
-      // For other roles (e.g., admin), show all items
-      this.navigations = NavigationItems;
-    }
+      break;
+
+    case 'parent':
+      this.navigations = [
+        {
+          id: 'dashboard',
+          title: 'Parent Dashboard',
+          type: 'group',
+          icon: 'dashboard',
+          children: [
+            { id: 'parent-dash', title: 'Dashboard', type: 'item', url: '/parent/dashboard', icon: 'dashboard' }
+          ]
+        },
+        {
+          id: 'children',
+          title: 'My Children',
+          type: 'group',
+          icon: 'team',
+          children: [
+            { id: 'children-list', title: 'Children List', type: 'item', url: '/parent/children', icon: 'user' },
+            { id: 'attendance', title: 'Attendance', type: 'item', url: '/parent/attendance', icon: 'calendar' },
+            { id: 'progress', title: 'Progress Reports', type: 'item', url: '/parent/progress', icon: 'bar-chart' }
+          ]
+        },
+        {
+          id: 'payments',
+          title: 'Payments',
+          type: 'group',
+          icon: 'credit-card',
+          children: [
+            { id: 'fee-payment', title: 'Fee Payment', type: 'item', url: '/parent/payments', icon: 'dollar' }
+          ]
+        }
+      ];
+      break;
+
+    case 'student':
+      this.navigations = [
+        {
+          id: 'dashboard',
+          title: 'Student Dashboard',
+          type: 'group',
+          icon: 'dashboard',
+          children: [
+            { id: 'student-dash', title: 'Dashboard', type: 'item', url: '/student/dashboard', icon: 'dashboard' }
+          ]
+        },
+        {
+          id: 'academics',
+          title: 'Academics',
+          type: 'group',
+          icon: 'book',
+          children: [
+            { id: 'timetable', title: 'Timetable', type: 'item', url: '/time-table/my-timetable', icon: 'calendar' },
+            { id: 'assignments', title: 'Assignments', type: 'item', url: '/student-assignments-list', icon: 'file-text' },
+            { id: 'results', title: 'Results', type: 'item', url: '/student/results', icon: 'bar-chart' }
+          ]
+        },
+        {
+          id: 'attendance',
+          title: 'Attendance',
+          type: 'group',
+          icon: 'calendar',
+          children: [
+            { id: 'my-attendance', title: 'My Attendance', type: 'item', url: '/student/attendance', icon: 'user' }
+          ]
+        }
+      ];
+      break;
+
+    default:
+      // Fallback for unknown roles or guests
+      this.navigations = [];
+      break;
   }
+}
 }

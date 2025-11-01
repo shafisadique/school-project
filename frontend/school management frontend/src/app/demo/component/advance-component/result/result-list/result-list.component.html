@@ -1,88 +1,168 @@
-<div class="container-fluid">
-  <header class="header">
-    <h2>Result List</h2>
-    <button (click)="navigateToCreateResult()" class="create-btn">Create Result</button>
-  </header>
-
-  <div class="filters">
-    <div class="filter-group">
-      <label for="academicYear">Academic Year</label>
-      <select id="academicYear" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()" [disabled]="isLoadingAcademicYears">
-        <option value="">Select Academic Year</option>
-        <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label for="exam">Exam</label>
-      <select id="exam" [(ngModel)]="selectedExamId" (change)="onExamChange()" [disabled]="isLoadingExams || !selectedAcademicYearId">
-        <option value="">Select Exam</option>
-        <option *ngFor="let exam of exams" [value]="exam._id">{{ getExamDisplayName(exam) }}</option>
-      </select>
+<div class="container-fluid p-4">
+  <!-- Header -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center bg-white p-3 rounded shadow-sm">
+        <h2 class="mb-0 text-primary fw-bold">
+          <i class="fas fa-list me-2"></i>Result List
+        </h2>
+        <button class="btn btn-primary px-4 py-2" (click)="navigateToCreateResult()" [disabled]="isLoadingExams || isLoadingAcademicYears">
+          <i class="fas fa-plus me-1"></i>Create Result
+        </button>
+      </div>
     </div>
   </div>
 
-  <div class="result-table" *ngIf="!isLoadingResults; else loading">
-    <table *ngIf="results.length > 0">
-      <thead>
-        <tr>
-          <th>Student Name</th>
-          <th>Roll No</th>
-          <th>Exam</th>
-          <th>Total Marks</th>
-          <th>Percentage</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let result of results" [class.expanded]="expandedRows[result._id]">
-          <td>{{ result.studentId.name || 'N/A' }}</td>
-          <td>{{ result.studentId.rollNo || 'N/A' }}</td>
-          <td>{{ result.examId.examTitle || 'N/A' }}</td>
-          <td>{{ result.totalMarksObtained }} / {{ result.totalMaxMarks }}</td>
-          <td>{{ result.percentage | number:'1.2-2' }}%</td>
-          <td>{{ result.status }}</td>
-          <td>
-            <button (click)="toggleRow(result._id)">View Details</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="no-data" *ngIf="results.length === 0 && !isLoadingResults">
-      No results found for the selected exam.
+  <!-- Filters -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-3">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="academicYear" class="form-label fw-medium">Academic Year <span class="text-danger">*</span></label>
+              <select id="academicYear" class="form-select" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()" [disabled]="isLoadingAcademicYears">
+                <option value="">Select Academic Year</option>
+                <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label for="exam" class="form-label fw-medium">Exam <span class="text-danger">*</span></label>
+              <select id="exam" class="form-select" [(ngModel)]="selectedExamId" (change)="onExamChange()" [disabled]="isLoadingExams || !selectedAcademicYearId">
+                <option value="">Select Exam</option>
+                <option *ngFor="let exam of exams" [value]="exam._id">{{ getExamDisplayName(exam) }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <ng-template #loading>
-    <div class="loading-overlay">Loading...</div>
-  </ng-template>
+  <!-- Loading Overlay -->
+  <!-- <div class="loading-overlay position-fixed d-flex justify-content-center align-items-center" *ngIf="isLoadingResults || isLoadingExams || isLoadingAcademicYears">
+    <div class="text-center">
+      <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mb-0 text-muted">Loading results...</p>
+    </div>
+  </div> -->
 
-  <div class="details" *ngFor="let result of results" [@expand]="expandedRows[result._id] ? 'expanded' : 'collapsed'">
-    <h3>Subject Details for {{ result.studentId.name }}</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Subject</th>
-          <th>Marks Obtained</th>
-          <th>Max Marks</th>
-          <th>Percentage</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let subject of result.subjects">
-          <td>{{ subject.subjectId.name || 'N/A' }}</td>
-          <td>{{ subject.marksObtained || 0 }}</td>
-          <td>{{ subject.maxMarks || 0 }}</td>
-          <td>{{ (subject.marksObtained / subject.maxMarks * 100) | number:'1.2-2' }}%</td>
-        </tr>
-        <!-- Fallback for partial results with subjectId -->
-        <tr *ngIf="result.subjects.length === 0 && result.subjectId">
-          <td>{{ result.subjectId.name || 'N/A' }}</td>
-          <td>{{ result.marksObtained || 0 }}</td>
-          <td>{{ 100 }}</td> <!-- Default max marks for partial results -->
-          <td>{{ (result.marksObtained / 100 * 100) | number:'1.2-2' }}%</td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Results Table -->
+  <div class="card shadow-sm border-0" *ngIf="!isLoadingResults">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center p-3">
+      <h5 class="mb-0 fw-bold text-dark">
+        <i class="fas fa-table me-2 text-primary"></i>Results Overview
+      </h5>
+      <small class="text-muted">{{ results.length }} results found</small>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>Student Name</th>
+              <th>Roll No</th>
+              <th>Exam</th>
+              <th>Total Marks</th>
+              <th>Percentage</th>
+              <th>Status</th>
+              <th class="text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let result of results" class="align-middle" [class.table-light]="expandedRows[result._id]">
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="avatar me-2 rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; font-size: 0.8rem;">
+                    {{ result.studentId.name.charAt(0).toUpperCase() }}
+                  </div>
+                  <span class="fw-medium">{{ result.studentId.name }}</span>
+                </div>
+              </td>
+              <td class="fw-medium">{{ result.studentId.rollNo || 'N/A' }}</td>
+              <td>{{ result.examId.examTitle }}</td>
+              <td class="text-center">
+                <span class="badge bg-info fs-6">{{ result.totalMarksObtained }} / {{ result.totalMaxMarks }}</span>
+              </td>
+              <td class="text-center" [ngClass]="{ 'text-success fw-bold': result.percentage >= 33, 'text-danger fw-bold': result.percentage < 33 }">
+                {{ result.percentage | number:'1.1-1' }}%
+              </td>
+              <td class="text-center">
+                <span class="badge rounded-pill px-3 py-2 fs-6" [ngClass]="{ 'bg-success': result.status === 'Pass', 'bg-danger': result.status === 'Fail' }">
+                  {{ result.status }}
+                </span>
+              </td>
+              <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary me-1" (click)="toggleRow(result._id)" matTooltip="View Details">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-warning me-1" (click)="editResult(result._id)" matTooltip="Edit Score" [disabled]="!result.subjectId">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger" (click)="deleteResult(result._id)" matTooltip="Delete Result">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="results.length === 0">
+              <td colspan="7" class="text-center py-4">
+                <i class="fas fa-file-alt fa-3x text-muted mb-3"></i>
+                <p class="text-muted">No results found for the selected exam.</p>
+                <button class="btn btn-primary" (click)="navigateToCreateResult()">Create First Result</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expandable Details -->
+  <div *ngFor="let result of results" class="mt-3">
+    <div class="card shadow-sm border-left-primary" *ngIf="expandedRows[result._id]" [@fadeIn]>
+      <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0 fw-bold text-primary">
+          <i class="fas fa-list me-2"></i>Subject Details for {{ result.studentId.name }}
+        </h6>
+        <button class="btn btn-sm btn-outline-secondary" (click)="toggleRow(result._id)">
+          <i class="fas fa-times"></i> Close
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered">
+            <thead class="table-light">
+              <tr>
+                <th>Subject</th>
+                <th>Marks Obtained</th>
+                <th>Max Marks</th>
+                <th>Percentage</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let subject of result.subjects" class="align-middle">
+                <td class="fw-medium">{{ subject.subjectId.name }}</td>
+                <td class="text-center">{{ subject.marksObtained || 0 }}</td>
+                <td class="text-center">{{ subject.maxMarks || 100 }}</td>
+                <td class="text-center" [ngClass]="{ 'text-success': (subject.marksObtained / subject.maxMarks * 100) >= 33, 'text-danger': (subject.marksObtained / subject.maxMarks * 100) < 33 }">
+                  {{ (subject.marksObtained / subject.maxMarks * 100) | number:'1.1-1' }}%
+                </td>
+                <td class="text-center">
+                  <span class="badge rounded-pill px-2 py-1" [ngClass]="{ 'bg-success': (subject.marksObtained / subject.maxMarks * 100) >= 33, 'bg-danger': (subject.marksObtained / subject.maxMarks * 100) < 33 }">
+                    {{ (subject.marksObtained / subject.maxMarks * 100) >= 33 ? 'Pass' : 'Fail' }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-3 text-center">
+          <button class="btn btn-primary" (click)="printResult(result._id)">Print Result</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

@@ -9,9 +9,11 @@ export const environment = {
   production: false,
   // apiUrl: 'https://school-management-backend-khaki.vercel.app',
   apiUrl: 'http://localhost:5675', 
-  razorpayKey: 'rzp_test_xxxxxxxxxxxx', // Replace with your Razorpay test key
+  razorpayKey: 'rzp_test_RYaocvTKMe1oqH', // Replace with your Razorpay test key
   razorpayKeyId:'',
-  googleMapsApiKey:'AIzaSyDKsK100m1obqgkQJILOEafWm2mReD0whA'
+  testMode: false,
+  googleMapsApiKey:'AIzaSyDKsK100m1obqgkQJILOEafWm2mReD0whA',
+  imageUrl:'https://school-management-backend-khaki.vercel.app'
 };
 
 

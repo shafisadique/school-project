@@ -5,7 +5,7 @@ const Subject = require('../../models/subject'); // Fixed typo: 'subject' to 'Su
 const APIError = require('../../utils/apiError');
 const mongoose = require('mongoose');
 const Teacher = require('../../models/teacher');
-
+const ClassSubjectAssignment = require('../../models/classSubjectAssignment')
 const MINIMUM_PASSING_PERCENTAGE_PER_SUBJECT = 33;
 
 // Helper Functions
@@ -29,8 +29,14 @@ const createPartialResult = async (req, res, next) => {
         !mongoose.Types.ObjectId.isValid(classId) || !mongoose.Types.ObjectId.isValid(subjectId)) {
       throw new APIError('Invalid ID provided', 400);
     }
-    if (!marksObtained || marksObtained < 0) {
-      throw new APIError('Marks obtained must be a non-negative number', 400);
+    // FIXED: Allow 0 explicitly (non-negative includes 0); check for null/undefined separately
+    if (marksObtained == null || marksObtained < 0 || !Number.isFinite(marksObtained)) {
+      throw new APIError('Marks obtained must be a valid non-negative number (0 or higher)', 400);
+    }
+    // Coerce to number if string (e.g., from form)
+    const marksNum = Number(marksObtained);
+    if (isNaN(marksNum)) {
+      throw new APIError('Marks obtained must be a valid number', 400);
     }
 
     // Check if the result already exists
@@ -48,30 +54,31 @@ const createPartialResult = async (req, res, next) => {
     if (!examPaper) {
       throw new APIError('Subject not found in exam papers', 400);
     }
-    if (marksObtained > examPaper.maxMarks) {
-      throw new APIError(`Marks obtained (${marksObtained}) exceed max marks (${examPaper.maxMarks})`, 400);
+    if (marksNum > examPaper.maxMarks) {
+      throw new APIError(`Marks obtained (${marksNum}) exceed max marks (${examPaper.maxMarks})`, 400);
     }
 
-    // Authorize teacher
+    // Authorize teacher (ALSO FIXED: Use ClassSubjectAssignment for consistency with exam fetching)
     if (req.user.role === 'teacher') {
       const teacher = await Teacher.findOne({ userId: req.user.id });
       if (!teacher) throw new APIError('Teacher profile not found', 404);
-      const authorizedSubjects = await Subject.find({
-        schoolId: req.user.schoolId,
-        $or: [
-          { 'teacherAssignments.teacherId': teacher._id, 'teacherAssignments.academicYearId': req.user.activeAcademicYear },
-          { teachers: teacher._id }
-        ]
+      
+      // FIXED: Query ClassSubjectAssignment instead of legacy teacherAssignments/teachers
+      const assignment = await ClassSubjectAssignment.findOne({
+        teacherId: teacher._id,
+        subjectId,
+        classId,
+        academicYearId: req.user.activeAcademicYear,
+        schoolId: req.user.schoolId
       });
-      const teacherSubjectIds = authorizedSubjects.map(s => s._id.toString());
-      if (!teacherSubjectIds.includes(subjectId)) {
-        throw new APIError('Not authorized for this subject', 403);
+      if (!assignment) {
+        throw new APIError('Not authorized for this subject and class', 403);
       }
     }
 
-    // Create partial result
+    // Create partial result (use marksNum for safety)
     const result = new Result({
-      studentId, examId, classId, subjectId, marksObtained,
+      studentId, examId, classId, subjectId, marksObtained: marksNum,
       schoolId: req.user.schoolId, academicYearId: req.user.activeAcademicYear
     });
     await result.save();
@@ -79,6 +86,81 @@ const createPartialResult = async (req, res, next) => {
   } catch (error) {
     console.log('Error in createPartialResult:', error.message);
     next(new APIError('Error creating partial result: ' + error.message, 500));
+  }
+};
+
+
+const updatePartialResult = async (req, res, next) => {
+  try {
+    const { resultId } = req.params;
+    const { marksObtained } = req.body;
+
+    // Validate resultId
+    if (!mongoose.Types.ObjectId.isValid(resultId)) {
+      throw new APIError('Invalid result ID', 400);
+    }
+
+    // Validate marksObtained
+    if (marksObtained == null || marksObtained < 0 || !Number.isFinite(marksObtained)) {
+      throw new APIError('Marks obtained must be a valid non-negative number (0 or higher)', 400);
+    }
+    const marksNum = Number(marksObtained);
+    if (isNaN(marksNum)) {
+      throw new APIError('Marks obtained must be a valid number', 400);
+    }
+
+    // Fetch existing result
+    const existingResult = await Result.findById(resultId);
+    if (!existingResult || existingResult.schoolId.toString() !== req.user.schoolId) {
+      throw new APIError('Result not found or not authorized', 404);
+    }
+    if (!existingResult.subjectId) {
+      throw new APIError('This is not a partial result (no subjectId)', 400);
+    }
+
+    // Fetch and validate exam
+    const exam = await Exam.findById(existingResult.examId).populate('examPapers.subjectId');
+    if (!exam) {
+      throw new APIError('Exam not found', 404);
+    }
+    const examPaper = exam.examPapers.find(p => p.subjectId._id.toString() === existingResult.subjectId.toString());
+    if (!examPaper) {
+      throw new APIError('Subject not found in exam papers', 400);
+    }
+    if (marksNum > examPaper.maxMarks) {
+      throw new APIError(`Marks obtained (${marksNum}) exceed max marks (${examPaper.maxMarks})`, 400);
+    }
+
+    // Authorize teacher
+    if (req.user.role === 'teacher') {
+      const teacher = await Teacher.findOne({ userId: req.user.id });
+      if (!teacher) throw new APIError('Teacher profile not found', 404);
+
+      const assignment = await ClassSubjectAssignment.findOne({
+        teacherId: teacher._id,
+        subjectId: existingResult.subjectId,
+        classId: existingResult.classId,
+        academicYearId: req.user.activeAcademicYear,
+        schoolId: req.user.schoolId
+      });
+      if (!assignment) {
+        throw new APIError('Not authorized for this subject and class', 403);
+      }
+    }
+
+    // Update marksObtained
+    existingResult.marksObtained = marksNum;
+    await existingResult.save();
+
+    // Populate response
+    const updatedResult = await Result.findById(resultId)
+      .populate('studentId', 'name rollNo')
+      .populate('subjectId', 'name')
+      .populate('examId', 'examTitle');
+    res.status(200).json(updatedResult);
+  } catch (error) {
+    console.log('Error in updatePartialResult:', error.message);
+    next(new APIError('Error updating partial result: ' + error.message, 500));
   }
 };
 
@@ -241,7 +323,8 @@ const getPartialResults = async (req, res, next) => {
 
     const transformedResults = results.map(r => ({
       _id: r._id, studentId: r.studentId, examId: r.examId, classId: r.classId,
-      subjectId: r.subjectId, marksObtained: r.marksObtained, schoolId: r.schoolId,
+      subjectId: r.subjectId._id, subjectName: r.subjectId.name, // FIXED: Include name
+      marksObtained: r.marksObtained, schoolId: r.schoolId,
       academicYearId: r.academicYearId, createdAt: r.createdAt, updatedAt: r.updatedAt
     }));
     res.status(200).json(transformedResults);
@@ -251,11 +334,96 @@ const getPartialResults = async (req, res, next) => {
   }
 };
 
+
+
+const getExamsForResultEntry = async (req, res, next) => {
+  try {
+    const schoolId = req.user.schoolId;
+    const academicYearId = req.user.activeAcademicYear;
+    const userId = req.user.id;
+
+    if (req.user.role !== 'teacher') {
+      throw new APIError('Only teachers can access result entry exams', 403);
+    }
+
+    // Get teacher
+    const teacher = await Teacher.findOne({ userId });
+    if (!teacher) {
+      throw new APIError('Teacher profile not found', 404);
+    }
+
+    // Get teacher's assigned subjects for ALL classes in this academic year
+    const assignments = await ClassSubjectAssignment.find({
+      teacherId: teacher._id,
+      academicYearId,
+      schoolId
+    }).populate('classId', 'name').populate('subjectId', 'name');
+    console.log('=== DEBUG: Teacher Assignments ===');
+    console.log('Teacher ID:', teacher._id);
+    console.log('Assignments:', assignments.map(a => ({ className: a.classId.name, subjectName: a.subjectId.name, subjectId: a.subjectId._id })));
+
+    if (assignments.length === 0) {
+      console.log('No assignments found for teacher');
+      return res.status(200).json({ exams: [] });
+    }
+
+    // Get unique class IDs from assignments
+    const teacherClassIds = [...new Set(assignments.map(a => a.classId._id.toString()))];
+    console.log('Teacher Class IDs:', teacherClassIds);
+
+    // Get exams for teacher's classes
+    const exams = await Exam.find({
+      schoolId,
+      academicYearId,
+      classId: { $in: teacherClassIds }
+    }).populate({
+      path: 'examPapers.subjectId',
+      populate: { path: 'name' } // Ensure name populated
+    }).populate('classId', 'name');
+
+    console.log('Raw Exams Found:', exams.length);
+
+    // Filter each exam's examPapers to only teacher's assigned subjects for that class
+    const filteredExams = exams.map(exam => {
+      const examClassId = exam.classId._id.toString();
+      console.log(`Filtering exam for class ${examClassId} (${exam.classId.name}):`);
+      // Get teacher's subjects for this specific class
+      const classAssignments = assignments.filter(a => a.classId._id.toString() === examClassId);
+      const teacherSubjectIds = classAssignments.map(a => a.subjectId._id.toString());
+      console.log('Subject IDs for this class:', teacherSubjectIds);
+
+      const filteredPapers = exam.examPapers.filter(paper => 
+        teacherSubjectIds.includes(paper.subjectId._id.toString())
+      ).map(paper => ({
+        ...paper.toObject(),
+        subjectId: paper.subjectId // Full populated object with name
+      }));
+
+      console.log('Filtered Papers for this exam:', filteredPapers.map(p => p.subjectId.name));
+
+      return {
+        ...exam.toObject(),
+        examPapers: filteredPapers // Only teacher's subjects for this class
+      };
+    }).filter(exam => exam.examPapers.length > 0); // Only exams with assigned subjects
+
+    console.log('Final Filtered Exams:', filteredExams.length);
+    res.status(200).json({ exams: filteredExams });
+  } catch (error) {
+    console.error('Error in getExamsForResultEntry:', error);
+    next(new APIError(error.message, error.status || 500));
+  }
+};
+
+
+
+
 const getResultsByExam = async (req, res, next) => {
   try {
     const { examId } = req.params;
     const schoolId = req.user.schoolId;
 
+    // Validate exam
     const exam = await Exam.findById(examId);
     if (!exam || exam.schoolId.toString() !== schoolId) {
       throw new APIError('Exam not found or not authorized', 404);
@@ -263,25 +431,27 @@ const getResultsByExam = async (req, res, next) => {
 
     let results;
     if (req.user.role === 'admin' || req.user.role === 'superadmin') {
+      // Admins get all results for the exam
       results = await Result.find({ examId: examId, schoolId: schoolId })
         .populate('studentId', 'name rollNo')
         .populate('subjects.subjectId', 'name')
         .populate('subjectId', 'name');
       console.log('Admin results:', results);
     } else if (req.user.role === 'teacher') {
+      // Find teacher document
       const teacher = await Teacher.findOne({ userId: req.user.id });
       if (!teacher) throw new APIError('Teacher profile not found', 404);
       console.log('Found teacher:', teacher);
 
-      const teacherSubjects = await Subject.find({
+      // Get teacher's assigned subjects using ClassSubjectAssignment
+      const teacherAssignments = await ClassSubjectAssignment.find({
         schoolId: schoolId,
-        $or: [
-          { 'teacherAssignments.teacherId': teacher._id, 'teacherAssignments.academicYearId': req.user.activeAcademicYear },
-          { teachers: teacher._id }
-        ]
-      }).distinct('_id');
-      console.log('Teacher subjects (raw):', teacherSubjects.map(s => s.toString()));
+        teacherId: teacher._id,
+        academicYearId: req.user.activeAcademicYear,
+      }).distinct('subjectId');
+      console.log('Teacher subjects (raw):', teacherAssignments.map(s => s.toString()));
 
+      // Fetch results for the exam
       results = await Result.find({ examId: examId, schoolId: schoolId })
         .populate('studentId', 'name rollNo')
         .populate('subjects.subjectId', 'name')
@@ -292,13 +462,14 @@ const getResultsByExam = async (req, res, next) => {
         subjects: r.subjects.map(s => s.subjectId ? s.subjectId._id.toString() : null)
       })));
 
+      // Filter results to include only teacher's assigned subjects
       results = results.map(result => {
         let filteredSubjects = [];
         // Handle partial results using subjectId
         if (result.subjectId && result.subjectId._id) {
           const subjectIdStr = result.subjectId._id.toString();
-          console.log(`Checking subjectId: ${subjectIdStr} against ${teacherSubjects.map(s => s.toString()).join(', ')}`);
-          if (teacherSubjects.some(s => s.toString() === subjectIdStr)) {
+          console.log(`Checking subjectId: ${subjectIdStr} against ${teacherAssignments.map(s => s.toString()).join(', ')}`);
+          if (teacherAssignments.some(s => s.toString() === subjectIdStr)) {
             filteredSubjects.push({
               subjectId: result.subjectId,
               marksObtained: result.marksObtained,
@@ -309,7 +480,7 @@ const getResultsByExam = async (req, res, next) => {
         // Handle compiled results using subjects array
         else if (result.subjects && result.subjects.length > 0) {
           filteredSubjects = result.subjects.filter(subject =>
-            teacherSubjects.some(s => s.toString() === subject.subjectId._id.toString())
+            teacherAssignments.some(s => s.toString() === subject.subjectId._id.toString())
           );
         }
         if (filteredSubjects.length === 0) return null;
@@ -331,7 +502,6 @@ const getResultsByExam = async (req, res, next) => {
     next(error);
   }
 };
-
 
 const getResultsByClassAndAcademicYear = async (req, res, next) => {
   try {
@@ -594,7 +764,68 @@ const getStudentResults = async (req, res, next) => {
   }
 };
 
+const getResultById = async (req, res, next) => {
+  try {
+    const { resultId } = req.params;
+    const schoolId = req.user.schoolId;
+
+    if (!mongoose.Types.ObjectId.isValid(resultId)) {
+      throw new APIError('Invalid result ID', 400);
+    }
+
+    const result = await Result.findById(resultId)
+      .populate('studentId', 'name rollNo')
+      .populate('subjects.subjectId', 'name')
+      .populate('subjectId', 'name')
+      .populate('examId', 'examTitle examPapers');
+
+    if (!result || result.schoolId.toString() !== schoolId) {
+      throw new APIError('Result not found or not authorized', 404);
+    }
+
+    // Authorization for teachers
+    if (req.user.role === 'teacher') {
+      const teacher = await Teacher.findOne({ userId: req.user.id });
+      if (!teacher) throw new APIError('Teacher profile not found', 404);
+
+      const teacherAssignments = await ClassSubjectAssignment.find({
+        schoolId,
+        teacherId: teacher._id,
+        academicYearId: req.user.activeAcademicYear,
+      }).distinct('subjectId');
+      const teacherSubjectIds = teacherAssignments.map(id => id.toString());
+
+      if (result.subjectId) {
+        // Partial result
+        if (!teacherSubjectIds.includes(result.subjectId._id.toString())) {
+          throw new APIError('Not authorized for this subject', 403);
+        }
+      } else if (result.subjects && result.subjects.length > 0) {
+        // Compiled result
+        const unauthorizedSubjects = result.subjects.filter(subject =>
+          !teacherSubjectIds.includes(subject.subjectId._id.toString())
+        );
+        if (unauthorizedSubjects.length > 0) {
+          throw new APIError('Not authorized for some subjects in this result', 403);
+        }
+      }
+    }
+
+    // Add maxMarks for partial result from examPapers
+    if (result.subjectId && result.examId.examPapers) {
+      const examPaper = result.examId.examPapers.find(p => p.subjectId._id.toString() === result.subjectId._id.toString());
+      result.maxMarks = examPaper ? examPaper.maxMarks : 100; // Fallback to 100
+    }
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.log('Error in getResultById:', error.message);
+    next(new APIError('Error fetching result: ' + error.message, 500));
+  }
+};
+
+
 module.exports = {
-  createResult, compileResult, getResultsByExam, getStudentResults,
+  createResult, getResultById,compileResult, getResultsByExam, updatePartialResult,getStudentResults,getExamsForResultEntry,
   getResultsByClassAndAcademicYear, createPartialResult, getPartialResults,getAllResultsForClass
 };

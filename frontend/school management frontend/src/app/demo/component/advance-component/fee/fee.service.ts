@@ -15,6 +15,10 @@ export class FeeService {
     return this.http.get(`${this.apiUrl}/api/fees/structures`, { params: { schoolId } });
   }
 
+  getStudentInvoices(studentId: string, academicYearId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/fees/invoices/student/${studentId}?academicYearId=${academicYearId}`);
+  }
+
   createFeeStructure(data: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/fees/structures`, data);
   }

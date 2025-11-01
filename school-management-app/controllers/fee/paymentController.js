@@ -195,7 +195,14 @@ exports.generateSchoolInvoicePDF = async (req, res) => {
 };
 
 exports.processPayment = async (req, res) => {
+  const allowedRoles = ['admin'];
+if (!allowedRoles.includes(req.user.role)) {
+  return res.status(403).json({ 
+    error: 'Insufficient permissions. Only admin and accountant can process payments.' 
+  });
+}
   const session = await mongoose.startSession();
+  
   try {
     session.startTransaction();
     const { studentId } = req.params;
@@ -1053,5 +1060,69 @@ exports.processRefund = async (req, res) => {
     res.status(400).json({ error: err.message });
   } finally {
     session.endSession();
+  }
+};
+
+
+// NEW: Get all invoices for a specific student (for parent/admin student view)
+exports.getStudentInvoices = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { academicYearId } = req.query; // Optional filter
+    const schoolId = req.user.schoolId;
+
+    if (!mongoose.Types.ObjectId.isValid(studentId) || !schoolId) {
+      return res.status(400).json({ message: 'Valid studentId and schoolId required' });
+    }
+
+    // Verify student status=true and belongs to school
+    const student = await Student.findOne({ _id: studentId, schoolId, status: true });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found or inactive' });
+    }
+
+    const match = { studentId, schoolId };
+    if (academicYearId) match.academicYear = academicYearId;
+
+    const invoices = await feeInvoice.find(match)
+      .populate('paymentHistory.processedBy', 'name') // Who paid/processed
+      .populate('academicYear', 'name')
+      .sort({ month: 1 }); // Chronological by month
+
+    if (invoices.length === 0) {
+      return res.status(404).json({ message: 'No invoices found for student' });
+    }
+
+    // Transform for UI: Add summary per invoice
+    const history = invoices.map(inv => ({
+      _id: inv._id,
+      month: inv.month,
+      dueDate: inv.dueDate,
+      totalAmount: inv.totalAmount,
+      paidAmount: inv.paidAmount,
+      remainingDue: inv.remainingDue,
+      status: inv.status,
+      payments: inv.paymentHistory.map(p => ({
+        date: p.date,
+        amount: p.amount,
+        method: p.paymentMethod,
+        transactionId: p.transactionId,
+        processedBy: p.processedBy?.name || 'Admin'
+      }))
+    }));
+
+    // Summary totals
+    const totalPaid = history.reduce((sum, h) => sum + h.paidAmount, 0);
+    const totalDue = history.reduce((sum, h) => sum + h.remainingDue, 0);
+    const monthsWithPayments = history.filter(h => h.payments.length > 0).length;
+
+    res.status(200).json({
+      message: 'Student invoices retrieved',
+      data: history,
+      summary: { totalPaid, totalDue, monthsWithPayments, totalMonths: history.length }
+    });
+  } catch (error) {
+    console.error('Student invoices error:', error);
+    res.status(500).json({ message: 'Failed to fetch invoices', error: error.message });
   }
 };

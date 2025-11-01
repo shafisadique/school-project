@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const timetableController = require('../controllers/time-table/timetableController');
-const { isAdmin, isTeacher } = require('../middleware/roleMiddleware');
+const { isAdmin, isTeacher, isStudent } = require('../middleware/roleMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
 
 router.use(authMiddleware);
@@ -11,5 +11,5 @@ router.post('/create', isAdmin, timetableController.createTimetable); // Create 
 router.get('/school/:schoolId', isAdmin, timetableController.getTimetableBySchool); // Get school timetable (Admin only)
 router.get('/teacher/:teacherId', isTeacher, timetableController.getScheduleByTeacher); // Get teacher schedule (Teacher only)
 router.delete('/:timetableId', isAdmin, timetableController.deleteTimetableEntry); // Delete timetable entry (Admin only)
-
+router.get('/student', authMiddleware, isStudent, timetableController.getTimetableByStudent);
 module.exports = router;

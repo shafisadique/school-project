@@ -120,6 +120,8 @@ const generateMonthlyInvoices = async (schoolId, classId, month, year, academicY
         });
       }
       currentCharges = Math.max(0, currentCharges - discountAmount);
+      console.log(baseAmount,'baseAmount')
+      console.log(previousDue,'previousDue')
       // Create invoice
       const totalAmount = baseAmount + currentCharges + previousDue + lateFee;
       const invoice = new Invoice({

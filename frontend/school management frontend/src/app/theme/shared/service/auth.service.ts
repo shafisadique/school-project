@@ -58,7 +58,7 @@ export class AuthService {
   }
 
   resetPassword(data: { token: string, newPassword: string, confirmPassword: string }) {
-    return this.http.post('/api/user/reset-password', data);
+    return this.http.post(`${this.baseUrl}/api/auth/user/reset-password`, data);
   }
   
   getTeacherId(): string | null {
@@ -161,6 +161,7 @@ export class AuthService {
     if (response.teacherId) localStorage.setItem('teacherId', response.teacherId);
     if (response.activeAcademicYearId) localStorage.setItem('activeAcademicYearId', response.activeAcademicYearId);
     this.currentSchoolId.set(response.schoolId);
+    if (response.studentId) localStorage.setItem('studentId', response.studentId);
   }
 
   private updateAuthState(): void {
