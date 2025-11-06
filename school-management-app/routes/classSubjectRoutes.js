@@ -52,10 +52,12 @@ const {
   getTeachersBySchoolId,
   updateAttendanceTeachers,
   assignSubjectToClassUpdate,
-  deleteAssignment // New import
+  deleteAssignment, // New import
+  getTeacherAttendanceClasses
 } = require('../controllers/classSubjectManagement/classSubjectController');
 
 const authMiddleware = require('../middleware/authMiddleware');
+const { isTeacher } = require('../middleware/roleMiddleware');
 
 // ✅ Protected Routes (Require Authentication)
 router.use(authMiddleware);
@@ -77,5 +79,6 @@ router.get('/teachers/by-school/:schoolId', getTeachersBySchoolId);
 
 router.get('/assignments/teacher/:teacherId', getAssignmentsByTeacher);
 router.put('/update-attendance-teachers', updateAttendanceTeachers);
+router.get('/teacher-classes', [authMiddleware, isTeacher], getTeacherAttendanceClasses);
 
 module.exports = router;

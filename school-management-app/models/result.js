@@ -22,7 +22,9 @@ const resultSchema = new mongoose.Schema({
   grade: { type: String },
   status: { type: String, enum: ['Pass', 'Fail'] },
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
+  isPublished: { type: Boolean, default: false },   // ← controls portal visibility
+  publishedAt: { type: Date },
 });
 
 module.exports = mongoose.model('Result', resultSchema);

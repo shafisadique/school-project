@@ -198,23 +198,6 @@ export const NavigationItems: NavigationItem[] = [
         url: '/fee/bulk-invoice-list',
         icon: 'user'
       },
-      
-      // {
-      //   id: 'generate-invoice',
-      //   title: 'Generate Monthly Invoice',
-      //   type: 'item',
-      //   url: '/fee/generate-invoice',
-      //   icon: 'user'
-      // },
-
-      // {
-      //   id: 'generate-invoice',
-      //   title: 'Pay Fee',
-      //   type: 'item',
-      //   url: '/fee/pay-student-fee',
-      //   icon: 'user'
-      // },
-
       {
         id: 'fee-collection-reports',
         title: 'Fee collection Reports',
@@ -222,6 +205,7 @@ export const NavigationItems: NavigationItem[] = [
         url: '/fee/fee-collection-reports',
         icon: 'user'
       },
+
     ]
   },
   {
@@ -238,6 +222,37 @@ export const NavigationItems: NavigationItem[] = [
         icon: 'user'
       },
     ]
+  },
+   {
+    id: 'UDISE',
+    title: 'UDISE Reports',
+    type: 'group', // Changed to collapse
+    icon: 'team',
+    children: [
+      {
+        id: 'teacher-details',
+        title: 'UDISE Compliance Reports',
+        type: 'item',
+        url: '/admin/reports',
+        icon: 'user'
+      },
+    ]
+  },
+  {
+    id: 'announcement',
+    title: 'Announcement',
+    type: 'group', // Changed to collapse
+    icon: 'team',
+    children: [
+      {
+        id: 'announcement-details',
+        title: 'Announcement Teacher & parents',
+        type: 'item',
+        url: '/announcement',
+        icon: 'user'
+      },
+    ]
   }
+
   
 ];

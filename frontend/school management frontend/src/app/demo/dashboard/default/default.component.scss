@@ -3,6 +3,7 @@ body {
   background: #f8f9fd;
   min-height: 100vh;
 }
+
 .custom-dropdown {
   border-radius: 10px;
   border: 1px solid #e0e0e0;
@@ -51,6 +52,10 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+
+.manage-value{
+  display: flex; justify-content: space-between; margin: auto;
 }
 
 .custom-card h2 {
@@ -143,7 +148,9 @@ body {
     flex-direction: column; /* Stack buttons vertically on small screens */
     align-items: center; /* Center align vertically */
   }
-
+.manage-value{
+  display: block; justify-content: space-between; margin: auto;
+}
   .custom-button {
     width: 100%; /* Full width on small screens */
     margin-bottom: 0.5rem; /* Space between stacked buttons */

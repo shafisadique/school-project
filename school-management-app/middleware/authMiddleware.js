@@ -96,13 +96,14 @@ const authMiddleware = async (req, res, next) => {
         return res.status(400).json({ message: 'No active academic year set for this school' });
       }
     }
-
+    const teacherIdFromToken = decoded.additionalInfo?.teacherId || null;
     req.user = {
       id: user._id.toString(),
       role: user.role,
       schoolId: user.schoolId?.toString(),
       activeAcademicYear: user.role !== 'superadmin' && school ? school.activeAcademicYear.toString() : null,
       subscriptionStatus: user.role === 'superadmin' ? 'unlimited' : subscription?.status || 'none',
+      ...(user.role === 'teacher' && { teacherId: teacherIdFromToken }),
         ...( ['student', 'parent'].includes(user.role) && { additionalInfo: user.additionalInfo || {} } ),
 
     };

@@ -29,6 +29,7 @@ import { DashboardService } from 'src/app/theme/shared/service/dashboard.service
 import { environment } from 'src/environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
+import { SubscriptionPlan } from 'src/app/demo/component/advance-component/fee/plan.interface';
 
 interface Notification {
   _id: string;
@@ -70,12 +71,14 @@ export class NavRightComponent {
   role: string = '';
   notifications: Notification[] = []; // Store fetched notifications
   notificationCount: number = 0; // Count of unread notifications (for badge)
+  filteredProfile: any[] = [];
+  filteredSetting: any[] = [];
 
   isExpiringSoon: boolean = false;
   isExpired: boolean = false;
   isPending: boolean = false;
   selectedPlan: string | null = null;
-  plans: any[] = [];
+  plans: SubscriptionPlan[] = [];
   upiId: string = '';
   subscriptionData: any = {};
   selectedPaymentMethod: string | null = null;
@@ -111,9 +114,12 @@ cardNumber: string = '';
     this.authService.getProfile().subscribe((profile) => {
       this.username = profile.data.name || 'Unknown Name';
       this.role = profile.data.role || 'Not Available';
+      this.filteredProfile = this.profile.filter(item => item.roles.includes(this.role));
+      this.filteredSetting = this.setting;
       if (this.role === 'parent') {
         this.loadNotifications(); // Fetch notifications only for parents
       }
+
     });
     this.fetchPlans();
   }
@@ -339,6 +345,7 @@ private handlePaymentSuccess(paymentResponse: any, subscriptionId: string) {
   fetchSubscription() {
     this.dashboardService.getSubscription().subscribe({
       next: (data: any) => {
+        console.log(data)
         this.subscriptionData = data;
         this.isExpiringSoon = data.daysRemaining !== undefined && data.daysRemaining <= 7 && data.subscriptionStatus === 'active';
         this.isExpired = data.subscriptionStatus === 'expired';
@@ -413,11 +420,11 @@ private handlePaymentSuccess(paymentResponse: any, subscriptionId: string) {
 
 
   profile = [
-    { icon: 'anti', title: 'Academic Year', link: '/academic-year/details' },
-    { icon: 'calendar', title: 'Calendar', link: '/holiday-calendar' },
-    { icon: 'profile', title: 'Update School', link: '/school/school-modify' },
-    { icon: 'unordered-list', title: 'Profile List', link: '/settings/profiles' },
-    { icon: 'edit', title: 'Profile Update', link: '/settings/profile' },
+    { icon: 'anti', title: 'Academic Year', link: '/academic-year/details', roles: ['admin'] },
+    { icon: 'calendar', title: 'Calendar', link: '/holiday-calendar', roles: ['admin'] },
+    { icon: 'School Update', title: 'Update School', link: '/school/school-modify', roles: ['admin'] },
+    { icon: 'unordered-list', title: 'Profile List', link: '/settings/profiles',  roles: ['admin']},
+    { icon: 'edit', title: 'Profile Update', link: '/settings/profile',  roles: ['admin','teacher','student']},
   ];
 
   setting = [

@@ -65,12 +65,12 @@ export class CreateExamComponent implements OnInit {
             this.loadClasses();
             this.loadSubjects();
           },
-          error: (err) => {
+          error: () => {
             this.toastr.error('Failed to load active academic year.', 'Error');
           }
         });
       },
-      error: (err) => {
+      error: () => {
         this.toastr.error('Failed to load academic years.', 'Error');
       }
     });
@@ -192,7 +192,7 @@ export class CreateExamComponent implements OnInit {
     });
   }
 
-  updatePaperCode(data: any) {
+  updatePaperCode(data: ExamPaper) {
     // Implement logic to update paper code if needed (currently a placeholder)
   }
 }

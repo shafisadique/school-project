@@ -12,24 +12,25 @@
       <form [formGroup]="attendanceForm" (ngSubmit)="onSubmit()">
         <div class="row mb-4">
           <div class="col-md-4">
+         <!-- Class Dropdown -->
             <label for="classId" class="form-label fw-semibold">Class</label>
+
             <select id="classId" class="form-select" formControlName="classId">
               <option value="" disabled>Select Class</option>
-              <option *ngFor="let cls of getClasses()" [value]="cls._id">{{ cls.name }}</option>
+              <option *ngFor="let cls of getClasses()" [value]="cls._id">
+                {{ cls.name }} ({{ getSubjectNames(cls.taughtSubjects) }})
+              </option>
             </select>
-            <div *ngIf="attendanceForm.get('classId')?.invalid && attendanceForm.get('classId')?.touched" class="text-danger">
-              Class is required.
             </div>
-          </div>
           <div class="col-md-4">
-            <label for="subjectId" class="form-label fw-semibold">Subject</label>
-            <select id="subjectId" class="form-select" formControlName="subjectId">
-              <option value="" disabled>Select Subject</option>
-              <option *ngFor="let sub of getSubjects()" [value]="sub._id">{{ sub.name }}</option>
-            </select>
-            <div *ngIf="attendanceForm.get('subjectId')?.invalid && attendanceForm.get('subjectId')?.touched" class="text-danger">
-              Subject is required.
-            </div>
+          <!-- Subject Dropdown -->
+            <label for="classId" class="form-label fw-semibold">Subject</label>
+          <select id="subjectId" class="form-select" formControlName="subjectId">
+            <option value="" disabled>Select Subject</option>
+            <option *ngFor="let sub of getSubjects()" [value]="sub._id">
+              {{ sub.name }}
+            </option>
+          </select>
           </div>
           <div class="col-md-4">
             <label for="date" class="form-label fw-semibold">Date</label>

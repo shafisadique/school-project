@@ -1,4 +1,4 @@
-import { Component, Input, SimpleChanges, viewChild } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit, SimpleChanges, viewChild } from '@angular/core';
 import { ClassBreakdown, FeeSummary, MonthlyTrend, PaymentMethod, TopDefaulter } from '../default/dashboard.model';
 import { ApexOptions, ChartComponent, NgApexchartsModule } from 'ng-apexcharts';
 import { Subject, takeUntil } from 'rxjs';
@@ -13,7 +13,7 @@ import { OrderByPipe } from 'src/app/theme/shared/interceptor/order.pipe';
   templateUrl: './fee-management-dashboard.component.html',
   styleUrl: './fee-management-dashboard.component.scss'
 })
-export class FeeManagementDashboardComponent {
+export class FeeManagementDashboardComponent implements OnInit, OnDestroy{
 @Input() selectedMonth: string = '';
   @Input() selectedAcademicYearId: string = '';
   @Input() selectedClassId: string = '';

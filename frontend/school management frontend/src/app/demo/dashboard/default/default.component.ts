@@ -9,10 +9,6 @@ import { DashboardService } from 'src/app/theme/shared/service/dashboard.service
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
 import { AcademicYearService } from '../../component/advance-component/academic-year/academic-year.service';
 import { ClassSubjectService } from '../../component/advance-component/class-subject-management/class-subject.service';
-import { MonthlyBarChartComponent } from 'src/app/theme/shared/apexchart/monthly-bar-chart/monthly-bar-chart.component';
-import { IncomeOverviewChartComponent } from 'src/app/theme/shared/apexchart/income-overview-chart/income-overview-chart.component';
-import { AnalyticsChartComponent } from 'src/app/theme/shared/apexchart/analytics-chart/analytics-chart.component';
-import { SalesReportChartComponent } from 'src/app/theme/shared/apexchart/sales-report-chart/sales-report-chart.component';
 import tableData from 'src/fake-data/default-data.json';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { environment } from 'src/environments/environment';

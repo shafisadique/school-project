@@ -20,7 +20,7 @@
 
  
       <!-- Description -->
-      <div class="description">
+      <div class="description" >
         <p class="description-text">
           All-in-one school management system to simplify attendance, exams, fees and communication. Save time, reduce errors, and focus on student success.
         </p>
@@ -29,9 +29,9 @@
     </div>
 
     <!-- Right Side - Login Form -->
-    <div class="right-panel">
+    <div class="right-panel" >
       <!-- Welcome Section -->
-      <div class="welcome-section">
+      <div class="welcome-section" *ngIf="!showForgotPassword">
         <div class="welcome-emoji">👋</div>
         <h2 class="welcome-title">Welcome</h2>
         <p class="welcome-subtitle">Please login your account</p>
@@ -76,7 +76,7 @@
               <input type="checkbox" id="remember" class="checkbox-input" checked />
               <label for="remember" class="checkbox-label">Remember me</label>
             </div>
-            <a href="#" (click)="toggleForgotPassword()" class="forgot-link">Forgot password?</a>
+            <a  (click)="toggleForgotPassword()" class="forgot-link">Forgot password?</a>
           </div>
 
           <button type="submit" class="login-btn" [disabled]="isDisable">

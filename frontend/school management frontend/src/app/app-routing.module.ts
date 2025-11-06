@@ -115,6 +115,11 @@ export const routes: Routes = [
         loadChildren: () => import('./demo/component/advance-component/result/result.router').then((c) => c.resultRouter)
       },
       {
+        path: 'announcement',
+        canActivate:[AuthGuard],
+        loadComponent: () => import('./demo/component/advance-component/announcement-create/announcement-create.component').then((c) => c.AnnouncementCreateComponent)
+      },
+      {
         path: 'admin/reports',
         component: ReportsComponent,
         canActivate: [AuthGuard], // Your existing guard

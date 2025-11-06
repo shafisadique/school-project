@@ -1020,7 +1020,44 @@ const promoteStudents = async (req, res, next) => {
   }
 };
 
-  
+const getStudentsList = async (req, res) => {
+  try {
+    const schoolId = req.user.schoolId; // From auth
+    const { page = 1, limit = 25, all = false } = req.query;
+    const skip = (page - 1) * limit;
+
+    const query = { schoolId, status: true }; // Active only
+
+    let students;
+    if (all === 'true') {
+      // Bulk: Full list, no paginate
+      students = await Student.find(query).populate('classId', 'name').lean();
+    } else {
+      // Paginated
+      students = await Student.find(query)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('classId', 'name')
+        .lean();
+    }
+
+    // Add parent phone extraction for bulk
+    const studentsWithParents = students.map(student => ({
+      ...student,
+      parentPhone: student.parents?.fatherPhone || student.parents?.motherPhone // Fallback
+    }));
+
+    if (all === 'true') {
+      res.json({ data: studentsWithParents, total: studentsWithParents.length });
+    } else {
+      const total = await Student.countDocuments(query);
+      res.json({ data: studentsWithParents, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    }
+  } catch (err) {
+    logger.error('Get students error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};  
 
 const createStudentPortal = async (req, res) => {
   try {
@@ -1117,11 +1154,15 @@ const createStudentPortal = async (req, res) => {
     res.status(error.statusCode || 500).json({ message: 'Error creating portal', error: error.message });
   }
 };
+
+
+
 // Export all functions, including getStudentsByClass
 module.exports = {
   createStudent,
   promoteStudents,
   createStudentPortal,
+  getStudentsList,
   bulkCreateStudents,
   getStudents,
   getStudent,

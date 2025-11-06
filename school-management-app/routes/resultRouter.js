@@ -6,10 +6,14 @@ const {
   compileResult, getPartialResults,
   getAllResultsForClass,getExamsForResultEntry,
   updatePartialResult,
-  getResultById
+  getResultById,
+  publishResult,
+  getMyResults,
+  publishExamResults,
+  publishSingleResult
 } = require('../controllers/result/resultController');
 const authMiddleware = require('../middleware/authMiddleware');
-const { isTeacher, externalRoleMiddleware, isAdmin } = require('../middleware/roleMiddleware');
+const { isTeacher, externalRoleMiddleware, isAdmin, isStudent } = require('../middleware/roleMiddleware');
 
 router.use(authMiddleware);
 
@@ -27,6 +31,19 @@ router.get('/result-entry', authMiddleware, isTeacher,getExamsForResultEntry); /
 // Compilation Route
 router.post('/compile', [isAdmin], compileResult); // Compile partial results
 router.put('/partial/:resultId', [isTeacher], updatePartialResult); 
-router.get('/:resultId', [externalRoleMiddleware(['teacher', 'admin', 'superadmin'])], getResultById);
+// routes/result.routes.js
+router.patch(
+  '/:resultId/publish',
+  authMiddleware,
+  isAdmin,
+  publishResult
+);
+router.get('/my-results',authMiddleware, isStudent, getMyResults);
+router.get('/:resultId',authMiddleware, [externalRoleMiddleware(['teacher', 'admin', 'superadmin'])], getResultById);
+
+router.put('/publish-exam', [isAdmin, authMiddleware], publishExamResults);
+
+// SINGLE PUBLISH - One student in one exam
+router.put('/publish-single', [isAdmin, authMiddleware], publishSingleResult);
 
 module.exports = router;

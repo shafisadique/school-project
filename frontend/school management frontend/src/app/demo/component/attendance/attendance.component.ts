@@ -27,6 +27,7 @@ export class AttendanceComponent implements OnInit {
   loading: boolean = false;
   canMarkAttendance: boolean = false;
   selectedAttendance: any = null;
+  teacherClasses: any[] = [];
 
   constructor(
     private fb: FormBuilder,
@@ -42,7 +43,8 @@ export class AttendanceComponent implements OnInit {
     this.selectedAcademicYearId = localStorage.getItem('activeAcademicYearId') || '';
     this.validateSession();
     this.initForms();
-    this.loadTeacherAssignments();
+    // this.loadTeacherAssignments();
+    this.loadTeacherAttendanceClasses();
   }
 
   validateSession() {
@@ -79,9 +81,27 @@ export class AttendanceComponent implements OnInit {
     });
 
     this.attendanceForm.get('date')?.valueChanges.subscribe(() => {
-      this.loadTeacherAssignments();
+      // this.loadTeacherAssignments();
+      this.loadTeacherAttendanceClasses();
     });
   }
+
+  loadTeacherAttendanceClasses() {
+  this.loading = true;
+  this.classSubjectService.getTeacherAttendanceClasses().subscribe({
+    next: (classes) => {
+      this.teacherClasses = classes;
+      this.loading = false;
+      if (classes.length === 0) {
+        this.toastr.warning('You are not assigned to any class for attendance.', 'No Classes');
+      }
+    },
+    error: (err) => {
+      this.loading = false;
+      this.handleError(err);
+    }
+  });
+}
 
   todayOnlyValidator(control: any) {
     const selectedDate = new Date(control.value);
@@ -93,43 +113,70 @@ export class AttendanceComponent implements OnInit {
     return selectedDate.getTime() === todayIST.getTime() ? null : { notToday: true };
   }
 
-  loadTeacherAssignments() {
-    const teacherId = localStorage.getItem('teacherId') || '';
-    if (!this.selectedAcademicYearId || !teacherId) {
-      this.toastr.error('Teacher ID or academic year not found. Please log in again.', 'Error');
-      this.router.navigate(['/login']);
-      return;
-    }
-    this.loading = true;
-    const date = this.attendanceForm.get('date')?.value || new Date().toISOString().split('T')[0];
-    this.classSubjectService.getAssignmentsByTeacher(teacherId, this.selectedAcademicYearId, date).subscribe({
-      next: (data) => {
-        this.assignments = data;
-        this.loading = false;
-        if (this.assignments.length === 0) {
-          this.toastr.warning('No assignments found for this academic year. Please contact the admin.', 'Warning');
-        }
-        this.updateCanMarkAttendance();
-      },
-      error: (err) => {
-        this.loading = false;
-        this.handleError(err);
-      }
-    });
+  // loadTeacherAssignments() {
+  //   const teacherId = localStorage.getItem('teacherId') || '';
+  //   if (!this.selectedAcademicYearId || !teacherId) {
+  //     this.toastr.error('Teacher ID or academic year not found. Please log in again.', 'Error');
+  //     this.router.navigate(['/login']);
+  //     return;
+  //   }
+  //   this.loading = true;
+  //   const date = this.attendanceForm.get('date')?.value || new Date().toISOString().split('T')[0];
+  //   this.classSubjectService.getAssignmentsByTeacher(teacherId, this.selectedAcademicYearId, date).subscribe({
+  //     next: (data) => {
+  //       this.assignments = data;
+  //       this.loading = false;
+  //       if (this.assignments.length === 0) {
+  //         this.toastr.warning('No assignments found for this academic year. Please contact the admin.', 'Warning');
+  //       }
+  //       this.updateCanMarkAttendance();
+  //     },
+  //     error: (err) => {
+  //       this.loading = false;
+  //       this.handleError(err);
+  //     }
+  //   });
+  // }
+
+ updateCanMarkAttendance() {
+  const classId = this.attendanceForm.get('classId')?.value;
+  if (!classId) {
+    this.canMarkAttendance = false;
+    return;
   }
 
-  updateCanMarkAttendance() {
-    const selectedClassId = this.attendanceForm.get('classId')?.value;
-    if (!selectedClassId) {
-      this.canMarkAttendance = false;
-      return;
-    }
-    const assignment = this.assignments.find(a => a.classId._id === selectedClassId);
-    this.canMarkAttendance = assignment ? assignment.canMarkAttendance : false;
-    if (!this.canMarkAttendance) {
-      this.toastr.warning('You are not authorized to mark attendance for this class.', 'Warning');
-    }
+  const cls = this.teacherClasses.find(c => c._id === classId);
+  if (!cls) {
+    this.canMarkAttendance = false;
+    return;
   }
+
+  const teacherId = this.getTeacherIdFromToken(); // ← CORRECT ID
+  if (!teacherId) {
+    this.canMarkAttendance = false;
+    return;
+  }
+
+  const isAttendanceTeacher = cls.attendanceTeacher?._id === teacherId;
+  const isSubstitute = cls.substituteAttendanceTeachers?.some((t: any) => t._id === teacherId);
+
+  this.canMarkAttendance = isAttendanceTeacher || isSubstitute;
+
+  if (!this.canMarkAttendance) {
+    this.toastr.warning('You are not authorized to mark attendance for this class.', 'Warning');
+  }
+}
+// In Angular — GET IT FROM JWT TOKEN
+getTeacherIdFromToken(): string | null {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.additionalInfo?.teacherId || null;
+  } catch {
+    return null;
+  }
+}
 
   loadStudents() {
     if (!this.selectedClassId) {
@@ -293,16 +340,19 @@ export class AttendanceComponent implements OnInit {
   }
 
   getClasses() {
-    const classes = [...new Map(this.assignments.map(a => [a.classId._id, { _id: a.classId._id, name: a.classId.name }])).values()];
-    return classes;
-  }
+  return this.teacherClasses;
+}
+getSubjectNames(subjects: any[]): string {
+  if (!subjects || subjects.length === 0) return 'No subjects';
+  return subjects.map(s => s.name).join(', ');
+}
 
   getSubjects() {
-    const subjects = [...new Map(this.assignments
-      .filter(a => a.classId._id === this.selectedClassId)
-      .map(a => [a.subjectId._id, { _id: a.subjectId._id, name: a.subjectId.name }])).values()];
-    return subjects;
-  }
+  const selectedClassId = this.attendanceForm.get('classId')?.value;
+  if (!selectedClassId) return [];
+  const cls = this.teacherClasses.find(c => c._id === selectedClassId);
+  return cls?.taughtSubjects || [];
+}
 
   goToDashboard() {
     this.router.navigate(['/dashboard/default']);

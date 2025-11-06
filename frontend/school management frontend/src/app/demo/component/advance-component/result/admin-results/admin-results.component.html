@@ -39,7 +39,9 @@
           <th (click)="sort('totalMarksObtained')">Marks</th>
           <th (click)="sort('percentage')">Percentage <span *ngIf="sortKey === 'percentage'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span></th>
           <th>Status</th>
-          <th>Actions</th>
+          <th (click)="sort('isPublished')">Published <span *ngIf="sortKey === 'isPublished'">{{ sortOrder === 'asc' ? '↑' : '↓' }}</span></th>
+          <th>Actions <button class="btn btn-sm btn-primary" (click)="publishAllResults()">Published All </button></th>
+
         </tr>
       </thead>
       <tbody>
@@ -53,13 +55,30 @@
           <td>{{ result.percentage || 0 }}%</td>
           <td>
             <span class="status-badge" [ngClass]="{
-              'status-pass': result.percentage >= 40,
-              'status-fail': result.percentage < 40
+              'status-pass': result.percentage >= 33,
+              'status-fail': result.percentage < 33
             }">
-              {{ result.percentage >= 40 ? 'Pass' : 'Fail' }}
+              {{ result.percentage >= 33 ? 'Pass' : 'Fail' }}
             </span>
           </td>
           <td>
+            <span class="status-badge" [ngClass]="{
+              'published': result.isPublished,
+              'unpublished': !result.isPublished
+            }">
+              {{ result.isPublished ? 'Published' : 'Unpublished' }}
+            </span>
+          </td>
+
+          
+          <td>
+            <button 
+              class="action-button publish-single" 
+              *ngIf="!result.isPublished" 
+              (click)="publishSingleResult(result)"
+            >
+              Publish
+            </button>
             <button class="action-button view" (click)="openProgressCard(result)">View Progress Card</button>
           </td>
         </tr>

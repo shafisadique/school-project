@@ -2,9 +2,8 @@ import { Component, inject, viewChild, AfterViewInit, OnInit } from '@angular/co
 import { ApexOptions, ChartComponent, NgApexchartsModule } from 'ng-apexcharts';
 import { IconService } from '@ant-design/icons-angular';
 import { DashboardService } from 'src/app/theme/shared/service/dashboard.service';
-import { AuthService } from 'src/app/theme/shared/service/auth.service';
 import { TeacherDashboardData, StudentAttendanceData } from './teacher.model'; // ✅ Your local model
-import { FallOutline, GiftOutline, MessageOutline, RiseOutline, SettingOutline } from '@ant-design/icons-angular/icons';
+import { FallOutline, GiftOutline, MessageOutline, RiseOutline } from '@ant-design/icons-angular/icons';
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -18,7 +17,6 @@ import { FormsModule } from '@angular/forms';
 export class TeacherDashboardComponent implements OnInit, AfterViewInit {
   private iconService = inject(IconService);
   private dashboardService = inject(DashboardService);
-  private authService = inject(AuthService);
 
   teacherDashboardData: TeacherDashboardData = {} as TeacherDashboardData;
   studentAttendanceData: StudentAttendanceData = {} as StudentAttendanceData;

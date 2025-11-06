@@ -1053,6 +1053,70 @@ const getTeachersBySchoolId = async (req, res) => {
   }
 };
 
+
+
+// controllers/classSubjectManagement/classSubjectController.js
+
+const getTeacherAttendanceClasses = async (req, res, next) => {
+  try {
+    const teacherId = req.user.teacherId;
+    const schoolId = req.user.schoolId;
+    const academicYearId = req.user.activeAcademicYear;
+
+    console.log('DEBUG:', { teacherId, schoolId, academicYearId });
+
+    if (!teacherId || !academicYearId || !schoolId) {
+      return res.status(200).json([]);
+    }
+
+    const assignments = await ClassSubjectAssignment.find({
+      teacherId,
+      academicYearId,
+      schoolId
+    })
+    .populate({
+      path: 'classId',
+      model: 'Class',
+      select: 'name sections attendanceTeacher substituteAttendanceTeachers',
+      populate: [
+        { path: 'attendanceTeacher', select: 'name' },
+        { path: 'substituteAttendanceTeachers', select: 'name' }
+      ]
+    })
+    .populate('subjectId', 'name'); 
+
+    if (assignments.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    const classMap = new Map();
+    assignments.forEach(a => {
+      if (!a.classId) return;
+      const id = a.classId._id.toString();
+      if (!classMap.has(id)) {
+        classMap.set(id, {
+          _id: a.classId._id,
+          name: a.classId.name,
+          sections: a.classId.sections,
+          attendanceTeacher: a.classId.attendanceTeacher,
+          substituteAttendanceTeachers: a.classId.substituteAttendanceTeachers,
+          taughtSubjects: []
+        });
+      }
+      classMap.get(id).taughtSubjects.push({
+        _id: a.subjectId._id,
+        name: a.subjectId.name
+      });
+    });
+
+    const result = Array.from(classMap.values());
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Error:', error);
+    next(error);
+  }
+};
+
 module.exports = {
   createClass,
   getClassesBySchool,
@@ -1064,5 +1128,6 @@ module.exports = {
   getTeachersBySchoolId,
   getAssignmentsByTeacher,
   updateAttendanceTeachers,
+  getTeacherAttendanceClasses,
   deleteAssignment // New export
 };

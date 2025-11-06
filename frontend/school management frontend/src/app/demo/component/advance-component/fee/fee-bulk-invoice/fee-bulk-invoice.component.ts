@@ -49,14 +49,14 @@ export class FeeBulkInvoiceComponent {
   loadClasses() {
     this.classService.getClassesBySchool(this.authService.getSchoolId()).subscribe({
       next: (classes) => this.classes = classes,
-      error: (err) => this.toastr.error('Failed to load classes')
+      error: () => this.toastr.error('Failed to load classes')
     });
   }
 
   loadAcademicYears() {
     this.yearService.getAllAcademicYears(this.authService.getSchoolId()).subscribe({
       next: (years) => this.academicYears = years,
-      error: (err) => this.toastr.error('Failed to load academic years')
+      error: () => this.toastr.error('Failed to load academic years')
     });
   }
 

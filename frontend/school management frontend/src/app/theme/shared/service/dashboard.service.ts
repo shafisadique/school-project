@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
+import { TeacherDashboardData } from 'src/app/demo/dashboard/teacher-dashboard/teacher-dashboard/teacher.model';
+import { SubscriptionDetails } from 'src/app/demo/component/advance-component/fee/subscription';
 
 @Injectable({
   providedIn: 'root'
@@ -12,8 +14,8 @@ export class DashboardService {
 
   constructor(private http: HttpClient) {}
 
-  getSubscription(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/current`, { withCredentials: true });
+  getSubscription(): Observable<SubscriptionDetails> {
+    return this.http.get<SubscriptionDetails>(`${this.baseUrl}/current`, { withCredentials: true });
   }
   
   getDashboardStats(): Observable<any> {
@@ -53,8 +55,8 @@ export class DashboardService {
   getTeacherData(): Observable<any> {
     return this.http.get(`${this.apiUrl}/teacher-dashboard`, { withCredentials: true });
   }
-  getTeacherDashboard():Observable<any>{
-    return this.http.get(`${environment.apiUrl}/api/dashboard/teacher-dashboard`)
+  getTeacherDashboard():Observable<TeacherDashboardData>{
+    return this.http.get<TeacherDashboardData>(`${environment.apiUrl}/api/dashboard/teacher-dashboard`)
   }
 
   getFeeDashboard(params: { month?: string; classId?: string; academicYearId: string }): Observable<any> {

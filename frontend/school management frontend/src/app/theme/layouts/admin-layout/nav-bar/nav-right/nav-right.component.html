@@ -2,7 +2,7 @@
   <li class="pc-h-item">
     <div class="row mb-3">
       <div class="col-md-12">
-        <button class="btn btn-primary" (click)="openUpgradeModal(upgradeModal)" *ngIf="role =='admin'">Upgrade</button>
+        <button class="btn btn-primary" (click)="openUpgradeModal(upgradeModal)" *ngIf="role === 'admin'">Upgrade</button>
         <div class="d-flex justify-content-between align-items-center" *ngIf="authService.getUserRole() === 'admin'">
           <div *ngIf="isExpiringSoon && !isExpired && !isPending" class="alert alert-warning alert-dismissible fade show" role="alert">
             Your plan expires in {{ subscriptionData.daysRemaining }} days.
@@ -89,7 +89,7 @@
             Profile
           </a>
           <ng-template ngbNavContent>
-            @for (task of profile; track task) {
+            @for (task of filteredProfile; track task) {
               <div>
                 <a class="dropdown-item" [routerLink]="task.link">
                   <i class="text-muted" antIcon theme="outline" type="{{ task.icon }}"></i>

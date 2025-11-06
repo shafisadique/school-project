@@ -610,3 +610,36 @@ exports.updateTeacher = async (req, res, next) => {
     await session.endSession();
   }
 };
+
+
+
+exports.getTeachersList = async (req, res) => {
+  try {
+    const schoolId = req.user.schoolId;
+    const { page = 1, limit = 25, all = false } = req.query;
+    const skip = (page - 1) * limit;
+
+    const query = { schoolId, status: true };
+
+    let teachers;
+    if (all === 'true') {
+      teachers = await Teacher.find(query).populate('academicYearId', 'name').lean();
+    } else {
+      teachers = await Teacher.find(query)
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('academicYearId', 'name')
+        .lean();
+    }
+
+    if (all === 'true') {
+      res.json({ data: teachers, total: teachers.length });
+    } else {
+      const total = await Teacher.countDocuments(query);
+      res.json({ data: teachers, pagination: { page, limit, total, pages: Math.ceil(total / limit) } });
+    }
+  } catch (err) {
+    logger.error('Get teachers error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

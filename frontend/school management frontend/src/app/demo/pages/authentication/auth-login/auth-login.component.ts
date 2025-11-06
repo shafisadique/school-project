@@ -55,7 +55,7 @@ togglePasswordVisibility() {
 
     const { username, password } = this.loginForm.value;
     this.authService.login(username, password).subscribe({
-      next: (res: any) => {
+      next: () => {
         const role = this.authService.getUserRole();
         if (role === 'superadmin') {
           this.router.navigate(['/auth/register']);

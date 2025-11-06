@@ -125,4 +125,9 @@ export class ClassSubjectService {
       substituteAttendanceTeachers
     });
   }
+
+  // class-subject.service.ts
+  getTeacherAttendanceClasses(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/class-subject-management/teacher-classes`);
+  }
 }

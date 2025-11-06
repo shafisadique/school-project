@@ -581,7 +581,7 @@ const getAllResultsForClass = async (req, res, next) => {
       throw new APIError('Class ID and Academic Year ID are required', 400);
     }
 
-    // Fetch all partial and compiled results
+    // Fetch all partial and compiled results (minimal change: add select for publish fields only)
     const partialResults = await Result.find({ 
       classId, 
       academicYearId, 
@@ -590,7 +590,8 @@ const getAllResultsForClass = async (req, res, next) => {
     })
     .populate('studentId', 'name rollNo')
     .populate('examId', 'examTitle examPapers')
-    .populate('subjectId', 'name');
+    .populate('subjectId', 'name')
+    .select('+isPublished +publishedAt'); // Minimal: Include publish fields without excluding others
 
     const compiledResults = await Result.find({
       classId,
@@ -600,12 +601,13 @@ const getAllResultsForClass = async (req, res, next) => {
     })
     .populate('studentId', 'name rollNo')
     .populate('examId', 'examTitle examPapers')
-    .populate('subjects.subjectId', 'name');
+    .populate('subjects.subjectId', 'name')
+    .select('+isPublished +publishedAt'); // Minimal: Include publish fields without excluding others
 
     // Combine partial and compiled results
     const allResults = [...partialResults, ...compiledResults];
 
-    // Group by studentId and examId to consolidate subjects
+    // Group by studentId and examId to consolidate subjects (unchanged logic)
     const resultsByStudentExam = {};
     allResults.forEach(result => {
       const key = `${result.studentId._id}-${result.examId._id}`;
@@ -619,11 +621,13 @@ const getAllResultsForClass = async (req, res, next) => {
           academicYearId: result.academicYearId,
           subjects: [],
           totalMarksObtained: 0,
-          totalMaxMarks: 0
+          totalMaxMarks: 0,
+          isPublished: result.isPublished || false, // Preserve from model (default false if null)
+          publishedAt: result.publishedAt || null
         };
       }
 
-      // Handle compiled results
+      // Handle compiled results (unchanged)
       if (result.subjects && result.subjects.length > 0) {
         result.subjects.forEach(subject => {
           if (!resultsByStudentExam[key].subjects.some(s => 
@@ -644,7 +648,7 @@ const getAllResultsForClass = async (req, res, next) => {
           }
         });
       }
-      // Handle partial results
+      // Handle partial results (unchanged)
       else if (result.subjectId) {
         const examPaper = result.examId.examPapers.find(p => 
           p.subjectId._id.toString() === result.subjectId._id.toString()
@@ -668,7 +672,7 @@ const getAllResultsForClass = async (req, res, next) => {
       }
     });
 
-    // Calculate percentage and status for each student's exam
+    // Calculate percentage and status for each student's exam (unchanged)
     const finalResults = Object.values(resultsByStudentExam).map(result => {
       const percentage = result.totalMaxMarks > 0 
         ? (result.totalMarksObtained / result.totalMaxMarks) * 100 
@@ -688,7 +692,7 @@ const getAllResultsForClass = async (req, res, next) => {
       };
     });
 
-    // Fetch exam details to ensure all subjects are included
+    // Fetch exam details to ensure all subjects are included (unchanged)
     const exam = await Exam.findOne({ _id: finalResults[0]?.examId._id, classId, academicYearId })
       .populate('examPapers.subjectId', 'name');
     
@@ -823,9 +827,189 @@ const getResultById = async (req, res, next) => {
     next(new APIError('Error fetching result: ' + error.message, 500));
   }
 };
+// controllers/result.controller.js
 
+const publishResult = async (req, res, next) => {
+  try {
+    const { resultId } = req.params;
+    const userAcademicYearId = req.user.activeAcademicYear; // <-- from JWT / auth middleware
+    const schoolId = req.user.schoolId;
+
+    // 1. Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(resultId)) {
+      throw new APIError('Invalid result ID', 400);
+    }
+
+    // 2. Fetch result with required fields
+    const result = await Result.findById(resultId)
+      .populate('studentId', 'name')
+      .populate('examId', 'examTitle');
+
+    if (!result) {
+      throw new APIError('Result not found', 404);
+    }
+
+    // 3. Security: School + Academic Year Match
+    if (result.schoolId.toString() !== schoolId) {
+      throw new APIError('Result does not belong to your school', 403);
+    }
+
+    if (result.academicYearId.toString() !== userAcademicYearId) {
+      throw new APIError('You can only publish results for the active academic year', 403);
+    }
+
+    // 4. Already published?
+    if (result.isPublished) {
+      throw new APIError('Result already published', 400);
+    }
+
+    // 5. Must be a compiled result (has subjects array)
+    if (!result.subjects || result.subjects.length === 0) {
+      throw new APIError('Cannot publish incomplete result – missing subjects', 400);
+    }
+
+    // 6. Publish
+    result.isPublished = true;
+    result.publishedAt = new Date();
+    await result.save();
+
+    // 7. Success response
+    res.status(200).json({
+      message: 'Result published successfully',
+      result: {
+        _id: result._id,
+        studentName: result.studentId.name,
+        examTitle: result.examId.examTitle,
+        academicYearId: result.academicYearId,
+        publishedAt: result.publishedAt,
+        publishedBy: req.user.id
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// controllers/studentResult.controller.js
+const getMyResults = async (req, res, next) => {
+  try {
+    const studentId = req.user.studentId;
+    const schoolId = req.user.schoolId;
+    const academicYearId = req.user.activeAcademicYear; // from login/session
+
+    const query = {
+      studentId,
+      schoolId,
+      isPublished: true
+    };
+
+    // Optional: restrict to current academic year
+    if (academicYearId) {
+      query.academicYearId = academicYearId;
+    }
+
+    const results = await Result.find(query)
+      .populate('studentId', '_id name rollNo') // Added: Send student ID + basics first
+      .populate('examId', 'examTitle startDate')
+      .populate('subjects.subjectId', 'name')
+      .sort({ publishedAt: -1 })
+      .lean(); // optional: faster
+
+    if (!results || results.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'Result not announced or Not Created yet.',
+        data: []
+      });
+    }
+
+    // Ensure each result has studentId object (for frontend interface)
+    const formattedResults = results.map(r => ({
+      ...r,
+      studentId: r.studentId || { _id: studentId, name: 'Unknown', rollNo: 'N/A' } // Fallback if populate fails
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: 'Results fetched successfully.',
+      data: formattedResults
+    });
+
+  } catch (error) {
+    console.error('getMyResults error:', error);
+    // Never expose internal error to student
+    res.status(500).json({
+      success: false,
+      message: 'Something went wrong. Please try again later.',
+      data: []
+    });
+  }
+};
+
+const publishExamResults = async (req, res) => {
+  try {
+    const { examId, classId, academicYearId, schoolId } = req.body;
+    const updated = await Result.updateMany(
+      { examId, classId, academicYearId, schoolId, isPublished: false },
+      { $set: { isPublished: true, publishedAt: new Date() } }
+    );
+    res.json({ success: true, updated: updated.modifiedCount });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+const publishSingleResult = async (req, res, next) => {
+  try {
+    const { studentId, examId } = req.body; // From frontend body
+    const schoolId = req.user.schoolId;
+    const academicYearId = req.user.activeAcademicYear;
+
+    // Validate IDs
+    if (!mongoose.Types.ObjectId.isValid(studentId) || !mongoose.Types.ObjectId.isValid(examId)) {
+      throw new APIError('Invalid Student ID or Exam ID', 400);
+    }
+
+    // Security: Verify exam belongs to school/year/class
+    const exam = await Exam.findOne({ _id: examId, schoolId, academicYearId });
+    if (!exam) {
+      throw new APIError('Exam not found or not authorized', 404);
+    }
+
+    console.log(`Publishing for Student: ${studentId}, Exam: ${examId}`);
+
+    // Update ALL matching raw Results (partials + compiled) for this student-exam
+    const updated = await Result.updateMany(
+      { 
+        studentId: new mongoose.Types.ObjectId(studentId),
+        examId: new mongoose.Types.ObjectId(examId),
+        schoolId,
+        academicYearId,
+        isPublished: false  // Only unpublished
+      },
+      { $set: { isPublished: true, publishedAt: new Date() } }
+    );
+
+    console.log('Updated raw docs:', updated.modifiedCount);
+
+    if (updated.modifiedCount === 0) {
+      return res.status(404).json({ success: false, message: 'No unpublished result found for this student-exam' });
+    }
+
+    // Success: Return count (no need for full doc—frontend optimistically updates aggregated view)
+    res.status(200).json({ 
+      success: true, 
+      updated: updated.modifiedCount, 
+      message: `Published ${updated.modifiedCount} result(s) for the student-exam` 
+    });
+  } catch (error) {
+    console.error('Publish single error:', error);
+    next(error);
+  }
+};
 
 module.exports = {
-  createResult, getResultById,compileResult, getResultsByExam, updatePartialResult,getStudentResults,getExamsForResultEntry,
-  getResultsByClassAndAcademicYear, createPartialResult, getPartialResults,getAllResultsForClass
+  createResult, getResultById,compileResult,publishResult,getMyResults, getResultsByExam, updatePartialResult,getStudentResults,getExamsForResultEntry,
+  getResultsByClassAndAcademicYear, createPartialResult, getPartialResults,getAllResultsForClass,publishExamResults,publishSingleResult
 };

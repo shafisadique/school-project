@@ -32,6 +32,10 @@ export class ResultService {
       catchError(this.handleError('getExamsByTeacher'))
     );
   }
+  
+  getMyResults(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/my-results`);
+  }
 
   getResultsByExam(examId: string): Observable<Result[]> {
     return this.http.get<Result[]>(`${this.apiUrl}/exam/${examId}`).pipe(
@@ -69,13 +73,28 @@ export class ResultService {
     return this.http.get(`${this.apiUrl}/result-entry`);
   }
 
+  publishExamResults(filters: { examId: string; classId: string; academicYearId: string; schoolId: string }): Observable<any> {
+    return this.http.put(`${this.apiUrl}/publish-exam`, filters);  // Backend: Update all matching results to { isPublished: true, publishedAt: new Date() }
+  }
+
+  publishResult(resultId: string): Observable<any> {
+    return this.http.put(`${this.apiUrl}/${resultId}/publish`, {});  // Backend: Update single result
+  }
+  
+  publishSingleResult(studentId: string, examId: string): Observable<any> {
+  return this.http.put(`${this.apiUrl}/publish-single`, { studentId, examId }).pipe(
+    catchError(this.handleError('publishSingleResult'))
+    );
+  }
+
+// Keep existing publishExamResults (PUT for bulk)
+
   private handleError(operation = 'operation'): (error: HttpErrorResponse) => Observable<never> {
     return (error: HttpErrorResponse): Observable<never> => {
       console.error(`${operation} failed:`, error); // Keep for debugging
-
-      // FIXED: Do not wrap in new Error; re-throw the original HttpErrorResponse to preserve backend details
-      // Component can now access error.error.error for specific messages like "Result already exists..."
       return throwError(() => error);
     };
   }
+
+
 }

@@ -12,6 +12,10 @@ const transporter = nodemailer.createTransport({
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS
+  },
+  secure: false,  // Use STARTTLS (default for port 587)
+  tls: {
+    rejectUnauthorized: false  // Fallback for self-signed issues (dev only)
   }
 });
 
@@ -43,6 +47,7 @@ const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
+
     if (!user) {
       return res.status(404).json({ message: 'User with this email not found' });
     }

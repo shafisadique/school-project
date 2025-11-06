@@ -50,7 +50,7 @@
     <div class="row">
       <div class="col-md-7 col-sm-12" >
         <div class="chart-card">
-          <div style="display: flex; justify-content: space-between; margin: auto;">
+          <div class="manage-value">
             <h4 class="chart-title">Management Value</h4>
             <div class="chart-filters">
               <button class="btn-fill blue" (click)="onPeriodChange('weekly')">Weekly</button>
@@ -241,35 +241,41 @@
           </div>
         </div>
         <div class="chart-card">
-          <h5 class="mb-3">Payment Method & Monthly Trend (Last 6 Months)</h5>
-          <div style="display: flex;">
-            <apx-chart
-              #paymentMethodChart
-              [series]="paymentMethodChartOptions?.series || [1]"
-              [chart]="paymentMethodChartOptions?.chart"
-              [labels]="paymentMethodChartOptions?.labels"
-              [colors]="paymentMethodChartOptions?.colors"
-              [legend]="paymentMethodChartOptions?.legend"
-              [responsive]="paymentMethodChartOptions?.responsive"
-              [fill]="paymentMethodChartOptions?.fill"
-              [dataLabels]="paymentMethodChartOptions?.dataLabels"
-              [plotOptions]="paymentMethodChartOptions?.plotOptions"
-            ></apx-chart>
-            <!-- <div *ngIf="!paymentMethods.length" class="text-center">No payment data available</div> -->
-          <apx-chart
-            #monthlyTrendChart
-            [series]="monthlyTrendChartOptions?.series || []"
-            [chart]="monthlyTrendChartOptions?.chart"
-            [xaxis]="monthlyTrendChartOptions?.xaxis"
-            [colors]="monthlyTrendChartOptions?.colors"
-            [legend]="monthlyTrendChartOptions?.legend"
-            [responsive]="monthlyTrendChartOptions?.responsive"
-            [stroke]="monthlyTrendChartOptions?.stroke"
-            [fill]="monthlyTrendChartOptions?.fill" 
-            [markers]="monthlyTrendChartOptions?.markers"
-          ></apx-chart>
-            <div *ngIf="!monthlyTrend.length" class="text-center">No trend data available</div>
+            <h5 class="mb-3">Payment Method & Monthly Trend (Last 6 Months)</h5>
+            <!-- <div style="display: flex;"> -->
+          <div class="row">
+            <div class="col-md-6 col-md-12">
+              <apx-chart
+                #paymentMethodChart
+                [series]="paymentMethodChartOptions?.series || [1]"
+                [chart]="paymentMethodChartOptions?.chart"
+                [labels]="paymentMethodChartOptions?.labels"
+                [colors]="paymentMethodChartOptions?.colors"
+                [legend]="paymentMethodChartOptions?.legend"
+                [responsive]="paymentMethodChartOptions?.responsive"
+                [fill]="paymentMethodChartOptions?.fill"
+                [dataLabels]="paymentMethodChartOptions?.dataLabels"
+                [plotOptions]="paymentMethodChartOptions?.plotOptions"
+              ></apx-chart>
+            </div>
+            <div class="col-md-6 col-md-12">
+              <apx-chart
+                #monthlyTrendChart
+                [series]="monthlyTrendChartOptions?.series || []"
+                [chart]="monthlyTrendChartOptions?.chart"
+                [xaxis]="monthlyTrendChartOptions?.xaxis"
+                [colors]="monthlyTrendChartOptions?.colors"
+                [legend]="monthlyTrendChartOptions?.legend"
+                [responsive]="monthlyTrendChartOptions?.responsive"
+                [stroke]="monthlyTrendChartOptions?.stroke"
+                [fill]="monthlyTrendChartOptions?.fill" 
+                [markers]="monthlyTrendChartOptions?.markers"
+              ></apx-chart>
+            </div>
           </div>
+            
+              <div *ngIf="!monthlyTrend.length" class="text-center">No trend data available</div>
+          <!-- </div> -->
 
         </div>
       </div>

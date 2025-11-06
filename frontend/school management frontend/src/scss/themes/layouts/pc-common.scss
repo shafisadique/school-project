@@ -20,8 +20,8 @@ body {
       }
     }
     @include media-breakpoint-down(md) {
-      padding-left: 32px;
-      padding-right: 32px;
+      padding-left: 12px;
+      padding-right: 12px;
       padding-top: 16px;
     }
   }

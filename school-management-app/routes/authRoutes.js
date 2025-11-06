@@ -11,11 +11,12 @@ const { changePassword, forgotPassword, resetPassword, getProfile, updateProfile
 const validateRequest = require('../middleware/validateRequest');
 const Payment =require('../models/payment')
 const authMiddleware = require('../middleware/authMiddleware');
-const { isSuperAdmin } = require('../middleware/roleMiddleware');
+const { isSuperAdmin, isAdmin } = require('../middleware/roleMiddleware');
 const { createPaymentOrder, generateSchoolInvoicePDF, handleWebhook } = require('../controllers/fee/paymentController');
 const rateLimiter = require('../middleware/rateLimit');
 const router = express.Router();
 const axios = require('axios');
+const { getSmsStatus, getAnnouncements, createAnnouncement } = require('../controllers/announcements/announcementController');
 
 const paymentLimiter = rateLimiter({
   windowMs: 15 * 60 * 1000,
@@ -246,5 +247,38 @@ router.post('/subscription/update', authMiddleware, isSuperAdmin, validateReques
   body('expiresAt').optional().isISO8601().withMessage('Invalid date format')
 ]), updateSubscription);
 
+
+
+
+// POST /announcements (Updated Validation)
+router.post('/announcements',
+  authMiddleware,
+  isAdmin,
+  validateRequest([
+    body('title').notEmpty().withMessage('Title required').isLength({ max: 200 }),
+    body('body').notEmpty().withMessage('Body required').isLength({ max: 1000 }),
+    // Roles optional if targetUsers provided
+    body('roles').optional().isArray({ min: 1 }).withMessage('Roles required (array)').custom((roles, { req }) => {
+      if (req.body.targetUsers && req.body.targetUsers.length > 0) return true; // Skip if IDs provided
+      if (!roles || !Array.isArray(roles) || roles.length === 0) throw new Error('Roles required');
+      return roles.every(r => ['admin', 'teacher', 'parent', 'student'].includes(r));
+    }),
+    body('targetUsers').optional().isArray({ min: 1 }).withMessage('Target users required (array)')
+  ]),
+  createAnnouncement
+);
+
+// Get Announcements (Any Authenticated User, Filtered by Role/School)
+router.get('/announcements',
+  authMiddleware,
+  getAnnouncements  // ?page=1&limit=10
+);
+
+// Get SMS Status (School Admin Only, for Dashboard)
+router.get('/subscription/sms-status',
+  authMiddleware,
+  isAdmin,
+  getSmsStatus
+);
 
 module.exports = router;

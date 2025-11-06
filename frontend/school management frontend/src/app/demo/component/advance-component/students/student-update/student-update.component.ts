@@ -149,7 +149,7 @@ export class StudentUpdateComponent implements OnInit {
           this.imagePreview = null;
         }
       },
-      error: (err) => {
+      error: () => {
         this.toastr.error('Error loading student details', 'Error');
         this.router.navigate(['/student/details']);
       }
