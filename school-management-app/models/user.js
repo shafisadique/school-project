@@ -25,7 +25,6 @@ const userSchema = new mongoose.Schema({
 
 // Indexes for faster lookup
 userSchema.index({ schoolId: 1, role: 1 });
-userSchema.index({ email: 1 }, { unique: true, sparse: true });
-userSchema.index({ username: 1 }, { unique: true });
+
 
 module.exports = mongoose.model('User', userSchema);
