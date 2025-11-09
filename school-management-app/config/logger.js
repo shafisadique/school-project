@@ -5,22 +5,24 @@ const transports = [
     format: winston.format.combine(
       winston.format.colorize(),
       winston.format.timestamp(),
-      winston.format.printf(info => `${info.timestamp} [${info.level}]: ${info.message}`)
+      winston.format.printf(info => `${info.timestamp} [${info.level.toUpperCase()}]: ${info.message}`)
     )
   })
 ];
 
-// ONLY LOG TO FILE IN LOCAL DEV
+// ONLY IN LOCAL DEV
 if (process.env.NODE_ENV !== 'production') {
   const fs = require('fs');
-  const logDir = 'logs';
+  const path = require('path');
+  const logDir = path.join(__dirname, '..', 'logs');
+
   if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir);
+    fs.mkdirSync(logDir, { recursive: true });
   }
 
   transports.push(
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' })
+    new winston.transports.File({ filename: path.join(logDir, 'error.log'), level: 'error' }),
+    new winston.transports.File({ filename: path.join(logDir, 'combined.log') })
   );
 }
 

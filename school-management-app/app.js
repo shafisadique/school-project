@@ -8,15 +8,15 @@ const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3'); // Add GetObjectCommand
+const logger = require('./config/logger')
 
 dotenv.config();
 
 const app = express();
 
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
-
+  .then(() => logger.info('Connected to MongoDB'))
+  .catch(err => logger.error('MongoDB connection error:', err));
 
 // R2 Configuration
 const s3Client = new S3Client({
@@ -104,7 +104,7 @@ app.get('/api/proxy-image/:key(*)', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=31536000');
     data.Body.pipe(res);
   } catch (err) {
-    console.error('Proxy-image error:', err.message, err.stack);
+    logger.error('Proxy-image error:', err.message, err.stack);
     res.status(404).json({ message: 'Image not found', error: err.message });
   }
 });
@@ -162,7 +162,7 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
       key: key // Store this in your database
     });
   } catch (error) {
-    console.error('Upload error:', error);
+    logger.error('Upload error:', error);
     res.status(500).json({ message: 'Failed to upload image', error: error.message });
   }
 });
@@ -200,11 +200,11 @@ app.use('/api/dashboard',require('./routes/teacher-dashboard/teacher-dashboardRo
 // app.use('/api/parent', parentRoutes);
 
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  logger.error('Unhandled error:', err);
   res.status(500).json({ message: 'Internal server error', error: err.message });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info(`Server running on port ${PORT}`);
 });
