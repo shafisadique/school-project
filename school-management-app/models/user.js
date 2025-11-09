@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema({
   username: { type: String, unique: true, required: true },
   email: { type: String, unique: true, sparse: true, required: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['superadmin', 'admin', 'teacher', 'student', 'parent'], required: true },
+  role: { type: String, enum: ['admin', 'teacher', 'student', 'parent'], required: true },
   schoolId: { type: mongoose.Schema.Types.ObjectId, ref: 'School' },
   pushSubscriptions: [{ endpoint: String, keys: { p256dh: String, auth: String } }],
   phoneNumber: {

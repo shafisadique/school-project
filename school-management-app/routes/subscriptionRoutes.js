@@ -9,98 +9,67 @@ const rzp = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
-// Enhanced subscription plans with clear benefits
-  const subscriptionPlans = {
-    trial: {
-      name: "Free Trial",
-      duration: 14,
-      price: 0,
-      smsMonthlyLimit: 5,
-      whatsappMonthlyLimit: 5,
-      features: [
-        "Full access to all features",
-        "Up to 50 students",
-        "Basic support",
-        "No payment required"
-      ],
+// Inside your router file, update subscriptionPlans
+const subscriptionPlans = {
+  trial: {
+    name: "Free Trial",
+    duration: 14,
+    price: 0,
+    originalPrice: 0, // ← ADD
+    smsMonthlyLimit: 5,
+    whatsappMonthlyLimit: 5,
+    features: ['login', 'attendance', 'fees', 'notifications'],
+    recommended: false
+  },
+  basic: {
+    monthly: {
+      name: "Basic Monthly",
+      price: 700,
+      originalPrice: 700, // ← ADD
+      duration: 30,
+      smsMonthlyLimit: 300,
+      whatsappMonthlyLimit: 300,
+      features: ['login', 'attendance', 'fees', 'notifications'],
+      savings: 0,
       recommended: false
     },
-    basic: {
-      monthly: {
-        name: "Basic Monthly",
-        price: 700,
-        originalPrice: 700,
-        duration: 30,
-        smsMonthlyLimit: 10,  // Low for testing; change to 1000 in prod
-        whatsappMonthlyLimit: 10,
-        features: [
-          "Unlimited students",
-          "Basic reporting tools",
-          "Email support",
-          "Mobile app access"
-        ],
-        savings: 0,
-        recommended: false
-      },
-      yearly: {
-        name: "Basic Yearly",
-        price: 6000,
-        originalPrice: 8400,
-        duration: 365,
-        smsMonthlyLimit: 10,  // Same monthly limit; change to 1000 in prod
-        whatsappMonthlyLimit: 10,
-        features: [
-          "Unlimited students",
-          "Advanced reporting tools",
-          "Priority email support",
-          "Mobile app access",
-          "2 admin accounts"
-        ],
-        savings: 2400,
-        recommended: true
-      }
-    },
-    premium: {
-      monthly: {
-        name: "Premium Monthly",
-        price: 1200,
-        originalPrice: 1200,
-        duration: 30,
-        smsMonthlyLimit: 30,  // Low for testing; change to 3000 in prod
-        whatsappMonthlyLimit: 30,
-        features: [
-          "Unlimited students & staff",
-          "Advanced analytics", 
-          "Phone & email support",
-          "Custom reports",
-          "5 admin accounts",
-          "Data export功能"
-        ],
-        savings: 0,
-        recommended: false
-      },
-      yearly: {
-      name: "Premium Yearly",
-      price: 1, // Temporarily set to 1 INR for testing
-      originalPrice: 14400,
+    yearly: {
+      name: "Basic Yearly",
+      price: 6000,
+      originalPrice: 8400, // ← ADD
       duration: 365,
-      smsMonthlyLimit: 30,
-      whatsappMonthlyLimit: 30,
-      features: [
-        "Unlimited students & staff",
-        "Advanced analytics dashboard",
-        "24/7 priority support",
-        "Custom report builder",
-        "Unlimited admin accounts",
-        "Automated data backups",
-        "White-label option",
-        "API access"
-      ],
+      smsMonthlyLimit: 300,
+      whatsappMonthlyLimit: 300,
+      features: ['login', 'attendance', 'fees', 'notifications'],
       savings: 2400,
       recommended: true
     }
+  },
+  premium: {
+    monthly: {
+      name: "Premium Monthly",
+      price: 1200,
+      originalPrice: 1200, // ← ADD
+      duration: 30,
+      smsMonthlyLimit: 1000,
+      whatsappMonthlyLimit: 1000,
+      features: ['login', 'attendance', 'fees', 'notifications', 'exam', 'udise', 'results', 'reports'],
+      savings: 0,
+      recommended: false
+    },
+    yearly: {
+      name: "Premium Yearly",
+      price: 10000,
+      originalPrice: 14400, // ← ADD
+      duration: 365,
+      smsMonthlyLimit: 1000,
+      whatsappMonthlyLimit: 1000,
+      features: ['login', 'attendance', 'fees', 'notifications', 'exam', 'udise', 'results', 'reports', 'analytics'],
+      savings: 4400,
+      recommended: true
     }
-  };
+  }
+};
 // GET /api/subscriptions/plans - Get all available plans
   router.get('/plans', authMiddleware, (req, res) => {
     res.status(200).json(subscriptionPlans);
@@ -447,23 +416,26 @@ router.post('/verify-payment', authMiddleware, async (req, res) => {
 });
 
 // POST /api/subscriptions/webhook - Razorpay webhook for payment confirmation
-router.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+// POST /api/subscriptions/webhook
+router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    const body = req.body;
-    
-    // Verify webhook signature
+    const body = JSON.parse(req.body.toString());
+
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
       .update(JSON.stringify(body))
       .digest('hex');
 
     if (signature !== expectedSignature) {
-      return res.status(400).json({ message: 'Invalid webhook signature' });
+      console.log('Invalid webhook signature');
+      return res.status(400).json({ message: 'Invalid signature' });
     }
 
     const event = body.event;
     const payment = body.payload.payment.entity;
+
+    console.log('Webhook:', event, payment.id);
 
     if (event === 'payment.captured') {
       const subscription = await Subscription.findOne({
@@ -476,54 +448,54 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
         subscription.expiresAt = new Date(Date.now() + subscription.durationDays * 24 * 60 * 60 * 1000);
         subscription.transactionId = payment.id;
         await subscription.save();
-        
-        console.log(`Subscription ${subscription._id} activated via webhook`);
+
+        console.log('Subscription ACTIVATED:', subscription._id);
       }
     }
 
     res.status(200).json({ received: true });
   } catch (err) {
     console.error('Webhook error:', err);
-    res.status(500).json({ message: 'Webhook processing failed' });
+    res.status(500).json({ message: 'Failed' });
   }
 });
 
 // POST /api/subscriptions/approve-bank-transfer
-router.post('/approve-bank-transfer', authMiddleware, async (req, res) => {
-  try {
-    if (req.user.role !== 'superadmin') {
-      return res.status(403).json({ message: 'Only super admin can approve bank transfers' });
-    }
+// router.post('/approve-bank-transfer', authMiddleware, async (req, res) => {
+//   try {
+//     if (req.user.role !== 'superadmin') {
+//       return res.status(403).json({ message: 'Only super admin can approve bank transfers' });
+//     }
 
-    const { subscriptionId } = req.body;
+//     const { subscriptionId } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(subscriptionId)) {
-      return res.status(400).json({ message: 'Invalid subscription ID' });
-    }
+//     if (!mongoose.Types.ObjectId.isValid(subscriptionId)) {
+//       return res.status(400).json({ message: 'Invalid subscription ID' });
+//     }
 
-    const subscription = await Subscription.findById(subscriptionId);
-    if (!subscription || subscription.paymentMethod !== 'bank_transfer' || subscription.status !== 'pending') {
-      return res.status(400).json({ message: 'Invalid or non-pending bank transfer subscription' });
-    }
+//     const subscription = await Subscription.findById(subscriptionId);
+//     if (!subscription || subscription.paymentMethod !== 'bank_transfer' || subscription.status !== 'pending') {
+//       return res.status(400).json({ message: 'Invalid or non-pending bank transfer subscription' });
+//     }
 
-    subscription.status = 'active';
-    subscription.startsAt = new Date();
-    subscription.paymentProof = subscription.testMode ? 'test-mode-approved' : 'manually-approved';
-    await subscription.save();
+//     subscription.status = 'active';
+//     subscription.startsAt = new Date();
+//     subscription.paymentProof = subscription.testMode ? 'test-mode-approved' : 'manually-approved';
+//     await subscription.save();
 
-    res.status(200).json({
-      message: 'Bank transfer subscription approved and activated',
-      subscription: {
-        schoolId: subscription.schoolId,
-        planType: subscription.planType,
-        status: subscription.status,
-        messageLimits: subscription.messageLimits
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ message: 'Error approving bank transfer', error: err.message });
-  }
-});
+//     res.status(200).json({
+//       message: 'Bank transfer subscription approved and activated',
+//       subscription: {
+//         schoolId: subscription.schoolId,
+//         planType: subscription.planType,
+//         status: subscription.status,
+//         messageLimits: subscription.messageLimits
+//       }
+//     });
+//   } catch (err) {
+//     res.status(500).json({ message: 'Error approving bank transfer', error: err.message });
+//   }
+// });
 
 // POST /api/subscriptions/cancel - Cancel auto-renewal
 router.post('/cancel-auto-renew', authMiddleware, async (req, res) => {

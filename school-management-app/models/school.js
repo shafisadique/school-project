@@ -24,15 +24,6 @@ const schoolSchema = new mongoose.Schema({
     unique: true,
     match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email address']
   },
-  // code: {
-  //   type: String,
-  //   required: [true, 'School code is required for unique student admissions'],
-  //   unique: true,
-  //   uppercase: true,
-  //   trim: true,
-  //   minlength: [3, 'School code must be at least 3 characters'],
-  //   maxlength: [6, 'School code must be at most 6 characters']
-  // },
   smtpConfig: {
     host: { type: String, default: 'shafisadique123@gmail.com' },
     port: { type: Number, default: 465 },

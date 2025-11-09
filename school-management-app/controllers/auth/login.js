@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../../models/user');
+const User = require('../../models/user');  // School-only User model (no superadmin)
 const Teacher = require('../../models/teacher');
 const AcademicYear = require('../../models/academicyear');
 const { decryptPassword } = require('../../utils/cryptoUtils');
@@ -24,11 +24,16 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid username/email or password' });
     }
 
+    // Fail if no schoolId (enforce school context)
+    if (!user.schoolId) {
+      return res.status(403).json({ message: 'User not associated with a school' });
+    }
+
     let isPasswordValid = false;
     
-    // Handle password validation based on role
-    if (['admin', 'teacher', 'superadmin'].includes(user.role)) {
-      // Hashed password for admin/teacher/superadmin
+    // Handle password validation based on role (school roles only)
+    if (['admin', 'teacher'].includes(user.role)) {
+      // Hashed password for admin/teacher
       isPasswordValid = bcrypt.compareSync(password, user.password);
     } else if (['parent', 'student'].includes(user.role)) {
       // Encrypted password for parent/student
@@ -59,7 +64,7 @@ const login = async (req, res) => {
       teacherId = teacher._id.toString();
     }
 
-    // UPDATED: Extract studentId from user.additionalInfo (no query needed)
+    // Extract studentId from user.additionalInfo
     let studentId = null;
     if (user.role === 'student') {
       if (!user.additionalInfo || !user.additionalInfo.studentId) {
@@ -68,19 +73,17 @@ const login = async (req, res) => {
       studentId = user.additionalInfo.studentId.toString();
     }
 
-    let activeAcademicYearId = null;
-    if (user.role !== 'superadmin' && user.schoolId) {
-      const activeAcademicYear = await AcademicYear.findOne({
-        schoolId: user.schoolId,
-        isActive: true
-      });
-      if (!activeAcademicYear) {
-        return res.status(400).json({ message: 'No active academic year found for your school' });
-      }
-      activeAcademicYearId = activeAcademicYear._id.toString();
+    // Always fetch active academic year for school users
+    const activeAcademicYear = await AcademicYear.findOne({
+      schoolId: user.schoolId,
+      isActive: true
+    });
+    if (!activeAcademicYear) {
+      return res.status(400).json({ message: 'No active academic year found for your school' });
     }
+    const activeAcademicYearId = activeAcademicYear._id.toString();
 
-    // UPDATED: Add additionalInfo to JWT payload (includes studentId for req.user)
+    // Add additionalInfo to JWT payload
     const additionalInfo = {};
     if (user.role === 'student' && studentId) {
       additionalInfo.studentId = studentId;
@@ -94,7 +97,7 @@ const login = async (req, res) => {
         userId: user._id, 
         role: user.role, 
         schoolId: user.schoolId,
-        additionalInfo  // Enables req.user.additionalInfo.studentId in controllers
+        additionalInfo  // For req.user.additionalInfo in controllers
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
@@ -104,11 +107,11 @@ const login = async (req, res) => {
       token,
       role: user.role,
       userId: user._id.toString(),
-      schoolId: user.schoolId ? user.schoolId.toString() : null,
+      schoolId: user.schoolId.toString(),
       teacherId: (user.role === 'teacher' && teacherId) ? teacherId : null,
-      studentId: (user.role === 'student' && studentId) ? studentId : null,  // From additionalInfo
+      studentId: (user.role === 'student' && studentId) ? studentId : null,
       email: user.email,
-      activeAcademicYearId: (user.role !== 'superadmin' && user.schoolId && activeAcademicYearId) ? activeAcademicYearId : null
+      activeAcademicYearId
     });
   } catch (err) {
     console.error('Login error:', err.stack);

@@ -508,5 +508,102 @@ const getExamsForResultEntry = async (req, res, next) => {
   }
 };
 
+const getStudentResults = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const schoolId = req.user.schoolId;
+    const { academicYearId, examId } = req.query; // Optional filters: academicYearId or specific examId
+
+    // Restrict to student role
+    if (req.user.role !== 'student') {
+      throw new APIError('Only students can access their own results', 403);
+    }
+
+    // Find student document (assuming Student model exists with userId field)
+    const Student = require('../../models/student'); // Adjust path as needed
+    const studentDoc = await Student.findOne({ userId });
+    if (!studentDoc) {
+      console.log('No student profile found');
+      return res.status(200).json({
+        success: false,
+        message: "Student profile not found",
+        results: []
+      });
+    }
+
+    console.log('Found student:', {
+      _id: studentDoc._id,
+      name: studentDoc.name,
+      rollNo: studentDoc.rollNo
+    });
+
+    // Build query for results
+    const query = {
+      studentId: studentDoc._id,
+      schoolId,
+      isPublished: true // Only show published results
+    };
+
+    if (academicYearId) {
+      if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
+        throw new APIError('Invalid academic year ID', 400);
+      }
+      query.academicYearId = academicYearId;
+    }
+
+    if (examId) {
+      if (!mongoose.Types.ObjectId.isValid(examId)) {
+        throw new APIError('Invalid exam ID', 400);
+      }
+      query.examId = examId;
+    }
+
+    // Fetch results
+    const results = await Result.find(query)
+      .populate({
+        path: 'examId',
+        select: 'examTitle startDate endDate examStatus examPapers',
+        populate: {
+          path: 'examPapers.subjectId',
+          select: 'name'
+        }
+      })
+      .populate('classId', 'name')
+      .populate('subjects.subjectId', 'name')
+      .sort({ 'examId.startDate': -1 }) // Sort by most recent exam first
+      .lean(); // Use lean for better performance if not modifying
+
+    if (results.length === 0) {
+      return res.status(200).json({
+        success: false,
+        message: "No published results found",
+        results: []
+      });
+    }
+
+    // Optionally, enhance each result with additional computed fields if needed
+    const enhancedResults = results.map(result => ({
+      ...result,
+      // Example: Add overall grade breakdown if not already present
+      // You can add more logic here based on gradeCriteria from examPapers
+    }));
+
+    res.status(200).json({
+      success: true,
+      message: "Results retrieved successfully",
+      results: enhancedResults,
+      studentInfo: {
+        name: studentDoc.name,
+        rollNo: studentDoc.rollNo,
+        classId: studentDoc.classId // Assuming student has classId
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getStudentResults:', error.message, error.stack);
+    next(new APIError('Error fetching student results: ' + error.message, 500));
+  }
+};
+
 
 module.exports = { createExam, getExamHistory, getExamSummary, getExamsBySchool, getExamsByTeacher,updateExam,getExamById ,getExamsForResultEntry};

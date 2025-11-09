@@ -385,7 +385,6 @@ const createStudent = async (req, res, next) => {
       routeId: finalRouteId,
       status: true,
     });
-    console.log('working third')
 
     await newStudent.save();
 

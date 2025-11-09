@@ -15,10 +15,10 @@ export const routes: Routes = [
     path: 'auth/login',
     loadComponent: () => import('./demo/pages/authentication/auth-login/auth-login.component').then((c) => c.AuthLoginComponent)
   },
-  {
-    path: 'auth/register',data: { roles: ['superadmin'] },canActivate:[AuthGuard],
-    loadComponent: () => import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
-  },
+  // {
+  //   path: 'auth/register',data: { roles: ['superadmin'] },canActivate:[AuthGuard],
+  //   loadComponent: () => import('./demo/pages/authentication/auth-register/auth-register.component').then((c) => c.AuthRegisterComponent)
+  // },
   {
     path: 'auth/forgot-password',
     loadComponent: () => import('./authentication/forgot-password/forgot-password.component').then((c) => c.ForgotPasswordComponent)

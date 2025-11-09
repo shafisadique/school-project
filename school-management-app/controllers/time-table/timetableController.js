@@ -219,7 +219,7 @@ exports.getTimetableByStudent = async (req, res) => {
     if (!student.classId) {
       return res.status(400).json({ message: 'No class assigned to this student' });
     }
-
+    console.log(student.schoolId,student.classId._id,academicYearId);
     // 4. Get Timetable
     const Timetable = require('../../models/timetable');
     const timetable = await Timetable.find({

@@ -1,0 +1,265 @@
+<div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+  <div class="w-full max-w-2xl">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <img src="images/ED-logo.png" alt="Logo" class="mx-auto h-12 w-auto mb-4" />
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Create Your School Account</h1>
+      <p class="text-gray-600 dark:text-gray-400 mb-6">Set up your school in 3 simple steps</p>
+
+      <!-- Step Indicator -->
+      <div class="flex justify-center space-x-2 mb-8">
+        @for (stepNum of [1, 2, 3]; track stepNum) {
+          <div class="flex items-center">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300"
+                 [class]="step() >= stepNum ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'">
+              {{ stepNum }}
+            </div>
+            @if (stepNum < 3) {
+              <div class="w-8 h-1 mx-2 bg-gray-200 dark:bg-gray-700"
+                   [class]="step() > stepNum ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'"></div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Form Card -->
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8">
+      <!-- Step 1: School Info -->
+      @if (step() === 1) {
+        <form [formGroup]="schoolForm" (ngSubmit)="nextStep()" class="space-y-6">
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <app-label for="schoolName">School Name <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed
+                id="schoolName" type="text" formControlName="schoolName"
+                placeholder="Elite Public School"
+                className="w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                [className]="f['schoolName'].invalid && f['schoolName'].touched ? 'border-red-500 focus:ring-red-500' : ''" />
+              @if (f['schoolName'].invalid && f['schoolName'].touched) {
+                <p class="mt-1 text-sm text-red-600">School name is required</p>
+              }
+            </div>
+
+            <div>
+              <app-label for="adminName">Admin Name <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed
+                id="adminName" type="text" formControlName="adminName"
+                placeholder="John Doe"
+                className="w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                [className]="f['adminName'].invalid && f['adminName'].touched ? 'border-red-500 focus:ring-red-500' : ''" />
+              @if (f['adminName'].invalid && f['adminName'].touched) {
+                <p class="mt-1 text-sm text-red-600">Admin name is required</p>
+              }
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <app-label for="username">Username <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed
+                id="username" type="text" formControlName="username"
+                placeholder="admin_school123"
+                className="w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                [className]="f['username'].invalid && f['username'].touched ? 'border-red-500 focus:ring-red-500' : ''" />
+              @if (f['username'].invalid && f['username'].touched) {
+                <div class="mt-1 text-sm text-red-600 space-y-1">
+                  @if (f['username'].errors?.['required']) { <p>Username is required</p> }
+                  @if (f['username'].errors?.['minlength']) { <p>Minimum 6 characters</p> }
+                </div>
+              }
+            </div>
+
+            <div>
+              <app-label for="email">Email <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed
+                id="email" type="email" formControlName="email"
+                placeholder="admin@school.com"
+                className="w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                [className]="f['email'].invalid && f['email'].touched ? 'border-red-500 focus:ring-red-500' : ''" />
+              @if (f['email'].invalid && f['email'].touched) {
+                <p class="mt-1 text-sm text-red-600">Valid email is required</p>
+              }
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <app-label for="mobileNo">Mobile Number <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed
+                id="mobileNo" type="tel" formControlName="mobileNo"
+                placeholder="+919876543210"
+                className="w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                [className]="f['mobileNo'].invalid && f['mobileNo'].touched ? 'border-red-500 focus:ring-red-500' : ''" />
+              @if (f['mobileNo'].invalid && f['mobileNo'].touched) {
+                <p class="mt-1 text-sm text-red-600">Valid mobile (e.g., +919876543210)</p>
+              }
+            </div>
+
+            <div>
+              <app-label>Preferred Channel <span class="text-red-500">*</span></app-label>
+              <app-select
+                formControlName="preferredChannel"
+                [options]="[
+                  { value: 'sms', label: 'SMS Only' },
+                  { value: 'whatsapp', label: 'WhatsApp Only' },
+                  { value: 'both', label: 'Both' }
+                ]"
+                placeholder="Select channel"
+                className="w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700"
+                [className]="f['preferredChannel'].invalid && f['preferredChannel'].touched ? 'border-red-500' : ''" />
+              @if (f['preferredChannel'].invalid && f['preferredChannel'].touched) {
+                <p class="mt-1 text-sm text-red-600">Channel is required</p>
+              }
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <input type="checkbox" formControlName="whatsappOptIn" id="whatsappOptIn" class="h-4 w-4 text-blue-600 rounded" />
+            <app-label for="whatsappOptIn" class="cursor-pointer">Opt-in for WhatsApp notifications</app-label>
+          </div>
+
+          <div class="flex gap-3 pt-4">
+            <button type="button" (click)="prevStep()" class="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+              Back
+            </button>
+            <button type="submit"
+                    [disabled]="schoolForm.invalid || isSendingOtp()"
+                    class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {{ isSendingOtp() ? 'Sending OTP...' : 'Next Step' }}
+            </button>
+          </div>
+        </form>
+      }
+
+      <!-- Step 2: OTP -->
+      @if (step() === 2) {
+        <form [formGroup]="otpForm" (ngSubmit)="nextStep()" class="space-y-6">
+          <div class="text-center">
+            <div class="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+              <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold">Verify Mobile</h3>
+            <p class="text-gray-600">Enter 6-digit OTP sent to <strong>{{ formData().mobileNo }}</strong></p>
+          </div>
+
+          <app-input-field-fixed
+            id="otp" type="text" formControlName="otp"
+            placeholder="000000"
+            className="text-center text-2xl font-mono tracking-widest"
+            maxlength="6" />
+          @if (o['otp'].invalid && o['otp'].touched) {
+            <p class="text-sm text-red-600 text-center">OTP must be 6 digits</p>
+          }
+
+          <p class="text-center text-xs">
+            Didn't receive? <button type="button" (click)="sendOtp()" [disabled]="isSendingOtp()" class="text-blue-600 underline">Resend</button>
+          </p>
+
+          <div class="flex gap-3 pt-4">
+            <button type="button" (click)="prevStep()" class="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+              Back
+            </button>
+            <button type="submit"
+                    [disabled]="otpForm.invalid || isVerifyingOtp()"
+                    class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+              {{ isVerifyingOtp() ? 'Verifying...' : 'Verify & Continue' }}
+            </button>
+          </div>
+        </form>
+      }
+
+      <!-- Step 3: Address -->
+      @if (step() === 3) {
+        <form [formGroup]="addressForm" (ngSubmit)="nextStep()" class="space-y-6">
+          <div class="text-center">
+            <h3 class="text-xl font-semibold">School Address</h3>
+            <p class="text-gray-600">Click map to set location</p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <app-label for="street">Street <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed id="street" formControlName="street" placeholder="123 Main St" />
+            </div>
+            <div>
+              <app-label for="postalCode">Postal Code <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed id="postalCode" formControlName="postalCode" placeholder="110001" />
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <app-label for="city">City <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed id="city" formControlName="city" placeholder="New Delhi" />
+            </div>
+            <div>
+              <app-label for="state">State <span class="text-red-500">*</span></app-label>
+              <app-input-field-fixed id="state" formControlName="state" placeholder="Delhi" />
+            </div>
+          </div>
+
+          <div>
+            <app-label for="country">Country <span class="text-red-500">*</span></app-label>
+            <app-input-field-fixed id="country" formControlName="country" placeholder="India" />
+          </div>
+
+          <!-- Map -->
+          <div class="relative">
+            <app-label>School Location <span class="text-red-500">*</span> - Click to set</app-label>
+            <div class="relative bg-white rounded-lg border overflow-hidden">
+              <div class="absolute top-2 right-2 z-10 bg-white px-3 py-1 rounded-md text-xs shadow">Click to drop pin</div>
+              <google-map height="300px" width="100%" [center]="center" [zoom]="zoom" (mapClick)="onMapClick($event)">
+                @if (markerPosition) {
+                  <map-marker [position]="markerPosition" [title]="'School Location'"></map-marker>
+                }
+              </google-map>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">Auto-fills address</p>
+          </div>
+
+          <!-- Lat/Lng -->
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <app-label class="text-xs">Latitude</app-label>
+              <app-input-field-fixed type="number" formControlName="latitude" readonly className="bg-gray-50" />
+            </div>
+            <div>
+              <app-label class="text-xs">Longitude</app-label>
+              <app-input-field-fixed type="number" formControlName="longitude" readonly className="bg-gray-50" />
+            </div>
+          </div>
+
+          @if (a['latitude'].invalid || a['longitude'].invalid) {
+            <div class="bg-red-50 border border-red-200 rounded p-3">
+              <p class="text-sm text-red-600 font-medium">Location Required</p>
+              <p class="text-xs text-red-500">Click map to set position</p>
+            </div>
+          }
+
+          <div class="flex gap-3 pt-4">
+            <button type="button" (click)="prevStep()" class="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
+              Back
+            </button>
+            <button type="submit"
+                    [disabled]="addressForm.invalid || isSubmitting()"
+                    class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50">
+              {{ isSubmitting() ? 'Creating...' : 'Create Account' }}
+            </button>
+          </div>
+
+          <div class="text-center mt-6 pt-4 border-t">
+            <a routerLink="/auth/login" class="text-blue-600 text-sm">Already have an account? Sign In</a>
+          </div>
+        </form>
+      }
+    </div>
+
+    <!-- Footer -->
+    <div class="text-center mt-8 text-xs text-gray-500">
+      Copyright © 2025 <a href="#" class="text-blue-600 hover:underline">Your School App</a>. All rights reserved.
+    </div>
+  </div>
+</div>

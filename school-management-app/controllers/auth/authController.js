@@ -45,6 +45,11 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid username/email or password' });
     }
 
+    // Enforce school context: Fail if no schoolId (superadmin uses separate backend)
+    if (!user.schoolId) {
+      return res.status(403).json({ message: 'User not associated with a school' });
+    }
+
     let isPasswordValid = false;
     if (user.role === 'student' || user.role === 'parent') {
       const decryptedPassword = decryptPassword(user.password);
@@ -69,17 +74,15 @@ const login = async (req, res) => {
       teacherId = teacher._id.toString();
     }
 
-    let activeAcademicYearId = null;
-    if (user.role !== 'superadmin' && user.schoolId) {
-      const activeAcademicYear = await AcademicYear.findOne({
-        schoolId: user.schoolId,
-        isActive: true
-      });
-      if (!activeAcademicYear) {
-        return res.status(400).json({ message: 'No active academic year found for your school' });
-      }
-      activeAcademicYearId = activeAcademicYear._id.toString();
+    // Always fetch active academic year for school users (removed superadmin skip)
+    const activeAcademicYear = await AcademicYear.findOne({
+      schoolId: user.schoolId,
+      isActive: true
+    });
+    if (!activeAcademicYear) {
+      return res.status(400).json({ message: 'No active academic year found for your school' });
     }
+    const activeAcademicYearId = activeAcademicYear._id.toString();
 
     const token = jwt.sign(
       { userId: user._id, role: user.role, schoolId: user.schoolId },
@@ -91,10 +94,10 @@ const login = async (req, res) => {
       token,
       role: user.role,
       userId: user._id.toString(),
-      schoolId: user.schoolId ? user.schoolId.toString() : null,
+      schoolId: user.schoolId.toString(),  // Always present (non-null)
       teacherId: (user.role === 'teacher' && teacherId) ? teacherId : null,
       email: user.email,
-      activeAcademicYearId: (user.role !== 'superadmin' && user.schoolId && activeAcademicYearId) ? activeAcademicYearId : null
+      activeAcademicYearId  // Always include for school users (removed superadmin conditional)
     });
   } catch (err) {
     console.error('Login error:', err.stack);
