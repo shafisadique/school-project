@@ -57,7 +57,13 @@ const subscriptionSchema = new mongoose.Schema({
     type: Date, 
     default: Date.now 
   },
-
+  // In Subscription Schema
+  priority: { 
+    type: Number, 
+    enum: [1, 2, 3], // 1 = Trial, 2 = Basic, 3 = Premium
+    required: true 
+  },
+  
   updatedAt: { 
     type: Date, 
     default: Date.now 

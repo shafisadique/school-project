@@ -133,8 +133,8 @@ const registerSchool = async (req, res) => {
       const defaultYear = new AcademicYear({
         schoolId: newSchool._id,
         name: `${currentYear}-${currentYear + 1}`,
-        startDate: new Date(currentYear, 2, 1),   // Mar 1
-        endDate: new Date(currentYear + 1, 1, 28), // Feb 28
+        startDate: new Date(currentYear, 3, 1),   // april 1
+        endDate: new Date(currentYear + 1, 1, 31), // march 31
         isActive: true
       });
 

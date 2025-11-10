@@ -311,31 +311,32 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
   // const planDetails = getPlanDetails(planType);
   if (!planDetails) return res.status(400).json({ message: 'Invalid plan' });
 
-  const newSubscription = new Subscription({
-    schoolId: req.user.schoolId,
-    planType,
-    name: planDetails.name,
-    status: 'pending',
-    startsAt: new Date(),
-    expiresAt: new Date(Date.now() + planDetails.duration * 24 * 60 * 60 * 1000),
-    durationDays: planDetails.duration,
-    originalAmount: planDetails.originalPrice,
-    discountAmount: planDetails.originalPrice - planDetails.price,
-    finalAmount: planDetails.price,
-    autoRenew,
-    priority: planDetails.priority,
-    messageLimits: {
-      smsMonthly: planDetails.smsMonthlyLimit,
-      whatsappMonthly: planDetails.whatsappMonthlyLimit
-    },
-    usageStats: {
-      smsUsedThisMonth: 0,
-      whatsappUsedThisMonth: 0,
-      lastResetDate: new Date()
-    },
-    features: planDetails.features,
-    testMode: process.env.TEST_MODE === 'true'
-  });
+ const newSubscription = new Subscription({
+  schoolId: req.user.schoolId,
+  planType,
+  name: planDetails.name,
+  status: 'pending',
+  startsAt: new Date(),
+  expiresAt: new Date(Date.now() + planDetails.duration * 24 * 60 * 60 * 1000),
+  durationDays: planDetails.duration,
+  originalAmount: planDetails.originalPrice,
+  discountAmount: planDetails.originalPrice - planDetails.price,
+  finalAmount: planDetails.price,
+  autoRenew,
+  priority: planDetails.priority,
+  paymentMethod: paymentMethod,  // ← ADD THIS
+  messageLimits: {
+    smsMonthly: planDetails.smsMonthlyLimit,
+    whatsappMonthly: planDetails.whatsappMonthlyLimit
+  },
+  usageStats: {
+    smsUsedThisMonth: 0,
+    whatsappUsedThisMonth: 0,
+    lastResetDate: new Date()
+  },
+  features: planDetails.features,
+  testMode: process.env.TEST_MODE === 'true'
+});
 
   await newSubscription.save();
 

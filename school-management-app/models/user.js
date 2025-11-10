@@ -26,5 +26,4 @@ const userSchema = new mongoose.Schema({
 // Indexes for faster lookup
 userSchema.index({ schoolId: 1, role: 1 });
 
-
 module.exports = mongoose.model('User', userSchema);

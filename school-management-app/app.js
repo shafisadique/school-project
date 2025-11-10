@@ -134,7 +134,8 @@ const adminDashboard = require('./routes/admin-dashboard/dashboard.routes');
 const { isAdmin } = require('./middleware/roleMiddleware');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const reportsRouters = require('./routes/reportsRoutes');
-const parentRoutes = require('./routes/parentRoutes')
+const parentRoutes = require('./routes/parentRoutes');
+
 // Add upload endpoint with enhanced debugging
 app.post('/api/upload-image', upload.single('image'), async (req, res) => {
   try {
