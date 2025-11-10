@@ -6,8 +6,17 @@
         <div class="d-flex justify-content-between align-items-center" *ngIf="authService.getUserRole() === 'admin'">
           <div *ngIf="isExpiringSoon && !isExpired && !isPending" class="alert alert-warning alert-dismissible fade show" role="alert">
             Your plan expires in {{ subscriptionData.daysRemaining }} days.
-            <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Upgrade now</a>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <button
+            class="btn btn-primary"
+            (click)="openUpgradeModal(upgradeModal)"
+            *ngIf="role === 'admin' && subscriptionData.subscriptionStatus !== 'active'">
+            Upgrade
+          </button>
+          <div *ngIf="subscriptionData.subscriptionStatus === 'active'" class="alert alert-success p-2 mb-0">
+  <strong>{{ subscriptionData.name }}</strong>
+  <span *ngIf="subscriptionData.isTrial"> (Trial – {{ subscriptionData.daysRemaining }} days left)</span>
+  <span *ngIf="!subscriptionData.isTrial"> until {{ subscriptionData.expiresAt | date:'mediumDate' }}</span>
+</div>
           </div>
           <div *ngIf="isExpired" class="alert alert-danger alert-dismissible fade show" role="alert">
             Your subscription has expired. You can only view data.

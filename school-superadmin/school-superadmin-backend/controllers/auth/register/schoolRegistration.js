@@ -140,7 +140,7 @@ const registerSchool = async (req, res) => {
 
       // ---- RESET TOKEN (saved in DB, never sent in plain text) ----
       const resetToken = crypto.randomBytes(20).toString('hex');
-        const resetTokenExpires = Date.now() + 60 * 60 * 1000; // 1 hour
+      const resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour
 
       // dummy hash – never used for login
       const dummyPwd = bcrypt.hashSync(crypto.randomBytes(12).toString('hex'), 10);
@@ -226,7 +226,7 @@ const registerSchool = async (req, res) => {
         });
 
         const html = `
-        <h2>Welcome to SchoolSync!</h2>
+        <h2>Welcome to EDGlobe Family!</h2>
         <p>Hi <strong>${adminName}</strong>,</p>
         <p>Your school <strong>${schoolName}</strong> (Code: <strong>${finalCode}</strong>) is ready!</p>
         <p><strong>Username:</strong> ${username}</p>

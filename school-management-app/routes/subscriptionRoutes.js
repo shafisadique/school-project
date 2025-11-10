@@ -19,7 +19,8 @@ const subscriptionPlans = {
     smsMonthlyLimit: 5,
     whatsappMonthlyLimit: 5,
     features: ['login', 'attendance', 'fees', 'notifications'],
-    recommended: false
+    recommended: false,
+    priority:1
   },
   basic: {
     monthly: {
@@ -31,7 +32,8 @@ const subscriptionPlans = {
       whatsappMonthlyLimit: 300,
       features: ['login', 'attendance', 'fees', 'notifications'],
       savings: 0,
-      recommended: false
+      recommended: false,
+      priority:2
     },
     yearly: {
       name: "Basic Yearly",
@@ -42,7 +44,8 @@ const subscriptionPlans = {
       whatsappMonthlyLimit: 300,
       features: ['login', 'attendance', 'fees', 'notifications'],
       savings: 2400,
-      recommended: true
+      recommended: true,
+      priority:2
     }
   },
   premium: {
@@ -55,7 +58,8 @@ const subscriptionPlans = {
       whatsappMonthlyLimit: 1000,
       features: ['login', 'attendance', 'fees', 'notifications', 'exam', 'udise', 'results', 'reports'],
       savings: 0,
-      recommended: false
+      recommended: false,
+      priority:3
     },
     yearly: {
       name: "Premium Yearly",
@@ -66,10 +70,14 @@ const subscriptionPlans = {
       whatsappMonthlyLimit: 1000,
       features: ['login', 'attendance', 'fees', 'notifications', 'exam', 'udise', 'results', 'reports', 'analytics'],
       savings: 4400,
-      recommended: true
+      recommended: true,
+      priority:3
     }
   }
 };
+
+
+
 // GET /api/subscriptions/plans - Get all available plans
   router.get('/plans', authMiddleware, (req, res) => {
     res.status(200).json(subscriptionPlans);
@@ -93,64 +101,66 @@ async function checkAndResetUsage(subscription) {
 
 router.get('/current', authMiddleware, async (req, res) => {
   try {
-    if (req.user.role === 'superadmin') {
-      return res.status(200).json({
-        message: 'Superadmin has unlimited access',
-        subscriptionStatus: 'unlimited',
-        plan: { name: 'Super Admin', features: ['All features', 'Unlimited access'] }
-      });
-    }
+    const now = new Date();
+    const schoolId = req.user.schoolId;
 
-    let subscription = await Subscription.findOne({
-      schoolId: req.user.schoolId,
-      status: { $in: ['active', 'pending', 'grace_period'] }
-    });
+    // 1. FIND ALL ACTIVE SUBSCRIPTIONS (including grace)
+    let subscriptions = await Subscription.find({
+      schoolId,
+      status: { $in: ['active', 'pending', 'grace_period'] },
+      expiresAt: { $gt: now }
+    }).sort({ priority: -1, expiresAt: 1 }); // Highest priority first
 
-    if (!subscription) {
-      const school = await School.findById(req.user.schoolId);
+    let subscription = null;
+    let nextPlan = null;
+
+    // 2. IF NO SUBSCRIPTION → CHECK FOR TRIAL
+    if (!subscriptions.length) {
+      const school = await School.findById(schoolId);
       const isNewSchool = new Date(school.createdAt) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
       if (isNewSchool) {
         const trialSubscription = new Subscription({
-          schoolId: req.user.schoolId,
+          schoolId,
           planType: 'trial',
+          name: 'Free Trial',
           status: 'active',
+          startsAt: new Date(),
           expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
           durationDays: 14,
           originalAmount: 0,
           discountAmount: 0,
           finalAmount: 0,
+          priority: 1,
           messageLimits: {
             smsMonthly: subscriptionPlans.trial.smsMonthlyLimit,
             whatsappMonthly: subscriptionPlans.trial.whatsappMonthlyLimit
           },
           usageStats: {
-            students: 0,
-            staff: 0,
-            storage: 0,
             smsUsedThisMonth: 0,
             whatsappUsedThisMonth: 0,
             lastResetDate: new Date()
           },
+          features: subscriptionPlans.trial.features,
           testMode: process.env.TEST_MODE === 'true'
         });
 
         await trialSubscription.save();
-        subscription = trialSubscription;
+        subscriptions = [trialSubscription];
       } else {
-        return res.status(404).json({
-          message: 'No active subscription found',
+        return res.json({
           subscriptionStatus: 'none',
-          eligibleForTrial: isNewSchool,
-          messageDetails: {
-            sms: { monthlyLimit: 0, usedThisMonth: 0, remaining: 0 },
-            whatsapp: { monthlyLimit: 0, usedThisMonth: 0, remaining: 0 }
-          }
+          message: 'No active plan',
+          eligibleForTrial: false
         });
       }
     }
 
-    const now = new Date();
+    // 3. GET CURRENT (HIGHEST PRIORITY)
+    subscription = subscriptions[0];
+    await checkAndResetUsage(subscription);
+
+    // 4. HANDLE GRACE PERIOD
     if (subscription.status === 'active' && subscription.expiresAt < now) {
       subscription.status = 'grace_period';
       subscription.gracePeriodEnds = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -160,14 +170,39 @@ router.get('/current', authMiddleware, async (req, res) => {
     if (subscription.status === 'grace_period' && subscription.gracePeriodEnds < now) {
       subscription.status = 'expired';
       await subscription.save();
+      // Re-query active subs
+      subscriptions = await Subscription.find({
+        schoolId,
+        status: 'active',
+        expiresAt: { $gt: now }
+      }).sort({ priority: -1 });
+      if (subscriptions.length) {
+        subscription = subscriptions[0];
+      } else {
+        return res.json({ subscriptionStatus: 'expired' });
+      }
     }
 
-    await checkAndResetUsage(subscription); // Now defined
-    const planDetails = getPlanDetails(subscription.planType);
+    // 5. FIND NEXT PLAN (after current expires)
+    const remainingSubs = subscriptions.slice(1);
+    if (remainingSubs.length > 0) {
+      const next = remainingSubs[0];
+      nextPlan = `${next.name} (from ${new Date(next.startsAt).toLocaleDateString('en-IN')})`;
+    }
+
+    // 6. GET PLAN DETAILS
+    // const planDetails = getPlanDetails(subscription.planType) || subscriptionPlans[subscription.planType];
+      const planDetails = getPlanDetails(subscription.planType);
+      if (!planDetails) {
+        console.error('Plan not found:', subscription.planType);
+        return res.status(500).json({ message: 'Plan config missing' });
+      }
+
     const smsRemaining = subscription.messageLimits.smsMonthly - subscription.usageStats.smsUsedThisMonth;
     const whatsappRemaining = subscription.messageLimits.whatsappMonthly - subscription.usageStats.whatsappUsedThisMonth;
 
-    res.status(200).json({
+    // 7. RETURN RESPONSE
+    res.json({
       planType: subscription.planType,
       name: planDetails.name,
       expiresAt: subscription.expiresAt,
@@ -180,6 +215,7 @@ router.get('/current', authMiddleware, async (req, res) => {
       features: planDetails.features,
       autoRenew: subscription.autoRenew,
       testMode: subscription.testMode || false,
+      nextPlan,
       messageDetails: {
         sms: {
           monthlyLimit: subscription.messageLimits.smsMonthly,
@@ -193,10 +229,13 @@ router.get('/current', authMiddleware, async (req, res) => {
         }
       }
     });
+
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching subscription', error: err.message });
+    console.error('Subscription /current error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
 
 // POST /api/subscriptions/upgrade - Upgrade subscription
 router.post('/upgrade', authMiddleware, async (req, res) => {
@@ -269,81 +308,54 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
 
     // For Razorpay payment
     if (paymentMethod === 'razorpay' || paymentMethod === 'phonepe') {
-      // Create subscription record first
-      const newSubscription = new Subscription({
-        schoolId: req.user.schoolId,
-        planType,
-        status: 'pending',
-        startsAt: new Date(),
-        expiresAt: expiresAt, // Add this
-        paymentMethod,
-        durationDays: planDetails.duration,
-        originalAmount: planDetails.originalPrice,
-        discountAmount: planDetails.originalPrice - planDetails.price,
-        finalAmount: planDetails.price,
-        autoRenew,
-        messageLimits: {
-          smsMonthly: planDetails.smsMonthlyLimit,
-          whatsappMonthly: planDetails.whatsappMonthlyLimit
-        },
-        usageStats: {
-          students: 0,
-          staff: 0,
-          storage: 0,
-          smsUsedThisMonth: 0,
-          whatsappUsedThisMonth: 0,
-          lastResetDate: new Date()
-        },
-        razorpayOrderId: null, // Will be set after order creation
-        testMode: process.env.TEST_MODE === 'true'
-      });
+  // const planDetails = getPlanDetails(planType);
+  if (!planDetails) return res.status(400).json({ message: 'Invalid plan' });
 
-      await newSubscription.save();
+  const newSubscription = new Subscription({
+    schoolId: req.user.schoolId,
+    planType,
+    name: planDetails.name,
+    status: 'pending',
+    startsAt: new Date(),
+    expiresAt: new Date(Date.now() + planDetails.duration * 24 * 60 * 60 * 1000),
+    durationDays: planDetails.duration,
+    originalAmount: planDetails.originalPrice,
+    discountAmount: planDetails.originalPrice - planDetails.price,
+    finalAmount: planDetails.price,
+    autoRenew,
+    priority: planDetails.priority,
+    messageLimits: {
+      smsMonthly: planDetails.smsMonthlyLimit,
+      whatsappMonthly: planDetails.whatsappMonthlyLimit
+    },
+    usageStats: {
+      smsUsedThisMonth: 0,
+      whatsappUsedThisMonth: 0,
+      lastResetDate: new Date()
+    },
+    features: planDetails.features,
+    testMode: process.env.TEST_MODE === 'true'
+  });
 
-      // Create Razorpay order
-     let order;  // Declare outside try
+  await newSubscription.save();
+
+  let order;
   try {
-    // Create Razorpay order
     order = await rzp.orders.create({
       amount: planDetails.price * 100,
       currency: 'INR',
-      receipt: `sub_${newSubscription._id}`,
-      notes: { /* unchanged */ }
+      receipt: `sub_${newSubscription._id}`
     });
-    console.log(`✅ Razorpay order created: ID=${order.id}, Status=${order.status}`);  // Log success
-  } catch (orderErr) {
-    console.error('❌ Razorpay order creation FAILED:', orderErr.message || orderErr);  // Catch & log
-    // Rollback: Delete the pending sub to avoid orphans
+  } catch (err) {
     await Subscription.findByIdAndDelete(newSubscription._id);
-    return res.status(500).json({ 
-      message: 'Payment gateway error. Please refresh and try again.', 
-      error: orderErr.message 
-    });
+    return res.status(500).json({ message: 'Payment failed', error: err.message });
   }
 
-  // Update & save order ID
-  try {
-    newSubscription.razorpayOrderId = order.id;
-    await newSubscription.save();
-    console.log(`✅ Subscription updated with Order ID: ${order.id} (Sub ID: ${newSubscription._id})`);  // Confirm save
-  } catch (saveErr) {
-    console.error('❌ Subscription save after order FAILED:', saveErr.message || saveErr);  // Catch save issues
-    // Don't rollback here—order exists, but sub is inconsistent. For now, return error.
-    return res.status(500).json({ 
-      message: 'Order created but save failed. Contact support with Order ID: ' + order.id 
-    });
-  }
+  newSubscription.razorpayOrderId = order.id;
+  await newSubscription.save();
 
-      // Update subscription with order ID
-      // newSubscription.razorpayOrderId = order.id;
-      // await newSubscription.save();
-
-      res.status(200).json({
-        order,
-        plan: planDetails,
-        subscriptionId: newSubscription._id
-      });
-    }
+  res.json({ order, plan: planDetails, subscriptionId: newSubscription._id });
+}
   } catch (err) {
     console.error('Upgrade error:', err);
     res.status(500).json({ message: 'Error initiating upgrade', error: err.message });
@@ -549,20 +561,27 @@ router.post('/apply-coupon', authMiddleware, async (req, res) => {
   }
 });
 
-// Helper function to get plan details
-  function getPlanDetails(planType) {
-    const [tier, duration] = planType.split('_');
-    
-    if (planType === 'trial') {
-      return subscriptionPlans.trial;
-    }
-    
-    if (subscriptionPlans[tier] && subscriptionPlans[tier][duration]) {
-      return subscriptionPlans[tier][duration];
-    }
-    
-    return null;
+function getPlanDetails(planType) {
+  if (planType === 'trial') {
+    return {
+      ...subscriptionPlans.trial,
+      planType: 'trial',
+      priority: 1
+    };
   }
+
+  const [tier, duration] = planType.split('_');
+  if (subscriptionPlans[tier]?.[duration]) {
+    const plan = subscriptionPlans[tier][duration];
+    return {
+      ...plan,
+      planType,
+      priority: tier === 'basic' ? 2 : 3
+    };
+  }
+
+  return null;
+}
 
 // Helper function to validate coupon (simplified)
   function validateCoupon(code, planType) {

@@ -42,6 +42,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/schools', require('./routes/school'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/bank', require('./routes/bank'));
+app.use('/api/superadmin', require('./routes/superadminRoutes'));
 
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => console.log(`Superadmin server on port ${PORT}`));

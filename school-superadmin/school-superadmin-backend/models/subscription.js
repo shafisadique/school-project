@@ -21,12 +21,12 @@ const subscriptionSchema = new mongoose.Schema({
     type: Date, 
     default: Date.now 
   },
+
   expiresAt: { 
     type: Date, 
     required: true 
   },
   
-  // Grace period after expiration (7 days)
   gracePeriodEnds: { 
     type: Date 
   },
@@ -86,10 +86,22 @@ const subscriptionSchema = new mongoose.Schema({
     whatsappMonthly: { type: Number, default: 0 }  // same or separate
   },
   usageStats: {
-    // ... your existing (students, staff) ...
     smsUsedThisMonth: { type: Number, default: 0 },
     whatsappUsedThisMonth: { type: Number, default: 0 },
     lastResetDate: { type: Date, default: Date.now }  // When we last reset counts
+  },
+
+  features: {
+    type: [String],
+    default: function () {
+      const base = ['login', 'attendance', 'fees', 'notifications'];
+      if (this.planType === 'trial') return base;
+      if (this.planType.includes('basic')) return base;
+      if (this.planType.includes('premium')) {
+        return [...base, 'exam', 'udise', 'results', 'reports', 'analytics'];
+      }
+      return base;
+    }
   }
 });
 

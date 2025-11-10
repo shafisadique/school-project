@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { IconService, IconDirective } from '@ant-design/icons-angular';
 import {
+  AppstoreOutline,      // ← for "Academic Year"
+  CalendarOutline,      // ← for "Calendar"
+  BankOutline,          // ← for "School Update" (or any you like)
   BellOutline,
   SettingOutline,
   GiftOutline,
@@ -108,6 +111,9 @@ cardNumber: string = '';
       UnorderedListOutline,
       ArrowRightOutline,
       BellOutline,
+      AppstoreOutline,
+      CalendarOutline,
+      BankOutline,
       GithubOutline,
       WalletOutline,
     ]);
@@ -116,6 +122,9 @@ cardNumber: string = '';
       this.role = profile.data.role || 'Not Available';
       this.filteredProfile = this.profile.filter(item => item.roles.includes(this.role));
       this.filteredSetting = this.setting;
+      if (this.role === 'admin') {
+        this.fetchSubscription(); // ← ADD THIS
+      }
       if (this.role === 'parent') {
         this.loadNotifications(); // Fetch notifications only for parents
       }
@@ -342,18 +351,24 @@ private handlePaymentSuccess(paymentResponse: any, subscriptionId: string) {
     });
   }
 
-  fetchSubscription() {
-    this.dashboardService.getSubscription().subscribe({
-      next: (data: any) => {
-        console.log(data)
-        this.subscriptionData = data;
-        this.isExpiringSoon = data.daysRemaining !== undefined && data.daysRemaining <= 7 && data.subscriptionStatus === 'active';
-        this.isExpired = data.subscriptionStatus === 'expired';
-        this.isPending = data.subscriptionStatus === 'pending';
-      },
-      error: (error) => console.error('Error fetching subscription:', error),
-    });
-  }
+ fetchSubscription() {
+  this.dashboardService.getSubscription().subscribe({
+    next: (data: any) => {
+      console.log('Subscription data:', data);
+      this.subscriptionData = data;
+
+      // FIX: Use `status`, not `subscriptionStatus`
+      const isActive = data.status === 'active';
+      const isExpired = data.status === 'expired';
+      const isPending = data.status === 'pending';
+
+      this.isExpiringSoon = data.daysRemaining !== undefined && data.daysRemaining <= 7 && isActive;
+      this.isExpired = isExpired;
+      this.isPending = isPending;
+    },
+    error: (error) => console.error('Error fetching subscription:', error),
+  });
+}
 
   logOut() {
     this.authService.logOut().subscribe({
@@ -419,13 +434,14 @@ private handlePaymentSuccess(paymentResponse: any, subscriptionId: string) {
   }
 
 
-  profile = [
-    { icon: 'anti', title: 'Academic Year', link: '/academic-year/details', roles: ['admin'] },
-    { icon: 'calendar', title: 'Calendar', link: '/holiday-calendar', roles: ['admin'] },
-    { icon: 'School Update', title: 'Update School', link: '/school/school-modify', roles: ['admin'] },
-    { icon: 'unordered-list', title: 'Profile List', link: '/settings/profiles',  roles: ['admin']},
-    { icon: 'edit', title: 'Profile Update', link: '/settings/profile',  roles: ['admin','teacher','student']},
-  ];
+// profile array – change the icon strings
+profile = [
+  { icon: 'appstore', title: 'Academic Year', link: '/academic-year/details', roles: ['admin'] },
+  { icon: 'calendar', title: 'Calendar', link: '/holiday-calendar', roles: ['admin'] },
+  { icon: 'bank',     title: 'Update School', link: '/school/school-modify', roles: ['admin'] },
+  { icon: 'unordered-list', title: 'Profile List', link: '/settings/profiles', roles: ['admin'] },
+  { icon: 'edit', title: 'Profile Update', link: '/settings/profile', roles: ['admin','teacher','student']},
+];
 
   setting = [
     { icon: 'question-circle', title: 'Support' },

@@ -21,19 +21,20 @@ import { CalenderComponent } from './pages/calender/calender.component';
 import { AuthGuard } from './shared/guard/auth.guard';
 import { RegisterSchoolComponent } from './shared/components/ui/register-school/register-school.component';
 import { ResetPasswordComponent } from './shared/components/reset-password/reset-password.component';
+import { SuperadminDashboardComponent } from './pages/dashboard/superadmin-dashboard/superadmin-dashboard.component';
 
 export const routes: Routes = [
   {
     path:'',
     component:AppLayoutComponent,
     children:[
-      // {
-      //   path: '',
-      //   component: EcommerceComponent,
-      //   pathMatch: 'full',
-      //   title:
-      //     'Angular Ecommerce Dashboard | TailAdmin - Angular Admin Dashboard Template',
-      // },
+      {
+        path: '',
+        component: EcommerceComponent,
+        pathMatch: 'full',
+        title:
+          'Angular Ecommerce Dashboard | TailAdmin - Angular Admin Dashboard Template',
+      },
       // {
       //   path:'calendar',
       //   component:CalenderComponent,
