@@ -1,15 +1,16 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
 import { Exam } from '../exam.model';
 import { ExamService } from '../exam.service';
+import { SubscriptionService } from '../../../subscription-management/subscription.service';
 
 @Component({
   selector: 'app-exam-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule,RouterLink],
   templateUrl: './exam-list.component.html',
   styleUrls: ['./exam-list.component.scss']
 })
@@ -18,12 +19,13 @@ export class ExamListComponent implements OnInit {
   schoolId: string | null = null;
   activeAcademicYearId: string | null = null; // New field
   expandedRows: { [key: string]: boolean } = {};
-
+  canCreateExam = false;
   constructor(
     private examService: ExamService,
     private authService: AuthService,
     private toastr: ToastrService,
-    private router: Router
+    public router: Router,
+    private subscriptionService: SubscriptionService
   ) {}
 
   ngOnInit(): void {
@@ -34,6 +36,15 @@ export class ExamListComponent implements OnInit {
       this.router.navigate(['/auth/login']);
       return;
     }
+    this.subscriptionService.getCurrentSubscription().subscribe({
+    next: (sub) => {
+      this.canCreateExam = sub.features?.includes('exam') === true;
+    },
+    error: () => {
+      this.canCreateExam = false;
+    }
+  });
+
 
     this.loadExams();
   }

@@ -15,8 +15,18 @@ export class FeeService {
     return this.http.get(`${this.apiUrl}/api/fees/structures`, { params: { schoolId } });
   }
 
-  getStudentInvoices(studentId: string, academicYearId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/api/fees/invoices/student/${studentId}?academicYearId=${academicYearId}`);
+  getStudentInvoices(studentId: string, academicYearId?: string): Observable<any> {
+    const params: any = {};
+    if (academicYearId) {
+      params.academicYearId = academicYearId;
+    }
+    return this.http.get(`${this.apiUrl}/api/fees/invoices/student/${studentId}`, { params });
+  }
+
+    searchInvoiceStudents(query: string, schoolId: string) {
+    return this.http.get<any>(`${this.apiUrl}/api/fees/search`, {
+      params: { q: query, schoolId }
+    });
   }
 
   createFeeStructure(data: any): Observable<any> {
@@ -69,12 +79,21 @@ export class FeeService {
       return this.http.get(`${this.apiUrl}/api/fees/paid-invoices`, { params });
     }
   // Fixed the endpoint to match the backend route
-  getInvoicesByClassAndMonth(classId: string, month: string, academicYearId: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/api/fees/invoices/class/${classId}/month/${month}`, {
-      params: { academicYearId }
+  // getInvoicesByClassAndMonth(classId: string, month: string, academicYearId: string): Observable<any> {
+  //   return this.http.get(`${this.apiUrl}/api/fees/invoices/class/${classId}/month/${month}`, {
+  //     params: { academicYearId }
+  //   });
+  // }
+
+    // fee.service.ts
+  getInvoicesByClassAndMonth(classId: string, month: string, academicYearId: string) {
+    return this.http.get<any>(`${this.apiUrl}/api/fees/invoices`, {
+      params: { classId, month, academicYearId }
     });
   }
-
+  getStudentPaymentHistory(studentId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/fees/students/${studentId}/payment-history`);
+  }
     downloadInvoicePDF(invoiceId: string): Observable<Blob> {
       return this.http.get(`${this.apiUrl}/api/fees/invoices/${invoiceId}/pdf`, {
         responseType: 'blob'

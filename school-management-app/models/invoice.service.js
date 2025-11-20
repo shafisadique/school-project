@@ -117,7 +117,7 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
         // Optional fees - check preferences
         else if (fee.type === 'Optional') {
           // Check if this is transport fee
-          if (fee.name.toLowerCase() === 'transportfee') {
+          if (fee.name.toLowerCase() === 'transportfee')  {
             if (student.feePreferences?.get('usesTransport') || student.routeId) {
               applies = true;
               if (student.routeId && fee.routeOptions?.length > 0) {
@@ -191,29 +191,28 @@ const generateInvoices = async (schoolId, classId, className, month, academicYea
       // const totalAmount = baseAmount + currentCharges;
       const totalAmount = baseAmount + currentCharges + previousDue;
       // Create invoice
-      const invoice = new Invoice({
-        schoolId,
-        studentId: student._id,
-        classId,
-        className,
-        academicYear: academicYearId,
-        feeStructureId: feeStructure._id,
-        month: formattedMonth,
-        dueDate,
-        baseAmount,
-        previousDue,
-        lateFee: 0,
-        currentCharges,
-        invoiceDetails: feeDetails,
-        totalAmount,
-        paidAmount: 0,
-        remainingDue: previousDue,
-        discountsApplied: appliedDiscounts,
-        paymentSchedule: 'Monthly',
-        status: 'Pending',
-        paymentHistory: [],
-      });
-
+   const invoice = new Invoice({
+  schoolId,
+  studentId: student._id,
+  classId,
+  className,
+  academicYear: academicYearId,
+  feeStructureId: feeStructure._id,
+  month: formattedMonth,
+  dueDate,
+  baseAmount,
+  previousDue,
+  lateFee: 0,
+  currentCharges,
+  invoiceDetails: feeDetails,
+  totalAmount,
+  paidAmount: 0,
+  remainingDue: totalAmount,  // ← FIXED: was previousDue
+  discountsApplied: appliedDiscounts,
+  paymentSchedule: 'Monthly',
+  status: 'Pending',
+  paymentHistory: [],
+});
       await invoice.save({ session });
       invoices.push(invoice);
 
@@ -311,81 +310,130 @@ exports.updateInvoiceStatuses = async () => {
   }
 };
 
+// const getInvoicesByClassAndMonth = async (req, res) => {
+//   try {
+//     const { classId, month } = req.params;
+//     const { academicYearId } = req.query;
+//     const schoolId = req.user.schoolId;
+
+//     if (!classId || !month || !academicYearId || !schoolId) {
+//       return res.status(400).json({
+//         message: 'classId, month, academicYearId, and schoolId are required'
+//       });
+//     }
+
+//     // Normalize month to YYYY-MM format
+//     let formattedMonth;
+//     const monthParts = month.split('-');
+//     if (monthParts.length === 2) {
+//       formattedMonth = month; // Already YYYY-MM (e.g., 2025-08)
+//     } else if (monthParts.length === 3) {
+//       formattedMonth = `${monthParts[0]}-${monthParts[1]}`; // Extract YYYY-MM from YYYY-MM-DD (e.g., 2025-08-06)
+//     } else {
+//       // Handle monthName year format (e.g., "August 2025")
+//       const monthNames = ["January", "February", "March", "April", "May", "June", 
+//                          "July", "August", "September", "October", "November", "December"];
+//       const [monthName, year] = month.split(' ');
+//       const monthIndex = monthNames.findIndex(m => m.toLowerCase() === monthName.toLowerCase());
+//       if (monthIndex === -1) {
+//         return res.status(400).json({ message: 'Invalid month name' });
+//       }
+//       formattedMonth = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
+//     }
+
+//     const invoices = await Invoice.find({
+//       schoolId,
+//       month: formattedMonth,
+//       academicYear: academicYearId
+//     })
+//     .populate({
+//       path: 'studentId',
+//       match: { classId: classId },
+//       select: 'name admissionNo classId'
+//     })
+//     .populate('feeStructureId')
+//     .sort({ createdAt: -1 });
+
+//     console.log('Raw invoices:', invoices.length);
+//     const filteredInvoices = invoices.filter(invoice => invoice.studentId !== null);
+//     console.log('Filtered invoices:', filteredInvoices.length);
+
+//     if (filteredInvoices.length === 0) {
+//       return res.status(404).json({
+//         message: 'No invoices found for the specified class and month',
+//         details: {
+//           searchedMonth: formattedMonth,
+//           classId,
+//           academicYearId,
+//           schoolId
+//         }
+//       });
+//     }
+
+//     res.status(200).json({
+//       message: 'Invoices retrieved successfully',
+//       data: filteredInvoices
+//     });
+//   } catch (error) {
+//     console.error('Error fetching invoices:', error);
+//     res.status(500).json({
+//       message: 'Failed to retrieve invoices',
+//       error: error.message
+//     });
+//   }
+// };
+
+
+
 const getInvoicesByClassAndMonth = async (req, res) => {
   try {
-    const { classId, month } = req.params;
-    const { academicYearId } = req.query;
+    const { classId, month, academicYearId } = req.query;
     const schoolId = req.user.schoolId;
 
-    if (!classId || !month || !academicYearId || !schoolId) {
-      return res.status(400).json({
-        message: 'classId, month, academicYearId, and schoolId are required'
-      });
+    if (!classId || !month || !academicYearId) {
+      return res.status(400).json({ message: 'classId, month, academicYearId required' });
     }
-
-    // Normalize month to YYYY-MM format
-    let formattedMonth;
-    const monthParts = month.split('-');
-    if (monthParts.length === 2) {
-      formattedMonth = month; // Already YYYY-MM (e.g., 2025-08)
-    } else if (monthParts.length === 3) {
-      formattedMonth = `${monthParts[0]}-${monthParts[1]}`; // Extract YYYY-MM from YYYY-MM-DD (e.g., 2025-08-06)
-    } else {
-      // Handle monthName year format (e.g., "August 2025")
-      const monthNames = ["January", "February", "March", "April", "May", "June", 
-                         "July", "August", "September", "October", "November", "December"];
-      const [monthName, year] = month.split(' ');
-      const monthIndex = monthNames.findIndex(m => m.toLowerCase() === monthName.toLowerCase());
-      if (monthIndex === -1) {
-        return res.status(400).json({ message: 'Invalid month name' });
-      }
-      formattedMonth = `${year}-${String(monthIndex + 1).padStart(2, '0')}`;
-    }
-
-    console.log('Query params:', { schoolId, month: formattedMonth, academicYearId, classId });
 
     const invoices = await Invoice.find({
       schoolId,
-      month: formattedMonth,
-      academicYear: academicYearId
+      classId,
+      academicYear: academicYearId,
+      month
     })
-    .populate({
-      path: 'studentId',
-      match: { classId: classId },
-      select: 'name admissionNo classId'
-    })
-    .populate('feeStructureId')
-    .sort({ createdAt: -1 });
+      .populate('studentId', 'name admissionNo')
+      .sort({ createdAt: -1 })
+      .lean();
 
-    console.log('Raw invoices:', invoices.length);
-    const filteredInvoices = invoices.filter(invoice => invoice.studentId !== null);
-    console.log('Filtered invoices:', filteredInvoices.length);
-
-    if (filteredInvoices.length === 0) {
-      return res.status(404).json({
-        message: 'No invoices found for the specified class and month',
-        details: {
-          searchedMonth: formattedMonth,
-          classId,
-          academicYearId,
-          schoolId
-        }
-      });
-    }
-
-    res.status(200).json({
-      message: 'Invoices retrieved successfully',
-      data: filteredInvoices
-    });
-  } catch (error) {
-    console.error('Error fetching invoices:', error);
-    res.status(500).json({
-      message: 'Failed to retrieve invoices',
-      error: error.message
-    });
+    res.json({ data: invoices });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
+// Probably in invoiceController.js or feeController.js
+  // const getInvoicesByClassAndMonth = async (req, res) => {
+  //   const { classId, month } = req.params;
+  //   const { academicYearId } = req.query;
+  //   const schoolId = req.user.schoolId;
+
+  //   const invoices = await Invoice.find({
+  //     schoolId,
+  //     classId,
+  //     month,
+  //     academicYear: academicYearId   // ← WRONG: string vs ObjectId
+  //   })
+  //   .populate('studentId', 'name admissionNo')
+  //   .sort({ 'studentId.name': 1 });
+
+  //   if (invoices.length === 0) {
+  //     return res.status(404).json({
+  //       message: 'No invoices found...',
+  //       details: { searchedMonth: month, classId, academicYearId, schoolId }
+  //     });
+  //   }
+
+  //   res.json({ data: invoices });
+  // };
 
 module.exports = {
   generateInvoices,

@@ -1,183 +1,350 @@
-<div class="container-fluid" style="margin-top: 10px;">
-  <div class="row">
-    <div class="col-12">
-      <!-- Filters and Search -->
-      <div class="d-flex justify-content-between align-items-center">
-        <div>
-          <button class="btn btn-sm btn-material btn-primary" (click)="createStudent()"><i class="fa fa-plus" aria-hidden="true"></i>Create</button>
-          <button 
-            class="btn btn-sm btn-material btn-secondary" 
-            [disabled]="selectedStudents.length !== 1"
-            (click)="onUpdateStudent()">
-            <i class="fa fa-pencil" aria-hidden="true"></i>Update
-          </button>
-          <button 
-            class="btn btn-sm btn-material btn-danger" 
-            [disabled]="selectedStudents.length === 0"
-            (click)="onDeleteStudents()">
-            <i class="fa fa-trash" aria-hidden="true"></i>Delete
-          </button>
-          <button class="btn btn-sm btn-material btn-success" (click)="downloadExcel()"><i class="fa fa-download" aria-hidden="true"></i>Download</button>
-        </div>
-        
-        <!-- Right Side: Search Field -->
-        <div class="search-field">
+<div class="student-container">
+  <!-- Header Section - Gradient Card with Title -->
+  <div class="header-section">
+    <div class="header-card">
+      <h1 class="title">Student Management Dashboard</h1>
+      <p class="subtitle">Manage student records, profiles, and portals efficiently.</p>
+    </div>
+  </div>
+
+  <!-- Controls Section - Card with Flex/Grid Layout -->
+  <div class="controls-section">
+    <div class="controls-card">
+      <!-- Left: Action Buttons (icons + labels, pill-shaped) -->
+      <div class="buttons-group">
+        <button 
+          class="btn-material btn-primary" 
+          (click)="createStudent()"
+          aria-label="Create new student">
+          <i class="fas fa-plus"></i> Create
+        </button>
+        <button 
+          class="btn-material btn-secondary" 
+          [disabled]="selectedStudents.length !== 1"
+          (click)="onUpdateStudent()"
+          aria-label="Update selected student">
+          <i class="fas fa-pencil-alt"></i> Update
+        </button>
+        <button 
+          class="btn-material btn-danger" 
+          [disabled]="selectedStudents.length === 0"
+          (click)="onDeleteStudents()"
+          aria-label="Delete selected students">
+          <i class="fas fa-trash"></i> Delete
+        </button>
+        <button 
+          class="btn-material btn-success" 
+          (click)="downloadExcel()"
+          aria-label="Download students as Excel">
+          <i class="fas fa-download"></i> Export
+        </button>
+      </div>
+
+      <!-- Middle: Search with Icon -->
+      <div class="search-group">
+        <div class="search-container">
+          <i class="fas fa-search search-icon"></i>
           <input 
             type="text" 
-            class="form-control form-control-sm" 
-            placeholder="Search by name or admission no" 
+            class="form-control" 
+            placeholder="Search by name or admission no..." 
             [(ngModel)]="searchQuery" 
+            (input)="onSearchInputChange($event)"
             (keyup.enter)="onSearch()"
-            style="width: 170px;">
+            role="search"
+            [attr.aria-label]="'Search students'">
         </div>
-        
-        <!-- Left Side: Filters and Search Button -->
-        <div class="filters d-flex align-items-center">
+      </div>
+      
+      <!-- Right: Filters (dropdowns + button) -->
+      <div class="filters-group">
+        <div class="filter-item">
           <select 
-            class="form-control form-control-sm me-2" 
+            class="form-select" 
             [(ngModel)]="selectedClass" 
             (change)="onFilterChange()"
-            style="width: 130px;">
+            [attr.aria-label]="'Filter by class'">
             <option value="">All Classes</option>
             <option *ngFor="let classItem of classes" [value]="classItem._id">{{ classItem.name }}</option>
           </select>
+          <i class="fas fa-graduation-cap filter-icon"></i>
+        </div>
 
+        <div class="filter-item">
           <select 
-            class="form-control form-control-sm me-2" 
+            class="form-select" 
             [(ngModel)]="selectedSession" 
             (change)="onFilterChange()"
-            style="width: 130px;">
+            [attr.aria-label]="'Filter by session'">
             <option value="">All Sessions</option>
             <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
           </select>
-          <button class="btn btn-sm btn-material btn-primary" (click)="onSearch()">
-            <i class="fa fa-filter" aria-hidden="true" style="font-size: 10px;"></i>Filter
-          </button>
+          <i class="fas fa-calendar-alt filter-icon"></i>
         </div>
+        
+        <button 
+          class="btn-material btn-primary" 
+          (click)="onSearch()"
+          [attr.aria-label]="'Apply filters'">
+          <i class="fas fa-filter"></i> Filter
+        </button>
       </div>
+    </div>
+  </div>
 
-      <!-- Student Table -->
-      <div class="table-container">
-        <table class="professional-table table-striped table-sm">
-          <thead>
+  <!-- Table Section - Enhanced Professional Table -->
+  <div class="table-section">
+    <div class="table-card">
+      <div class="table-responsive">
+        <table class="table table-striped table-hover table-sm professional-table" role="table" aria-label="Students Table">
+          <thead class="table-dark">
             <tr>
-              <th>
+              <th scope="col" class="checkbox-col">
                 <input 
                   type="checkbox" 
                   [checked]="areAllSelected()"
                   [indeterminate]="areSomeSelected()"
-                  (change)="updateAllSelection($event)">
+                  (change)="toggleAllSelection($event)"
+                  [attr.aria-label]="'Select all students'">
               </th>
-              <th>#</th>
-              <th (click)="onSort('name')">Name
-                <span *ngIf="sortColumn === 'name'">
-                  <i class="fa {{sortDirection === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down'}}"></i>
-                </span>
-             </th>
-              <th>Admission No</th>
-              <th>Class</th>
-              <th>Gender</th>
-              <th>Status</th>
+              <th scope="col" class="index-col">#</th>
+              <th scope="col" class="name-col" (click)="onSort('name')" role="button" tabindex="0" [attr.aria-sort]="sortColumn === 'name' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                Student Name
+                <i class="fas fa-sort ms-1" [ngClass]="{'fa-sort-up': sortColumn === 'name' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'name' && sortDirection === 'desc'}"></i>
+              </th>
+              <th scope="col" class="admission-col">Admission No</th>
+              <th scope="col" class="class-col">Class</th>
+              <th scope="col" class="gender-col">Gender</th>
+              <th scope="col" class="status-col">Status</th>
+              <th scope="col" class="actions-col text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let student of students; let i = index">
-              <td>
+            <tr *ngFor="let student of students; let i = index" [attr.data-student-id]="student._id" class="align-middle">
+              <td class="checkbox-cell align-middle">
                 <input 
                   type="checkbox"
                   [checked]="student.selected"
-                  (change)="toggleStudentSelection(student, $event)">
+                  (change)="toggleStudentSelection(student, $event)"
+                  [attr.aria-label]="'Select ' + student.name">
               </td>
-              <td>
-                <div ngbDropdown>
-                  <button class="btn btn-link btn-sm" id="dropdownButton{{i}}" ngbDropdownToggle>
-                    {{ (currentPage - 1) * pageSize + i + 1 }}
-                  </button>
-                  <div ngbDropdownMenu>
-                    <button ngbDropdownItem (click)="openStudentDetails(student, studentDetailsModal)">Student Details</button>
-                    <button ngbDropdownItem (click)="createPortal(student._id, 'student')">Student Portal</button>
-                    <button ngbDropdownItem (click)="createPortal(student._id, 'parent')">Parent Portal</button>
+              <td class="index-cell text-center">{{ (currentPage - 1) * pageSize + i + 1 }}</td>
+              <td class="profile-cell align-middle" data-label="Student Name">
+                <div class="profile-wrapper d-flex align-items-center">
+                  <div class="avatar-placeholder me-2" [attr.aria-label]="'Avatar for ' + student.name">
+                    <img
+                      *ngIf="student.profileImage"
+                      [src]="getImageUrl(student.profileImage)"
+                      alt="{{ student.name }} profile"
+                      class="profile-avatar"
+                      crossorigin="anonymous"
+                      (error)="onImageError($event)">
+                    <span *ngIf="!student.profileImage">{{ getInitials(student.name) }}</span>
+                  </div>
+                  <div class="student-info flex-grow-1">
+                    <div class="student-name fw-medium" [attr.title]="student.name">{{ student.name }}</div>
                   </div>
                 </div>
               </td>
-              <td class="profile-cell">
-                
-                <div class="profile-wrapper">
-                  <img
-                    [src]="student.profileImage ? getImageUrl(student.profileImage) : 'assets/avtart-new.png'"
-                    alt="{{ student.name }} profile"
-                    class="profile-avatar"
-                    crossorigin="anonymous"
-                    (error)="onImageError($event)"
-                  >
-                  <span class="student-name">{{ student.name }}</span>
+              <td class="admission-cell text-nowrap fw-semibold" data-label="Admission No" [attr.title]="student.admissionNo">{{ student.admissionNo }}</td>
+              <td class="class-cell" data-label="Class" [attr.title]="student.classId?.name || 'N/A'">{{ student.classId?.name || 'N/A' }}</td>
+              <td class="gender-cell text-center" data-label="Gender">
+                <span class="badge badge-sm" [ngClass]="{'badge-primary': student.gender === 'Male', 'badge-secondary': student.gender === 'Female'}">
+                  {{ student.gender }}
+                </span>
+              </td>
+              <td class="status-cell text-center" data-label="Status">
+                <span class="badge badge-sm" [ngClass]="{'badge-success': student.status, 'badge-warning': !student.status}">
+                  {{ student.status ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td class="action-cell text-center align-middle" data-label="Actions">
+                <div class="btn-group btn-group-sm" role="group">
+                  <button 
+                    class="btn btn-outline-info btn-sm" 
+                    (click)="openStudentDetails(student, studentDetailsModal)"
+                    [attr.aria-label]="'View details for ' + student.name"
+                    title="View Details">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button 
+                    class="btn btn-outline-secondary btn-sm" 
+                    (click)="createPortal(student._id, 'student')"
+                    [attr.aria-label]="'Create student portal for ' + student.name"
+                    title="Student Portal">
+                    <i class="fas fa-user-graduate"></i>
+                  </button>
+                  <button 
+                    class="btn btn-outline-secondary btn-sm" 
+                    (click)="createPortal(student._id, 'parent')"
+                    [attr.aria-label]="'Create parent portal for ' + student.name"
+                    title="Parent Portal">
+                    <i class="fas fa-users"></i>
+                  </button>
                 </div>
               </td>
-              <td style="white-space: nowrap;">{{ student.admissionNo }}</td>
-              <td>{{ student.classId?.name || 'N/A' }}</td>
-              <!-- <td>
-                <div>{{ student.phone }}</div>
-              </td> -->
-              <td>{{ student.gender }}</td>
-              <td>{{ student.status }}</td>
             </tr>
-            <tr *ngIf="students.length === 0">
-              <td colspan="8" style="text-align: center; font-family: 'Poppins', sans-serif; font-weight: 600;">
-                No Students Available
+            <tr *ngIf="students.length === 0" class="no-data-row">
+              <td colspan="8" class="text-center py-4">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <p class="text-muted mb-0">No students found matching your criteria.</p>
+                <small class="text-muted">Try adjusting filters or search terms.</small>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      
-      <!-- Pagination Component -->
-      <app-pagination
-        [currentPage]="currentPage"
-        [pageSize]="pageSize"
-        [totalItems]="totalItems"
-        [pageSizeOptions]="pageSizeOptions"
-        (pageChange)="onPageChange($event)">
-      </app-pagination>
     </div>
-
-    <ng-template #studentDetailsModal let-modal>
-      <div class="modal-header">
-        <h5 class="modal-title">Student Details</h5>
-        <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
-      </div>
-      <div class="modal-body">
-        <div class="text-center">
-          <img *ngIf="selectedStudent?.profileImage"
-               [src]="selectedStudent.profileImage ? getImageUrl(selectedStudent.profileImage):  'assets/avtart-new.png'"
-               alt="{{ selectedStudent?.name }}"
-               (error)="onImageError($event)"
-               class="circle-img">
-          <div *ngIf="!selectedStudent?.profileImage" class="avatar-placeholder">
-            {{ getInitials(selectedStudent?.name || '') }}
-          </div>
-          
-        </div>
-
-        <h6>Personal Details</h6>
-        <p><b>Name</b> {{ selectedStudent?.name }}</p>
-        <p><b>DOB </b> {{ selectedStudent?.dateOfBirth | date:'dd/MM/yyyy' }}</p>
-        <p><b>Admission No</b> {{ selectedStudent?.admissionNo }}</p>
-        <p><b>Roll No</b> {{ selectedStudent?.rollNo || '-' }}</p>
-        <p><b>Gender</b> {{ selectedStudent?.gender }}</p>
-        <p><b>Address</b> {{ selectedStudent?.address }}</p>
-
-        <h6>Parents</h6>
-        <p><b>Father</b> {{ selectedStudent?.parents?.fatherName }} - {{ selectedStudent?.parents?.fatherPhone }}</p>
-        <p><b>Mother</b> {{ selectedStudent?.parents?.motherName }} - {{ selectedStudent?.parents?.motherPhone }}</p>
-
-        <h6>Student Portal Details</h6>
-        <p><b>UserName</b> {{ selectedStudent?.portalUsername || '-' }}</p>
-        <p><b>Password</b> {{ selectedStudent?.portalPassword || '-' }}</p>
-
-         <h6>Parent Portal Details</h6>
-        <p><b>UserName</b> {{ selectedStudent?.parentPortalUsername || '-' }}</p>
-        <p><b>Password</b> {{ selectedStudent?.parentPortalPassword || '-' }}</p>
-      </div>
-    </ng-template>
   </div>
-</div>
+  
+  <!-- Pagination -->
+  <div class="pagination-section">
+    <app-pagination 
+      [currentPage]="currentPage" 
+      [pageSize]="pageSize" 
+      [totalItems]="totalItems" 
+      [pageSizeOptions]="pageSizeOptions" 
+      (pageChange)="onPageChange($event)" 
+      (pageSizeChange)="onPageSizeChange($event)"
+      aria-label="Student pagination">
+    </app-pagination>
+  </div>
+<!-- Student Details Modal - Simplified -->
+<ng-template #studentDetailsModal let-modal>
+  <div class="custom-modal-container">
+    <div class="custom-modal-dialog">
+      <div class="custom-modal">
+        <!-- Header -->
+        <div class="custom-modal-header">
+          <h5 class="custom-modal-title">
+            <i class="fas fa-user me-2"></i>Student Details: {{ selectedStudent?.name }}
+          </h5>
+          <button 
+            type="button" 
+            class="custom-modal-close" 
+            aria-label="Close"
+            (click)="modal.dismiss('Cross click')">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <!-- Body -->
+        <div class="custom-modal-body">
+          <!-- Profile Avatar Section -->
+          <div class="avatar-section">
+            <div class="avatar-large">
+              <img
+                *ngIf="selectedStudent?.profileImage"
+                [src]="getImageUrl(selectedStudent.profileImage)"
+                alt="{{ selectedStudent?.name }}"
+                crossorigin="anonymous"
+                (error)="onImageError($event)"
+                class="profile-avatar-large">
+              <span *ngIf="!selectedStudent?.profileImage" class="initials-large">
+                {{ getInitials(selectedStudent?.name || '') }}
+              </span>
+            </div>
+            <h6 class="student-name">{{ selectedStudent?.name }}</h6>
+            <div class="student-admission">{{ selectedStudent?.admissionNo }}</div>
+          </div>
+
+          <!-- Details Sections -->
+          <div class="details-container">
+            <!-- Personal Details -->
+            <div class="details-section">
+              <div class="section-title">
+                <i class="fas fa-id-card me-2"></i>Personal Details
+              </div>
+              <div class="details-content">
+                <div class="detail-row">
+                  <span class="label">Date of Birth</span>
+                  <span class="value">{{ selectedStudent?.dateOfBirth | date:'dd/MM/yyyy' }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Admission No</span>
+                  <span class="value">{{ selectedStudent?.admissionNo }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Roll No</span>
+                  <span class="value">{{ selectedStudent?.rollNo || 'N/A' }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Gender</span>
+                  <span class="value">
+                    <span class="badge" [ngClass]="{'badge-primary': selectedStudent?.gender === 'Male', 'badge-secondary': selectedStudent?.gender === 'Female'}">
+                      {{ selectedStudent?.gender }}
+                    </span>
+                  </span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Address</span>
+                  <span class="value">{{ selectedStudent?.address || 'N/A' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Parents Section -->
+            <div class="details-section">
+              <div class="section-title">
+                <i class="fas fa-users me-2"></i>Parent Details
+              </div>
+              <div class="details-content">
+                <div class="detail-row">
+                  <span class="label">Father</span>
+                  <span class="value">{{ selectedStudent?.parents?.fatherName || 'N/A' }} ({{ selectedStudent?.parents?.fatherPhone || 'N/A' }})</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Mother</span>
+                  <span class="value">{{ selectedStudent?.parents?.motherName || 'N/A' }} ({{ selectedStudent?.parents?.motherPhone || 'N/A' }})</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Portals Section -->
+            <div class="details-section">
+              <div class="section-title">
+                <i class="fas fa-user-graduate me-2"></i>Student Portal
+              </div>
+              <div class="details-content">
+                <div class="detail-row">
+                  <span class="label">Username</span>
+                  <span class="value">{{ selectedStudent?.portalUsername || 'N/A' }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Password</span>
+                  <span class="value">{{ selectedStudent?.portalPassword || 'N/A' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="details-section">
+              <div class="section-title">
+                <i class="fas fa-user-friends me-2"></i>Parent Portal
+              </div>
+              <div class="details-content">
+                <div class="detail-row">
+                  <span class="label">Username</span>
+                  <span class="value">{{ selectedStudent?.parentPortalUsername || 'N/A' }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Password</span>
+                  <span class="value">{{ selectedStudent?.parentPortalPassword || 'N/A' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="custom-modal-footer">
+          <button 
+            type="button" 
+            class="btn-close-modal" 
+            (click)="modal.close('Close click')">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</ng-template>

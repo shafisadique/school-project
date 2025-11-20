@@ -1,226 +1,248 @@
-<div class="row">
-  <div class="col-sm-12">
-    <app-card>
-      <div class="student-container">
-        <form [formGroup]="studentForm" (ngSubmit)="onSubmit()" enctype="multipart/form-data">
-          
-          <!-- Personal Details -->
-          <fieldset class="form-section">
-            <legend>Personal Details</legend>
-            <div class="row">
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Name:</label>
-                  <input type="text" formControlName="name" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['name'].errors?.['required']" class="error">Name is required.</small>
-                  <small *ngIf="submitted && f['name'].errors?.['minlength']" class="error">Name must be at least 3 characters.</small>
+<div class="container-fluid py-3 py-md-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-10 col-xl-9">
+      <app-card cardTitle="Update Student">
+
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+          <div class="row g-3">
+
+            <!-- Personal Details -->
+            <fieldset class="form-section">
+              <legend>Personal Details</legend>
+
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" formControlName="name" placeholder="Full name">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['name'].errors?.['required']">
+                    Name is required
+                  </div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['name'].errors?.['minlength']">
+                    Minimum 2 characters
+                  </div>
                 </div>
-              </div>
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Email:</label>
-                  <input type="email" formControlName="email" class="form-control form-control-sm shadow-sm" />
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Email</label>
+                  <input type="email" class="form-control form-control-sm" formControlName="email" placeholder="student@example.com">
                 </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-4 col-12">
-                <div class="form-group">
-                  <label>Phone:</label>
-                  <input type="number" formControlName="phone" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['phone'].errors?.['required']" class="error">Phone number is required.</small>
-                  <small *ngIf="submitted && f['phone'].errors?.['pattern']" class="error">Phone number must be 10 digits.</small>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Phone</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="phone" placeholder="10 digits">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['phone'].errors?.['pattern']">
+                    10 digits only
+                  </div>
                 </div>
-              </div>
-              <div class="col-md-4 col-12">
-                <div class="form-group">
-                  <label>Gender:</label>
-                  <select formControlName="gender" class="form-control form-control-sm shadow-sm">
-                    <option value="">Select Gender</option>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Gender <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="gender">
+                    <option value="">Select</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
-                  <small *ngIf="submitted && f['gender'].errors?.['required']" class="error">Gender is required.</small>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['gender'].errors?.['required']">
+                    Gender required
+                  </div>
                 </div>
-              </div>
-              <div class="col-md-4 col-12">
-                <div class="form-group">
-                  <label>Date of Birth:</label>
-                  <input type="date" formControlName="dateOfBirth" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['dateOfBirth'].errors?.['required']" class="error">Date of Birth is required.</small>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control form-control-sm" formControlName="dateOfBirth">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['dateOfBirth'].errors?.['required']">
+                    DOB required
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Class:</label>
-                  <select formControlName="classId" class="form-control form-control-sm shadow-sm">
+
+                <div class="col-12 col-md-3">
+                  <label class="form-label">Class <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="classId">
                     <option value="">Select Class</option>
-                    <option *ngFor="let class of classList" [value]="class._id">{{ class.name }}</option>
+                    <option *ngFor="let c of classList" [value]="c._id">{{ c.name }}</option>
+                    <option *ngIf="classList.length === 0" disabled>No classes available</option>
                   </select>
-                  <small *ngIf="submitted && f['classId'].errors?.['required']" class="error">Class is required.</small>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['classId'].errors?.['required']">
+                    Class required
+                  </div>
                 </div>
-              </div>
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Section:</label>
-                  <select formControlName="section" class="form-control form-control-sm shadow-sm">
+
+                <div class="col-12 col-md-3">
+                  <label class="form-label">Section <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="section">
                     <option value="">Select Section</option>
-                    <option *ngFor="let section of sectionList" [value]="section">{{ section }}</option>
+                    <option *ngFor="let s of sectionList" [value]="s">{{ s }}</option>
                   </select>
-                  <small *ngIf="submitted && f['section'].errors?.['required']" class="error">Section is required.</small>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['section'].errors?.['required']">
+                    Section required
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-3">
+                  <label class="form-label">Status <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="status">
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
+                  </select>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['status'].errors?.['required']">
+                    Status required
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-3">
+                  <label class="form-label">Route</label>
+                  <select class="form-select form-select-sm" formControlName="routeId" *ngIf="form.get('usesTransport')?.value">
+                    <option value="">Select Route</option>
+                    <option *ngFor="let r of routes" [value]="r._id">{{ r.name }}</option>
+                  </select>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['routeId']?.errors?.['required']">
+                    Route required
+                  </div>
                 </div>
               </div>
-              <div class="col-md-6 col-12">
-      <div class="form-group">
-        <label>Status:</label>
-        <select formControlName="status" class="form-control form-control-sm shadow-sm">
-          <option [value]="true">Active</option>
-          <option [value]="false">Inactive</option>
-        </select>
-      </div>
-    </div>
-            </div>
-          </fieldset>
-          
+            </fieldset>
 
+            <!-- Facility Usage -->
+            <fieldset class="form-section">
+              <legend>Facility Usage</legend>
 
-          <!-- Facility Usage -->
-          <fieldset class="form-section">
-            <legend>Facility Usage</legend>
-            <div class="row">
-              <div class="col-md-6 col-sm-12">
-                <div class="form-group">
-                  <label>Transport:</label>
-                  <select formControlName="usesTransport" class="form-control form-control-sm shadow-sm">
-                    <option value="false" selected>NO</option>
-                    <option value="true">YES</option>
+              <div class="row g-3">
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Transport</label>
+                  <select class="form-select form-select-sm" formControlName="usesTransport">
+                    <option [value]="false">No</option>
+                    <option [value]="true">Yes</option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Hostel</label>
+                  <select class="form-select form-select-sm" formControlName="usesHostel">
+                    <option [value]="false">No</option>
+                    <option [value]="true">Yes</option>
                   </select>
                 </div>
               </div>
-              <div class="col-md-6 col-sm-12">
-                <div class="form-group">
-                  <label>Hostel:</label>
-                  <select formControlName="usesHostel" class="form-control form-control-sm shadow-sm">
-                    <option value="false" selected>NO</option>
-                    <option value="true">YES</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </fieldset>
+            </fieldset>
 
-          <!-- Profile Picture -->
-          <fieldset class="form-section">
-            <legend>Profile Picture</legend>
-            <div class="row">
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Upload Profile Picture:</label>
-                  <input type="file" class="form-control form-control-sm"  (change)="onFileSelect($event)" accept="image/*" />
-                  <small *ngIf="submitted && !selectedFile" class="error">Profile picture is required.</small>
-                  <small *ngIf="fileError" class="error">{{ fileError }}</small>
-                </div>
-              </div>
-              <div class="col-md-6 col-12">
-                <div *ngIf="imagePreview" class="image-preview-container">
-                  <label>Preview:</label>
-                  <img [src]="imagePreview" alt="Profile Preview" class="img-thumbnail" />
-                </div>
-              </div>
-            </div>
-          </fieldset>
+            <!-- Profile Picture -->
+            <fieldset class="form-section">
+              <legend>Profile Picture</legend>
 
-          <!-- Address -->
-          <fieldset class="form-section">
-            <legend>Address</legend>
-            <div class="row">
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Address:</label>
-                  <input type="text" formControlName="address" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['address'].errors?.['required']" class="error">Address is required.</small>
+              <div class="row g-3 align-items-center">
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Upload New Profile Picture (Optional)</label>
+                  <input type="file" class="form-control form-control-sm" accept="image/png,image/jpeg,image/jpg"
+                         (change)="onFileSelect($event)">
+                  <div class="text-danger small mt-1" *ngIf="fileError">{{ fileError }}</div>
                 </div>
-              </div>
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>City:</label>
-                  <input type="text" formControlName="city" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['city'].errors?.['required']" class="error">City is required.</small>
-                </div>
-              </div>
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>State:</label>
-                  <input type="text" formControlName="state" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['state'].errors?.['required']" class="error">State is required.</small>
-                </div>
-              </div>
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Country:</label>
-                  <input type="text" formControlName="country" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['country'].errors?.['required']" class="error">Country is required.</small>
-                </div>
-              </div>
-            </div>
-          </fieldset>
 
-      
+                <div class="col-12 col-md-6 text-center" *ngIf="imagePreview">
+                  <img [src]="imagePreview" alt="Preview" class="img-thumbnail" style="max-height: 110px;">
+                </div>
+              </div>
+            </fieldset>
 
-          <!-- Parents' Details -->
-          <fieldset class="form-section">
-            <legend>Parents' Details</legend>
-            <small *ngIf="submitted && studentForm.errors?.['noParentProvided']" class="error parent-error">
-              At least one parent's name (father or mother) must be provided.
-            </small>
-            <div class="row">
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Father's Name:</label>
-                  <input type="text" formControlName="fatherName" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['fatherName'].errors?.['minlength']" class="error">Father's name must be at least 2 characters.</small>
-                </div>
-              </div>
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Father's Phone:</label>
-                  <input type="text" formControlName="fatherPhone" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['fatherPhone'].errors?.['requiredIfFather']" class="error">Father's phone number is required if father's name is provided.</small>
-                  <small *ngIf="submitted && f['fatherPhone'].errors?.['pattern']" class="error">Father's phone number must be 10 digits.</small>
-                </div>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Mother's Name:</label>
-                  <input type="text" formControlName="motherName" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['motherName'].errors?.['minlength']" class="error">Mother's name must be at least 2 characters.</small>
-                </div>
-              </div>
-              <div class="col-md-6 col-12">
-                <div class="form-group">
-                  <label>Mother's Phone:</label>
-                  <input type="text" formControlName="motherPhone" class="form-control form-control-sm shadow-sm" />
-                  <small *ngIf="submitted && f['motherPhone'].errors?.['requiredIfMother']" class="error">Mother's phone number is required if mother's name is provided.</small>
-                  <small *ngIf="submitted && f['motherPhone'].errors?.['pattern']" class="error">Mother's phone number must be 10 digits.</small>
-                </div>
-              </div>
-            </div>
-          </fieldset>
+            <!-- Address -->
+            <fieldset class="form-section">
+              <legend>Address</legend>
 
-          <!-- Server Errors -->
-          <div *ngIf="serverErrors" class="server-error">
-            <p *ngIf="serverErrors.message">{{ serverErrors.message }}</p>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label">Full Address <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" formControlName="address" placeholder="House, Street, Area">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['address'].errors?.['required']">
+                    Address required
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">City <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" formControlName="city">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['city'].errors?.['required']">
+                    City required
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">State <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" formControlName="state">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['state'].errors?.['required']">
+                    State required
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Country <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" formControlName="country">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['country'].errors?.['required']">
+                    Country required
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Parents' Details -->
+            <fieldset class="form-section">
+              <legend>Parents' Details</legend>
+
+              <div class="alert alert-info small p-2" role="alert">
+                At least one parent name and phone is required.
+              </div>
+
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Father's Name</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="fatherName">
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Father's Phone</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="fatherPhone" placeholder="10 digits">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['fatherName']?.value && !f['fatherPhone']?.value">
+                    Phone required if name given
+                  </div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['fatherPhone']?.errors?.['requiredIfName']">
+                    Phone required if name given
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Mother's Name</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="motherName">
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Mother's Phone</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="motherPhone" placeholder="10 digits">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['motherName']?.value && !f['motherPhone']?.value">
+                    Phone required if name given
+                  </div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['motherPhone']?.errors?.['requiredIfName']">
+                    Phone required if name given
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Server Error -->
+            <div class="col-12" *ngIf="serverError">
+              <div class="alert alert-danger small p-2">{{ serverError }}</div>
+            </div>
+
+            <!-- Submit -->
+            <div class="col-12 d-flex justify-content-end gap-2">
+              <button type="submit" class="btn btn-primary btn-sm" [disabled]="loading || form.invalid">
+                <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span>
+                {{ loading ? 'Updating...' : 'Update Student' }}
+              </button>
+            </div>
+
           </div>
-
-          <!-- Submit Button -->
-          <button type="submit" class="btn btn-secondary">Update Student</button>
         </form>
-      </div>
-    </app-card>
+
+      </app-card>
+    </div>
   </div>
 </div>

@@ -1,8 +1,11 @@
+// assign-roll-numbers.component.ts (updated for production: added OnDestroy, proper subscription handling)
+
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core'; // Added OnDestroy
 import { FormsModule } from '@angular/forms';
 import { ClassSubjectService } from '../class-subject-management/class-subject.service';
 import { ToastrService } from 'ngx-toastr';
+import { Subscription } from 'rxjs'; // Added for subscriptions
 
 interface Class {
   _id: string;
@@ -15,7 +18,7 @@ interface Student {
   _id: string;
   admissionNo: string;
   name: string;
-  classId?: { _id: string; name: string }; // Updated to match populated classId
+  classId?: { _id: string; name: string };
   section: string[];
   rollNo: string;
   newRollNo?: string;
@@ -27,40 +30,54 @@ interface Student {
   templateUrl: './assign-roll-numbers.component.html',
   styleUrls: ['./assign-roll-numbers.component.scss']
 })
-export class AssignRollNumbersComponent implements OnInit {
+export class AssignRollNumbersComponent implements OnInit, OnDestroy { // Added OnDestroy
   classes: Class[] = [];
   selectedClassId: string | null = null;
-  selectedClassName: string | null = null; // Added to display class name
+  selectedClassName: string | null = null;
   students: Student[] = [];
   message: string | null = null;
   error: string | null = null;
   loading: boolean = false;
 
-  constructor(private classSubjectService: ClassSubjectService,private toastr:ToastrService) {}
+  private subscriptions = new Subscription(); // Track all subscriptions
+
+  constructor(
+    private classSubjectService: ClassSubjectService,
+    private toastr: ToastrService
+  ) {}
 
   ngOnInit(): void {
     this.fetchClasses();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe(); // Clean up all subscriptions
   }
 
   fetchClasses(): void {
     const schoolId = localStorage.getItem('schoolId');
     if (!schoolId) {
       this.error = 'School ID not found. Please log in again.';
+      this.toastr.error(this.error, 'Error');
       return;
     }
 
-    this.classSubjectService.getClassesBySchool(schoolId).subscribe({
+    const sub = this.classSubjectService.getClassesBySchool(schoolId).subscribe({
       next: (classes: Class[]) => {
         this.classes = classes;
+        this.error = null; // Clear any previous error
       },
       error: (err) => {
         this.error = 'Error fetching classes: ' + (err.error?.message || err.message);
+        this.toastr.error(this.error, 'Error');
       }
     });
+
+    this.subscriptions.add(sub); // Add to tracked subscriptions
   }
 
-fetchStudents(classId: string): void {
-    const academicYearId = localStorage.getItem('activeAcademicYearId'); // Get from localStorage
+  fetchStudents(classId: string): void {
+    const academicYearId = localStorage.getItem('activeAcademicYearId');
     if (!academicYearId) {
       this.error = 'Active academic year not found. Please log in again or select an academic year.';
       this.toastr.error(this.error, 'Error');
@@ -68,7 +85,9 @@ fetchStudents(classId: string): void {
     }
 
     this.loading = true;
-    this.classSubjectService.getStudentsByClass(classId, academicYearId).subscribe({
+    this.error = null; // Clear previous errors
+
+    const sub = this.classSubjectService.getStudentsByClass(classId, academicYearId).subscribe({
       next: (response: { students: Student[] }) => {
         this.students = response.students.map(student => ({
           ...student,
@@ -86,11 +105,14 @@ fetchStudents(classId: string): void {
         this.loading = false;
       }
     });
+
+    this.subscriptions.add(sub);
   }
 
   assignRollNumbers(): void {
     if (!this.selectedClassId) {
       this.error = 'Please select a class';
+      this.toastr.warning(this.error, 'Warning');
       return;
     }
 
@@ -98,10 +120,11 @@ fetchStudents(classId: string): void {
     this.message = null;
     this.error = null;
 
-    this.classSubjectService.assignRollNumbers(this.selectedClassId).subscribe({
+    const sub = this.classSubjectService.assignRollNumbers(this.selectedClassId).subscribe({
       next: (response: any) => {
         this.loading = false;
         this.message = response.message;
+        this.toastr.success(this.message, 'Success');
         if (this.selectedClassId) {
           this.fetchStudents(this.selectedClassId);
         }
@@ -109,13 +132,17 @@ fetchStudents(classId: string): void {
       error: (err) => {
         this.loading = false;
         this.error = 'Error assigning roll numbers: ' + (err.error?.message || err.message);
+        this.toastr.error(this.error, 'Error');
       }
     });
+
+    this.subscriptions.add(sub);
   }
 
   assignRollNumbersAlphabetically(): void {
     if (!this.selectedClassId) {
       this.error = 'Please select a class';
+      this.toastr.warning(this.error, 'Warning');
       return;
     }
 
@@ -123,10 +150,11 @@ fetchStudents(classId: string): void {
     this.message = null;
     this.error = null;
 
-    this.classSubjectService.assignRollNumbersAlphabetically(this.selectedClassId).subscribe({
+    const sub = this.classSubjectService.assignRollNumbersAlphabetically(this.selectedClassId).subscribe({
       next: (response: any) => {
         this.loading = false;
         this.message = response.message;
+        this.toastr.success(this.message, 'Success');
         if (this.selectedClassId) {
           this.fetchStudents(this.selectedClassId);
         }
@@ -134,13 +162,17 @@ fetchStudents(classId: string): void {
       error: (err) => {
         this.loading = false;
         this.error = 'Error assigning roll numbers alphabetically: ' + (err.error?.message || err.message);
+        this.toastr.error(this.error, 'Error');
       }
     });
+
+    this.subscriptions.add(sub);
   }
 
   assignRollNumberToStudent(student: Student): void {
     if (!student.newRollNo) {
       this.error = `Please enter a roll number for ${student.name} (Admission No: ${student.admissionNo})`;
+      this.toastr.warning(this.error, 'Warning');
       return;
     }
 
@@ -148,19 +180,31 @@ fetchStudents(classId: string): void {
     this.message = null;
     this.error = null;
 
-    this.classSubjectService.assignRollNumberToStudent(student._id, student.newRollNo).subscribe({
+    const sub = this.classSubjectService.assignRollNumberToStudent(student._id, student.newRollNo).subscribe({
       next: (response: any) => {
         this.loading = false;
         this.message = response.message || 'Roll number assigned successfully';
+        this.toastr.success(this.message, 'Success');
+        // Refresh the specific student's rollNo from response
+        if (response.student) {
+          const index = this.students.findIndex(s => s._id === student._id);
+          if (index > -1) {
+            this.students[index].rollNo = response.student.rollNo;
+            this.students[index].newRollNo = response.student.rollNo;
+          }
+        }
         if (this.selectedClassId) {
-          this.fetchStudents(this.selectedClassId);
+          this.fetchStudents(this.selectedClassId); // Optional full refresh
         }
       },
       error: (err) => {
         this.loading = false;
         this.error = 'Error assigning roll number: ' + (err.error?.message || err.message);
+        this.toastr.error(this.error, 'Error');
       }
     });
+
+    this.subscriptions.add(sub);
   }
 
   onClassChange(event: Event): void {

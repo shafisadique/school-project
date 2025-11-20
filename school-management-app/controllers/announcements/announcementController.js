@@ -1,48 +1,127 @@
+// controllers/announcements/announcementController.js
 const Announcement = require('../../models/announcement');
-const School = require('../../models/school'); // Adjust path to your School model
-const User = require('../../models/user'); // Adjust path
-const twilio = require('twilio');
+const Notification = require('../../models/notifiation'); // ← CORRECT IMPORT (no typo!)
+const School = require('../../models/school');
+const twilioClient = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const nodemailer = require('nodemailer');
 const moment = require('moment-timezone');
-const logger = require('winston'); // Or console if not using Winston
-const student =require('../../models/student');
-const teacher = require ('../../models/teacher')
-const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const logger = require('../../config/logger'); // ← Use your fixed logger
+const User = require('../../models/user'); 
+const Subscription = require('../../models/subscription');
+const teacher = require('../../models/teacher');
 const transporter = nodemailer.createTransport({
-  // Your existing Gmail/SMTP config here
   service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
   secure: false,
-  tls: { rejectUnauthorized: false } // From prior fixes
+  tls: { rejectUnauthorized: false }
 });
 
-// createAnnouncement (Updated)
 const createAnnouncement = async (req, res) => {
   try {
     const { title, body, targetRoles = [], targetUsers = [] } = req.body;
     const schoolId = req.user.schoolId;
-    const createdBy = req.user._id || req.user.id || req.user.userId;
+    const senderId = req.user.id;
 
+    // 1. Save Announcement
     const announcement = new Announcement({
       title,
       body,
       schoolId,
-      createdBy,
-      roles: targetRoles
+      createdBy: senderId,  // ← FIXED
+      roles: targetRoles.length > 0 ? targetRoles : undefined
     });
     await announcement.save();
 
-    // ✅ renamed variable & function
-    const targetInfo = targetUsers.length > 0 ? { users: targetUsers } : { roles: targetRoles };
-    notifyTargetsFn(announcement, schoolId, targetInfo).catch(err => logger.error('Notify error:', err));
+    // 2. Create Bell Notifications
+    const notifications = [];
 
-    res.status(201).json({ message: 'Announcement created & sent', data: announcement });
+    if (targetUsers.length > 0) {
+      targetUsers.forEach(userId => {
+        notifications.push({
+          schoolId,
+          senderId,
+          recipientId: userId,
+          title,
+          message: body,
+          type: 'announcement',
+          status: 'pending'
+        });
+      });
+    } else if (targetRoles.length > 0) {
+      notifications.push({
+        schoolId,
+        senderId,
+        targetRoles,
+        title,
+        message: body,
+        type: 'announcement',
+        status: 'pending'
+      });
+    }
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
+
+    // 3. Send SMS + Email
+    const targetInfo = targetUsers.length > 0 ? { users: targetUsers } : { roles: targetRoles };
+    console.log(targetInfo,'this is target info')
+    notifyTargetsFn(announcement, schoolId, targetInfo).catch(err => 
+      logger.error('SMS/Email failed:', err)
+    );
+
+    res.status(201).json({
+      message: 'Announcement created + sent + visible in bell!',
+      announcement
+    });
+
   } catch (err) {
     logger.error('Create announcement error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+// 2. Send Assignment to Teachers (Bell Icon Only)
+const createTeacherAssignment = async (req, res) => {
+  try {
+    const { title, message, teacherIds = [], classId, dueDate, attachment } = req.body;
+    const senderId = req.user.id;
+    const schoolId = req.user.schoolId;
+
+    const notifications = [];
+
+    if (teacherIds.length === 0) {
+      // All teachers
+      notifications.push({
+        schoolId,
+        senderId,
+        targetRoles: ['teacher'],
+        title,
+        message,
+        type: 'assignment',
+        data: { classId, dueDate, attachment },
+        status: 'pending'
+      });
+    } else {
+      // Specific teachers
+      teacherIds.forEach(id => {
+        notifications.push({
+          schoolId,
+          senderId,
+          recipientId: id,
+          title,
+          message,
+          type: 'assignment',
+          data: { classId, dueDate, attachment },
+          status: 'pending'
+        });
+      });
+    }
+
+    await Notification.insertMany(notifications);
+    res.json({ message: 'Assignment sent to teachers (visible in bell)!' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed' });
   }
 };
 
@@ -51,18 +130,23 @@ const createAnnouncement = async (req, res) => {
 const notifyTargetsFn = async (announcement, schoolId, targets) => {
   try {
     const school = await School.findById(schoolId).select('name smsPackActive remainingSms smsPlan smsExpiry smtpConfig email');
+    console.log(school)
     if (!school) throw new Error(`School ${schoolId} not found`);
 
-    const { active: packActive, remaining: remainingSms, plan, expired } = await getRemainingSmsPack(schoolId);
+    const { active, remaining, plan, expired } = await getRemainingSmsPack(schoolId);
+    const packActive = active;
+    const remainingSms = remaining;
+    console.log('this is active',active,'this is remaining',remainingSms,plan,expired)
     if (!packActive || expired) {
       logger.warn(`SMS pack inactive/expired for school ${schoolId}. Portal only.`);
     }
 
     let allUsers = []; // Collect targets
-
+    console.log(targets)
     if (targets.users && targets.users.length > 0) {
       // Specific users: Fetch by IDs
       allUsers = await User.find({ _id: { $in: targets.users }, schoolId }).select('name email phone role').lean();
+      console.log(allUsers)
     } else if (targets.roles && targets.roles.length > 0) {
       // Bulk roles (as before)
       for (const role of targets.roles) {
@@ -76,7 +160,7 @@ const notifyTargetsFn = async (announcement, schoolId, targets) => {
             phone: s.parents?.fatherPhone || s.parents?.motherPhone
           })).filter(u => u.phone);
         } else if (role === 'teacher') {
-          roleUsers = await Teacher.find({ schoolId, status: true }).select('name email phone').lean();
+          roleUsers = await teacher.find({ schoolId, status: true }).select('name email phone').lean();
         } else if (role === 'parent') {
           const students = await Student.find({ schoolId, status: true }).select('name email parents').lean();
           const parentMap = new Map();
@@ -93,14 +177,16 @@ const notifyTargetsFn = async (announcement, schoolId, targets) => {
     }
 
     if (allUsers.length === 0) return;
-
+    console.log(allUsers)
     const smsEligibleCount = allUsers.filter(u => u.phone && /^\d{10}$/.test(u.phone)).length;
     let smsSent = 0, emailSent = 0, portalOnly = false;
-
+    console.log(packActive,expired,remainingSms,smsEligibleCount,'checking sms ')
     // All-or-Nothing SMS
     if (packActive && !expired && remainingSms >= smsEligibleCount && smsEligibleCount > 0) {
       const smsUsers = allUsers.filter(u => u.phone && /^\d{10}$/.test(u.phone));
       for (const user of smsUsers) {
+        console.log('is this sms working ')
+        console.log(user);
         const message = `New Announcement: ${announcement.title}\n${announcement.body}`;
         try {
           await twilioClient.messages.create({
@@ -142,7 +228,6 @@ const notifyTargetsFn = async (announcement, schoolId, targets) => {
   }
 };
 
-
 // Get Filtered Announcements (Paginated)
 const getAnnouncements = async (req, res) => {
   try {
@@ -179,28 +264,31 @@ const getAnnouncements = async (req, res) => {
   }
 };
 
-// Get/Check Remaining SMS Pack (Includes Expiry)
 const getRemainingSmsPack = async (schoolId) => {
-  const school = await School.findById(schoolId).select('smsPackActive remainingSms smsExpiry smsPlan');
-  if (!school) {
-    logger.error(`School ${schoolId} not found`);
-    return { active: false, remaining: 0, plan: 'trial', expired: false };
+  // First check active subscription
+  const activeSub = await Subscription.findOne({
+    schoolId,
+    status: 'active',
+    expiresAt: { $gt: new Date() }
+  }).sort({ priority: -1 });
+  console.log(activeSub)
+
+  if (activeSub && activeSub.messageLimits?.smsMonthly > 0) {
+    return {
+      active: true,
+      remaining: activeSub.messageLimits.smsMonthly - (activeSub.usageStats?.smsUsedThisMonth || 0),
+      plan: activeSub.planType,
+      expired: false
+    };
   }
 
-  const today = moment.tz('Asia/Kolkata');
-  const expired = school.smsExpiry && school.smsExpiry < today.toDate();
-  if (expired) {
-    school.smsPackActive = false;
-    school.remainingSms = 0;
-    await school.save();
-    logger.warn(`SMS pack expired for school ${schoolId}`);
-  }
-
+  // Fallback to old school fields (for backward compatibility)
+  const school = await School.findById(schoolId);
   return {
-    active: school.smsPackActive && !expired,
-    remaining: school.remainingSms || 0,
-    plan: school.smsPlan,
-    expired
+    active: school?.smsPackActive || false,
+    remaining: school?.remainingSms || 0,
+    plan: 'trial',
+    expired: true
   };
 };
 
@@ -222,4 +310,4 @@ const getSmsStatus = async (req, res) => {
 };
 
 
-module.exports = { createAnnouncement, getAnnouncements, getSmsStatus };
+module.exports = { createAnnouncement, getAnnouncements, getSmsStatus,createTeacherAssignment };

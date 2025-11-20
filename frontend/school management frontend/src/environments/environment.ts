@@ -8,12 +8,14 @@ export const environment = {
   appVersion: packageInfo.version,
   production: false,
   // apiUrl: 'https://school-management-backend-khaki.vercel.app',
-  apiUrl: 'https://edglobe.vercel.app', 
+  // apiUrl: 'https://edglobe.vercel.app',
+    apiUrl: 'http://localhost:5675', 
+
   razorpayKey: 'rzp_test_RYaocvTKMe1oqH', // Replace with your Razorpay test key
   razorpayKeyId:'',
   testMode: false,
   googleMapsApiKey:'AIzaSyDKsK100m1obqgkQJILOEafWm2mReD0whA',
-  imageUrl:'https://school-management-backend-khaki.vercel.app'
+  imageUrl:'https://edglobe.vercel.app'
 };
 
 

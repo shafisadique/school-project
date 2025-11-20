@@ -1,143 +1,252 @@
-import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+// src/app/modules/teacher/teacher-update/teacher-update.component.ts
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import {
+  FormBuilder,
+  FormGroup,
+  Validators,
+  ReactiveFormsModule,
+} from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
+import { Subject, takeUntil } from 'rxjs';
+import { HttpEvent, HttpEventType } from '@angular/common/http';
 import { TeacherService } from '../teacher.service';
-import { CardComponent } from "../../../../../theme/shared/components/card/card.component";
-import { NgSelectComponent, NgSelectModule } from '@ng-select/ng-select';
-import { HttpEventType } from '@angular/common/http';
+import { CommonModule } from '@angular/common';
+import { CardComponent } from 'src/app/theme/shared/components/card/card.component';
+import { NgSelectModule } from '@ng-select/ng-select';
+import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-teacher-update',
-  imports: [ReactiveFormsModule, CommonModule, CardComponent, NgSelectModule],
   templateUrl: './teacher-update.component.html',
   styleUrls: ['./teacher-update.component.scss'],
-  standalone: true
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, CardComponent, NgSelectModule],
 })
-export class TeacherUpdateComponent implements OnInit {
-  teacherForm!: FormGroup;
+export class TeacherUpdateComponent implements OnInit, OnDestroy {
+  form!: FormGroup;
   submitted = false;
-  serverErrors: any = {};
-  subjectsList: string[] = ['English', 'Hindi', 'Mathematics', 'Environmental Science', 'General Knowledge', 'Arts', 'Science', 'Social Science', 'Music'];
+  loading = false;
+  uploadProgress = 0;
+  subjectsList: string[] = [
+    'English', 'Hindi', 'Mathematics', 'Environmental Science', 'General Knowledge',
+    'Arts', 'Science', 'Social Science', 'Music'
+  ];
   selectedFile: File | null = null;
   imagePreview: string | null = null;
-  fileError: string | null = null;
-  teacherId!: string;
+  fileError = '';
+  serverError = '';
+  teacherId: string | null = null;
+
+  private destroy$ = new Subject<void>();
+  private schoolId = localStorage.getItem('schoolId')!;
 
   constructor(
     private fb: FormBuilder,
-    private teacherService: TeacherService,
-    private toastr: ToastrService,
+    private teacherSvc: TeacherService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private toastr: ToastrService
   ) {}
 
-  ngOnInit() {
-    this.teacherId = this.route.snapshot.paramMap.get('teacherId')!;
-    this.initForm();
-    this.loadTeacherDetails();
-  }
-
-  initForm() {
-  this.teacherForm = this.fb.group({
-    name: ['', [Validators.required, Validators.minLength(3)]],
-    username: [''], // Make optional by removing required validator
-    email: ['', [Validators.required, Validators.email]],
-    password: [''],
-    phone: ['', [Validators.required, Validators.pattern('^[0-9]{10}$')]],
-    designation: ['', Validators.required],
-    subjects: [[], Validators.required],
-    gender: ['', Validators.required]
-  });
-}
-
-loadTeacherDetails() {
-  this.teacherService.getTeacher(this.teacherId).subscribe({
-    next: (teacher: any) => {
-      this.teacherForm.patchValue({
-        name: teacher.data.name,
-        username: teacher.data.name || '', // Fallback to name if username is missing
-        email: teacher.data.email,
-        phone: teacher.data.phone,
-        designation: teacher.data.designation,
-        subjects: teacher.data.subjects,
-        gender: teacher.data.gender
-      });
-      this.imagePreview = teacher.data.profileImage ? `http://localhost:5000/Uploads/${teacher.data.profileImage}` : null;
-      console.log(this.imagePreview)
-    },
-    error: (err) => {
-      this.toastr.error('Failed to load teacher details.', 'Error');
-      console.error(err);
-    }
-  });
-}
-
-  get f() { return this.teacherForm.controls; }
-
-  onFileSelect(event: any) {
-    const file = event.target.files[0];
-    if (file) {
-      const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg'];
-      if (!allowedTypes.includes(file.type)) {
-        this.toastr.error('Only PNG, JPG, and JPEG files are allowed.', 'Invalid File Type');
-        this.selectedFile = null;
-        this.imagePreview = null;
-        this.fileError = 'Only PNG, JPG, and JPEG files are allowed.';
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        this.toastr.error('File size must be less than 2MB.', 'File Too Large');
-        this.selectedFile = null;
-        this.imagePreview = null;
-        this.fileError = 'File size must be less than 2MB.';
-        return;
-      }
-      this.selectedFile = file;
-      this.fileError = null;
-      const reader = new FileReader();
-      reader.onload = () => { this.imagePreview = reader.result as string; };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  onSubmit() {
-    this.submitted = true;
-
-    if (this.teacherForm.invalid) {
+  ngOnInit(): void {
+    this.teacherId = this.route.snapshot.paramMap.get('teacherId');
+    if (!this.teacherId) {
+      this.toastr.error('Invalid teacher ID');
+      this.router.navigate(['/teacher/teacher-details']);
       return;
     }
 
-    const formData = new FormData();
-    formData.append('name', this.teacherForm.value.name);
-    formData.append('username', this.teacherForm.value.username);
-    formData.append('email', this.teacherForm.value.email);
-    formData.append('password', this.teacherForm.value.password || ''); // Optional password update
-    formData.append('phone', this.teacherForm.value.phone);
-    formData.append('designation', this.teacherForm.value.designation);
-    formData.append('gender', this.teacherForm.value.gender);
-    formData.append('subjects', JSON.stringify(this.teacherForm.value.subjects));
-    if (this.selectedFile) formData.append('profileImage', this.selectedFile);
+    this.initForm();
+    this.loadTeacher();
+  }
 
-    this.teacherService.updateTeacher(this.teacherId, formData).subscribe({
-      next: (event) => {
-        if (event.type === HttpEventType.Response) {
-          this.toastr.success(event.body.message || 'Teacher updated successfully!', 'Success');
-          this.router.navigate(['/teacher/teacher-details']);
-        }
-      },
-      error: (err) => this.handleServerError(err)
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // --- Form ---
+  private initForm(): void {
+    this.form = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
+      email: [''],
+      phone: ['', [Validators.pattern(/^\d{10}$/)]],
+      gender: ['', Validators.required],
+      status: [true],
+      designation: ['', Validators.required],
+      subjects: [[], [Validators.required, Validators.minLength(1)]],
     });
   }
 
-  private handleServerError(error: any): void {
-    console.error(error);
-    if (error?.error) {
-      this.serverErrors = error.error;
-      this.toastr.error(error.error.message || 'An unexpected error occurred.', 'Error');
-    } else {
-      this.toastr.error('An unexpected error occurred.', 'Error');
+  get f() { return this.form.controls; }
+
+  // --- Data Load ---
+  private loadTeacher(): void {
+    this.teacherSvc.getTeacherById(this.teacherId!)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response: any) => {
+          const teacher = response.data;
+          this.form.patchValue({
+            name: teacher.name,
+            email: teacher.email || '',
+            phone: teacher.phone || '',
+            gender: teacher.gender,
+            status: teacher.status,
+            designation: teacher.designation || '',
+          });
+
+          // Handle subjects: Filter existing names from hardcoded list
+          const selectedSubjects: string[] = [];
+          if (teacher.subjects && teacher.subjects.length > 0) {
+            teacher.subjects.forEach((subName: string) => {
+              if (this.subjectsList.includes(subName)) {
+                selectedSubjects.push(subName);
+              }
+            });
+          }
+          this.form.patchValue({ subjects: selectedSubjects });
+
+          // Set image preview (prefer enriched URL)
+          if (teacher.profileImageUrl) {
+            this.imagePreview = teacher.profileImageUrl;
+          } else if (teacher.profileImage) {
+            if (teacher.profileImage.startsWith('http')) {
+              this.imagePreview = teacher.profileImage;
+            } else {
+              const proxyUrl = `http://localhost:5675`;
+              this.imagePreview = `${proxyUrl}/api/proxy-image/${encodeURIComponent(teacher.profileImage)}`;
+            }
+          }
+        },
+        error: (err) => {
+          this.serverError = this.parseError(err);
+          this.toastr.error('Failed to load teacher details');
+          this.router.navigate(['/teacher/teacher-details']);
+        }
+      });
+  }
+
+  // --- File ---
+  onFileSelect(event: any): void {
+    const file: File = event.target.files[0];
+    if (!file) return;
+
+    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
+      this.fileError = 'Only PNG/JPG/JPEG allowed';
+      return;
     }
+    if (file.size > 2 * 1024 * 1024) {
+      this.fileError = 'Max 2 MB';
+      return;
+    }
+
+    this.selectedFile = file;
+    this.fileError = '';
+    const reader = new FileReader();
+    reader.onload = () => this.imagePreview = reader.result as string;
+    reader.readAsDataURL(file);
+  }
+
+  // --- Submit ---
+  onSubmit(): void {
+    this.submitted = true;
+    this.serverError = '';
+
+    if (this.form.invalid) return;
+
+    this.loading = true;
+    this.uploadProgress = 0;
+    const updateData = this.buildUpdateData(this.form.value);
+    const formData = new FormData();
+
+    // FIXED: Like create, append subjects as JSON string
+    for (const [key, value] of Object.entries(updateData)) {
+      if (key === 'subjects') {
+        if (Array.isArray(value) && value.length > 0) {
+          formData.append(key, JSON.stringify(value)); // e.g., '["English"]'
+        }
+      } else if (value !== null && value !== undefined && value !== '') {
+        formData.append(key, value.toString());
+      }
+    }
+
+    this.teacherSvc.updateTeacher(this.teacherId!, formData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (event: HttpEvent<any>) => {
+          switch (event.type) {
+            case HttpEventType.UploadProgress:
+              this.uploadProgress = Math.round(100 * event.loaded / (event.total || 1));
+              break;
+            case HttpEventType.Response:
+              console.log('Update response:', event.body);
+              this.handleUpdateSuccess(event.body);
+              break;
+          }
+        },
+        error: (err: any) => {
+          this.loading = false;
+          this.uploadProgress = 0;
+          this.serverError = this.parseError(err);
+          const errorMsg = err.error?.message || 'Failed to update teacher';
+          this.toastr.error(errorMsg, 'Error');
+          console.error('Full error:', err);
+        }
+      });
+  }
+
+  private handleUpdateSuccess(response: any): void {
+    this.loading = false;
+    this.uploadProgress = 0;
+    if (this.selectedFile) {
+      const fd = new FormData();
+      fd.append('profileImage', this.selectedFile!);
+      this.teacherSvc.uploadTeacherPhoto(this.teacherId!, fd)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            this.toastr.success('Teacher updated successfully (with photo)');
+            this.router.navigate(['/teacher/teacher-details']);
+          },
+          error: (err) => {
+            this.toastr.warning('Teacher updated, but failed to upload profile picture');
+            this.router.navigate(['/teacher/teacher-details']);
+          }
+        });
+    } else {
+      this.toastr.success('Teacher updated successfully');
+      this.router.navigate(['/teacher/teacher-details']);
+    }
+  }
+
+  private buildUpdateData(val: any): any {
+    const data: any = {};
+
+    // Basic fields
+    ['name', 'email', 'phone', 'gender', 'status', 'designation'].forEach(key => {
+      if (val[key] !== null && val[key] !== undefined && val[key] !== '') {
+        if (key === 'phone' && !/^\d{10}$/.test(val[key])) return;
+        data[key] = val[key].trim ? val[key].trim() : val[key];
+      }
+    });
+
+    // Subjects (direct names from hardcoded list, no mapping needed)
+    const selectedSubjects: string[] = [];
+    if (val.subjects && val.subjects.length > 0) {
+      val.subjects.forEach((subName: string) => {
+        if (this.subjectsList.includes(subName)) {
+          selectedSubjects.push(subName);
+        }
+      });
+      data.subjects = selectedSubjects;
+    }
+
+    return data;
+  }
+
+  private parseError(err: any): string {
+    const msg = err.error?.message || 'Server error';
+    return msg;
   }
 }

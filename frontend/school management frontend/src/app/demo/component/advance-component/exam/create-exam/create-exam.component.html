@@ -1,139 +1,151 @@
-<div class="container-fluid">
-    <header class="header">
-      <h2>Exam Form</h2>
-    </header>
-  
-    <form (ngSubmit)="createExam()" class="exam-form">
-      <!-- Exam Details Section -->
-      <div class="form-section">
-        <h3>Basic Information</h3>
-        <div class="grid-container">
-          <!-- Left Column (3 units) -->
-          <div class="grid-column">
-            <div class="form-group">
-              <label for="academicYear">Academic Year</label>
-              <select id="academicYear" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()" name="academicYear" required>
-                <option value="">Select Academic Year</option>
-                <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
-              </select>
-            </div>
-  
-            <div class="form-group">
-              <label for="class">Class</label>
-              <select id="class" [(ngModel)]="selectedClassId" name="class" required>
-                <option value="">Select Class</option>
-                <option *ngFor="let class of classes" [value]="class._id">{{ class.name }}</option>
-              </select>
-            </div>
-  
-            <div class="form-group">
-              <label for="examTitle">Exam Title</label>
-              <input type="text" id="examTitle" [(ngModel)]="exam.examTitle" name="examTitle" placeholder="e.g., Mid-Term Exam 2025" required />
-            </div>
-  
-            <div class="form-group">
-              <label for="examCenter">Exam Center</label>
-              <input type="text" id="examCenter" [(ngModel)]="exam.examCenter" name="examCenter" placeholder="e.g., Main Campus" required />
-            </div>
-          </div>
-  
-          <!-- Right Column (3 units) -->
-          <div class="grid-column">
-            <div class="form-group">
-              <label for="startDate">Start Date</label>
-              <input type="datetime-local" id="startDate" [(ngModel)]="exam.startDate" name="startDate" required />
-            </div>
-  
-            <div class="form-group">
-              <label for="endDate">End Date</label>
-              <input type="datetime-local" id="endDate" [(ngModel)]="exam.endDate" name="endDate" required />
-            </div>
-  
-            <div class="form-group">
-              <label for="examStatus">Exam Status</label>
-              <select id="examStatus" [(ngModel)]="exam.examStatus" name="examStatus" required>
-                <option value="Scheduled">Scheduled</option>
-                <option value="Ongoing">Ongoing</option>
-                <option value="Completed">Completed</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-  
-      <!-- Exam Papers Section -->
-      <div class="form-section">
-        <h3>Exam Papers</h3>
-        <div class="exam-papers">
-          <div *ngFor="let paper of exam.examPapers; let i = index" class="exam-paper card">
-            <div class="card-header">
-              <h4>Paper {{ i + 1 }}</h4>
-              <button type="button" class="remove-button" (click)="removeExamPaper(i)">
-                <span>&times;</span> Remove
-              </button>
-            </div>
-            <div class="card-body">
-              <div class="form-group">
-                <label [for]="'subject-' + i">Subject</label>
-                <select [id]="'subject-' + i" [(ngModel)]="paper.subjectId" [name]="'subject-' + i" (ngModelChange)="updatePaperCode(paper)" required>
-                  <option value="">Select Subject</option>
-                  <option *ngFor="let subject of subjects" [value]="subject._id">{{ subject.name }}</option>
+<div class="container-fluid py-2 py-md-8">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-10 col-xl-9">
+
+      <app-card cardTitle="Create New Exam">
+
+        <form (ngSubmit)="createExam()" novalidate>
+
+          <!-- Basic Exam Information -->
+          <fieldset class="form-section">
+            <legend>Exam Details</legend>
+
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label">Academic Year <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" [(ngModel)]="selectedAcademicYearId" (change)="onAcademicYearChange()" name="academicYear" required>
+                  <option value="">Select Academic Year</option>
+                  <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
                 </select>
               </div>
-  
-              <div class="form-group">
-                <label [for]="'subjectType-' + i">Subject Type</label>
-                <select [id]="'subjectType-' + i" [(ngModel)]="paper.subjectType" [name]="'subjectType-' + i" required>
-                  <option value="Written">Written</option>
-                  <option value="Practical">Practical</option>
-                  <option value="Oral">Oral</option>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Class <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" [(ngModel)]="selectedClassId" name="class" required>
+                  <option value="">Select Class</option>
+                  <option *ngFor="let cls of classes" [value]="cls._id">{{ cls.name }}</option>
                 </select>
               </div>
-  
-              <div class="form-group">
-                <label [for]="'maxMarks-' + i">Max Marks</label>
-                <input type="number" [id]="'maxMarks-' + i" [(ngModel)]="paper.maxMarks" [name]="'maxMarks-' + i" min="1" required />
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Exam Title <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="exam.examTitle" name="examTitle" placeholder="e.g., Mid-Term Exam 2025" required>
               </div>
-  
-              <div class="form-group">
-                <label [for]="'minMarks-' + i">Min Marks</label>
-                <input type="number" [id]="'minMarks-' + i" [(ngModel)]="paper.minMarks" [name]="'minMarks-' + i" min="0" required />
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Exam Center <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" [(ngModel)]="exam.examCenter" name="examCenter" placeholder="e.g., Main Campus" required>
               </div>
-  
-              <div class="form-group">
-                <label [for]="'paperCode-' + i">Paper Code</label>
-                <input type="text" [id]="'paperCode-' + i" [(ngModel)]="paper.paperCode" [name]="'paperCode-' + i" placeholder="e.g., MATH-101" required readonly />
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Start Date & Time <span class="text-danger">*</span></label>
+                <input type="datetime-local" class="form-control form-control-sm" [(ngModel)]="exam.startDate" name="startDate" required>
               </div>
-  
-              <div class="form-group">
-                <label [for]="'paperStartDateTime-' + i">Start Date & Time</label>
-                <input type="datetime-local" [id]="'paperStartDateTime-' + i" [(ngModel)]="paper.paperStartDateTime" [name]="'paperStartDateTime-' + i" required />
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">End Date & Time <span class="text-danger">*</span></label>
+                <input type="datetime-local" class="form-control form-control-sm" [(ngModel)]="exam.endDate" name="endDate" required>
               </div>
-  
-              <div class="form-group">
-                <label [for]="'paperEndDateTime-' + i">End Date & Time</label>
-                <input type="datetime-local" [id]="'paperEndDateTime-' + i" [(ngModel)]="paper.paperEndDateTime" [name]="'paperEndDateTime-' + i" required />
-              </div>
-  
-              <div class="form-group">
-                <label [for]="'roomNo-' + i">Room No</label>
-                <input type="text" [id]="'roomNo-' + i" [(ngModel)]="paper.roomNo" [name]="'roomNo-' + i" placeholder="e.g., Room 101" required />
-              </div>
-  
-              <div class="form-group">
-                <label [for]="'gradeCriteria-' + i">Grade Criteria</label>
-                <input type="text" [id]="'gradeCriteria-' + i" [(ngModel)]="paper.gradeCriteria" [name]="'gradeCriteria-' + i" placeholder="e.g., A: 90-100, B: 80-89" required />
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Status <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" [(ngModel)]="exam.examStatus" name="examStatus" required>
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="Ongoing">Ongoing</option>
+                  <option value="Completed">Completed</option>
+                </select>
               </div>
             </div>
+          </fieldset>
+
+          <!-- Exam Papers -->
+          <fieldset class="form-section">
+            <legend>Exam Papers ({{ exam.examPapers?.length || 0 }})</legend>
+
+            <div class="exam-papers-container">
+              <div *ngFor="let paper of exam.examPapers; let i = index" class="exam-paper-card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                  <h6 class="mb-0">Paper {{ i + 1 }} <span class="text-muted small">({{ paper.subjectId ? getSubjectName(paper.subjectId) : 'No subject' }})</span></h6>
+                  <button type="button" class="btn btn-danger btn-sm" (click)="removeExamPaper(i)">Remove</button>
+                </div>
+
+                <div class="card-body">
+                  <div class="row g-3">
+                    <div class="col-12 col-md-6">
+                      <label class="form-label">Subject <span class="text-danger">*</span></label>
+                      <select class="form-select form-select-sm" [(ngModel)]="paper.subjectId" [name]="'subject-' + i" required>
+                        <option value="">Select Subject</option>
+                        <option *ngFor="let subject of subjects" [value]="subject._id">{{ subject.name }}</option>
+                      </select>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label class="form-label">Type</label>
+                      <select class="form-select form-select-sm" [(ngModel)]="paper.subjectType" [name]="'type-' + i">
+                        <option value="Written">Written</option>
+                        <option value="Practical">Practical</option>
+                        <option value="Oral">Oral</option>
+                      </select>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                      <label class="form-label">Max Marks</label>
+                      <input type="number" class="form-control form-control-sm" [(ngModel)]="paper.maxMarks" [name]="'max-' + i" min="1" required>
+                    </div>
+
+                    <div class="col-6 col-md-3">
+                      <label class="form-label">Min Marks</label>
+                      <input type="number" class="form-control form-control-sm" [(ngModel)]="paper.minMarks" [name]="'min-' + i" min="0" required>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label class="form-label">Paper Code</label>
+                      <input type="text" class="form-control form-control-sm" [(ngModel)]="paper.paperCode" [name]="'code-' + i"  placeholder="Auto-generated">
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label class="form-label">Start Date & Time</label>
+                      <input type="datetime-local" class="form-control form-control-sm" [(ngModel)]="paper.paperStartDateTime" [name]="'pstart-' + i" required>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label class="form-label">End Date & Time</label>
+                      <input type="datetime-local" class="form-control form-control-sm" [(ngModel)]="paper.paperEndDateTime" [name]="'pend-' + i" required>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label class="form-label">Room No</label>
+                      <input type="text" class="form-control form-control-sm" [(ngModel)]="paper.roomNo" [name]="'room-' + i" placeholder="e.g., Room 101" required>
+                    </div>
+
+                    <div class="col-12">
+                      <label class="form-label">Grade Criteria</label>
+                      <input type="text" class="form-control form-control-sm" [(ngModel)]="paper.gradeCriteria" [name]="'grade-' + i" placeholder="e.g., A:90-100, B:80-89">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-outline-primary btn-sm mt-2" (click)="addExamPaper()">
+              Add New Paper
+            </button>
+          </fieldset>
+
+          <!-- Actions -->
+          <div class="d-flex justify-content-end gap-2 mt-4">
+            <button type="button" class="btn btn-secondary btn-sm" (click)="router.navigate(['/exams-&-progress/exam-list'])">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-success btn-sm" [disabled]="!exam.examPapers?.length">
+              <!-- <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span> -->
+              Create Exam
+            </button>
           </div>
-        </div>
-  
-        <button type="button" class="add-button" (click)="addExamPaper()">Add Exam Paper</button>
-      </div>
-  
-      <!-- Form Actions -->
-      <div class="form-actions">
-        <button type="submit" class="submit-button" [disabled]="!exam.examPapers?.length">Create Exam</button>
-      </div>
-    </form>
+
+        </form>
+      </app-card>
+
+    </div>
   </div>
+</div>

@@ -1,3 +1,5 @@
+// class-subject.service.ts (no changes needed - route is now correct)
+
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -48,24 +50,19 @@ export class ClassSubjectService {
     return this.http.get<Class[]>(`${this.apiUrl}/api/class-subject-management/classes/${schoolId}`);
   }
 
-  // getStudentsByClass(classId: string): Observable<any> {
-  //   const url = `${this.apiUrl}/api/students/get-student-by-class/${classId}`;
-  //   return this.http.get(url);
-  // }
-
   getStudentsByClass(classId: string, academicYearId: string): Observable<any> {
     const url = `${this.apiUrl}/api/students/get-student-by-class/${classId}`;
-    const params = new HttpParams().set('academicYearId', academicYearId); // Add academicYearId as query param
+    const params = new HttpParams().set('academicYearId', academicYearId);
     return this.http.get(url, { params });
   }
 
   assignRollNumbers(classId: string): Observable<any> {
-    const url = `${this.apiUrl}/api/students/assign-roll-numbers?classId=${classId}`; // Fixed: classId
+    const url = `${this.apiUrl}/api/students/assign-roll-numbers?classId=${classId}`;
     return this.http.post(url, {});
   }
 
   assignRollNumbersAlphabetically(classId: string): Observable<any> {
-    const url = `${this.apiUrl}/api/students/assign-roll-numbers-alphabetically?classId=${classId}`; // Fixed: classId
+    const url = `${this.apiUrl}/api/students/assign-roll-numbers-alphabetically?classId=${classId}`;
     return this.http.post(url, {});
   }
 
@@ -126,7 +123,6 @@ export class ClassSubjectService {
     });
   }
 
-  // class-subject.service.ts
   getTeacherAttendanceClasses(): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/class-subject-management/teacher-classes`);
   }

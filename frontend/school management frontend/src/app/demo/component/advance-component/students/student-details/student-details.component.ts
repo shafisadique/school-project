@@ -6,7 +6,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
 import { AcademicYearService } from '../../academic-year/academic-year.service';
 import { PaginationComponent } from '../../pagination/pagination.component';
-import { Subscription } from 'rxjs';
+import { Subscription, Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { NgbDropdownModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ToastrService } from 'ngx-toastr';
 import * as XLSX from 'xlsx';
@@ -18,7 +19,7 @@ interface Student {
   admissionNo: string;
   classId?: { _id: string; name: string };
   phone: string;
-  academicYearId:any;
+  academicYearId: any;
   gender: string;
   profileImage: string;
   dateOfBirth: any;
@@ -27,8 +28,8 @@ interface Student {
   rollNo: string;
   portalUsername: string;
   portalPassword: string;
-  parentPortalPassword:string;
-  parentPortalUsername:string;
+  parentPortalPassword: string;
+  parentPortalUsername: string;
   parents: parentsDetails;
   selected?: boolean; // Added for selection tracking
 }
@@ -87,6 +88,8 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   isSidebarVisible = false;
   selectedStudent: Student | null = null;
   private queryParamsSubscription?: Subscription;
+  private searchSubject = new Subject<string>();
+  private destroy$ = new Subject<void>();
 
   constructor(
     private studentService: StudentService,
@@ -103,6 +106,16 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     this.loadClasses();
     this.loadAcademicYears();
 
+    // Debounced search
+    this.searchSubject.pipe(
+      debounceTime(300),  // Wait 300ms after typing
+      distinctUntilChanged(),  // Only if query changed
+      takeUntil(this.destroy$)
+    ).subscribe(query => {
+      this.searchQuery = query;
+      this.onSearch();
+    });
+
     this.queryParamsSubscription = this.route.queryParams.subscribe(params => {
       this.currentPage = params['page'] ? parseInt(params['page'], 10) : 1;
       this.pageSize = params['limit'] ? parseInt(params['limit'], 10) : 25;
@@ -117,6 +130,13 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     if (this.queryParamsSubscription) {
       this.queryParamsSubscription.unsubscribe();
     }
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  // Public method to handle search input changes
+  onSearchInputChange(value: any): void {
+    this.searchSubject.next(value);
   }
 
   // Toggle student selection
@@ -158,24 +178,12 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     return this.selectedStudents.length > 0 && !this.areAllSelected();
   }
 
-  // Update selection when "Select All" checkbox changes
-  updateAllSelection(event: any): void {
-    const isChecked = event.target.checked;
-    
-    if (isChecked) {
-      this.selectedStudents = [...this.students];
-      this.students.forEach(student => student.selected = true);
-    } else {
-      this.selectedStudents = [];
-      this.students.forEach(student => student.selected = false);
-    }
-  }
-
   onUpdateStudent(): void {
     if (this.selectedStudents.length === 1) {
       this.router.navigate(['/student/student-update', this.selectedStudents[0]._id]);
     }
   }
+
   downloadExcel(): void {
     // Prepare data for Excel
     const excelData = this.students.map(student => ({
@@ -205,34 +213,34 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     saveAs(data, `students_list_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
- onDeleteStudents(): void {
-  if (this.selectedStudents.length === 0) return;
-  
-  const confirmMessage = this.selectedStudents.length === 1 
-    ? `Are you sure you want to delete ${this.selectedStudents[0].name}?`
-    : `Are you sure you want to delete ${this.selectedStudents.length} students?`;
-  
-  if (confirm(confirmMessage)) {
-    const studentIds = this.selectedStudents.map(s => s._id);
-    console.log('Deleting students with IDs:', studentIds); // Debug log
+  onDeleteStudents(): void {
+    if (this.selectedStudents.length === 0) return;
     
-    this.studentService.deleteStudents(studentIds).subscribe({
-      next: () => {
-        this.toastr.success('Students deleted successfully', 'Success');
-        this.selectedStudents = [];
-        this.loadStudents(); // Reload the student list
-      },
-      error: (err) => {
-        console.error('Delete error:', err); // Debug error
-        this.toastr.error(err.error.message || 'Error deleting students', 'Error');
-      }
-    });
+    const confirmMessage = this.selectedStudents.length === 1 
+      ? `Are you sure you want to delete ${this.selectedStudents[0].name}?`
+      : `Are you sure you want to delete ${this.selectedStudents.length} students?`;
+    
+    if (confirm(confirmMessage)) {
+      const studentIds = this.selectedStudents.map(s => s._id);
+      console.log('Deleting students with IDs:', studentIds); // Debug log
+      
+      this.studentService.deleteStudents(studentIds).subscribe({
+        next: () => {
+          this.toastr.success('Students deleted successfully', 'Success');
+          this.selectedStudents = [];
+          this.loadStudents(); // Reload the student list
+        },
+        error: (err) => {
+          console.error('Delete error:', err); // Debug error
+          this.toastr.error(err.error.message || 'Error deleting students', 'Error');
+        }
+      });
+    }
   }
-}
 
   openStudentDetails(student: Student, content: any): void {
-    this.selectedStudent = student;
-    this.modalService.open(content, { size: 'sm', backdrop: 'static' });
+    this.selectedStudent = { ...student };  // Clone to avoid mutations
+    this.modalService.open(content, { size: 'lg', backdrop: 'static', centered: true });
   }
 
   onImageError(event: Event): void {
@@ -282,16 +290,24 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
         this.pageSize = response.limit;
 
         // Clear selection when loading new data
+        this.students.forEach(s => s.selected = false);
         this.selectedStudents = [];
+
+        // Enhanced empty state
+        if (response.students.length === 0) {
+          this.toastr.warning('No students found matching your criteria.', 'No Results');
+        }
       },
       error: (err) => {
         console.error('Error fetching students:', err);
+        this.toastr.error(err.error?.message || 'Failed to load students. Please try again.', 'Error');
+        // Fallback: Reset to empty if critical error
+        this.students = [];
       }
     });
 
     this.updateUrl();
   }
-
 
   updateUrl(): void {
     const queryParams: any = {
@@ -344,7 +360,7 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     });
   }
 
- createPortal(studentId: string, role: 'student' | 'parent') {
+  createPortal(studentId: string, role: 'student' | 'parent') {
     if (role === 'parent' && localStorage.getItem('role') !== 'admin') {
       this.toastr.error('Only admins can create parent portals.', 'Error');
       return;
@@ -356,6 +372,7 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
         if (role === 'parent' && res.parent) {
           // Optionally open a modal to show credentials
           this.showPortalCredentials(res.parent);
+          this.loadStudents();
         }
       },
       error: (err) => {
@@ -363,6 +380,7 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
       }
     });
   }
+
   showPortalCredentials(parent: any) {
     const modalRef = this.modalService.open(NgbModal, { size: 'sm', backdrop: 'static' });
     modalRef.componentInstance.title = 'Parent Portal Credentials';
@@ -411,37 +429,22 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   }
 
   getImageUrl(profileImage: string): string {
-  if (!profileImage || profileImage.trim() === '') {
-    return 'assets/avtart-new.png';
+    if (!profileImage || profileImage.trim() === '') {
+      return 'assets/avtart-new.png';
+    }
+
+    // If it's already a full URL (from older entries), use it directly
+    if (profileImage.startsWith('http')) {
+      return profileImage;
+    }
+    // If it's a key (new format), use the proxy endpoint
+    const backendUrl = 'https://edglobe.vercel.app'; // Your backend URL
+    return `${backendUrl}/api/proxy-image/${encodeURIComponent(profileImage)}`;
   }
 
-  // If it's already a full URL (from older entries), use it directly
-  if (profileImage.startsWith('http')) {
-    return profileImage;
+  createStudent() {
+    this.router.navigate(['/student/student-create']);
   }
-  // If it's a key (new format), use the proxy endpoint
-  const backendUrl = 'https://school-management-backend-khaki.vercel.app'; // Your backend URL
-  return `${backendUrl}/api/proxy-image/${encodeURIComponent(profileImage)}`;
-}
-createStudent(){
-  this.router.navigate(['/student/student-create'])
-}
-  // getImageUrl(profileImage: string): string {
-  //   if (!profileImage || profileImage.trim() === '') {
-  //     return 'assets/default-avatar.png';
-  //   }
-
-  //   // If the URL is from R2, extract the key (path after the bucket name)
-  //   if (profileImage.includes('r2.cloudflarestorage.com')) {
-  //     const urlParts = profileImage.split('/school-bucket/');
-  //     if (urlParts.length > 1) {
-  //       const key = urlParts[1]; // e.g., 'students/1755955052920-student.png'
-  //       return `${this.backendUrl}/api/proxy-image/${key}`;
-  //     }
-  //   }
-  //   // Fallback to default if the URL format is unexpected
-  //   return 'assets/default-avatar.png';
-  // }
 
   getInitials(name: string): string {
     return name

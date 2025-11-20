@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const validateSchoolAccess = require('../middleware/validateSchoolAccess');
-const {  externalRoleMiddleware } = require('../middleware/roleMiddleware');
+const {  externalRoleMiddleware, isAdmin } = require('../middleware/roleMiddleware');
 const path = require('path');
 const fs = require('fs');
 const {
@@ -23,6 +23,8 @@ const {
   getFeeCollectionDetailsReport,
   generateReceiptPDF,
   getStudentInvoices,
+  searchInvoiceStudents,
+  getStudentPaymentHistory,
 } = require('../controllers/fee/paymentController');
 const invoiceService = require('../models/invoice.service');
 const { searchStudents } = require('../controllers/student/studentController');
@@ -40,6 +42,7 @@ router.delete('/structures/:id', authMiddleware, validateSchoolAccess(FeeStructu
 
 // Add route for get-fee-structure (used by frontend)
 router.get('/get-fee-structure', authMiddleware, getFeeStructures);
+router.get('/search', authMiddleware, isAdmin, searchInvoiceStudents);
 
 // Invoice Generation
 router.post('/generate', authMiddleware, async (req, res) => {
@@ -74,7 +77,7 @@ router.get('/download-receipt/:filename', authMiddleware, (req, res) => {
 });
 
 
-router.get('/invoices/class/:classId/month/:month',authMiddleware, invoiceService.getInvoicesByClassAndMonth);
+router.get('/invoices',authMiddleware, invoiceService.getInvoicesByClassAndMonth);
 
 // Notify Parents
 router.post('/notify-parents', authMiddleware, async (req, res) => {
@@ -88,7 +91,7 @@ router.post('/notify-parents', authMiddleware, async (req, res) => {
 
     const students = await Student.find({ schoolId, classId: classId });
     const invoices = await Invoice.find({
-      schoolId,
+      schoolId, 
       academicYear: academicYearId,
       month,
       studentId: { $in: students.map(s => s._id) }
@@ -121,5 +124,6 @@ router.get('/reports/collection', authMiddleware, getFeeCollectionReport);
 router.get('/reports/defaulters', authMiddleware, getDefaultersList);
 router.get('/paid-invoices', authMiddleware, adminOrAccountant,getPaidInvoiceList );
 router.get('/invoices/student/:studentId', authMiddleware, getStudentInvoices);
+router.get('/students/:studentId/payment-history', authMiddleware, getStudentPaymentHistory);
 router.get('/receipts/:receiptId/pdf', authMiddleware, validateSchoolAccess(Receipt), generateReceiptPDF);
 module.exports = router;

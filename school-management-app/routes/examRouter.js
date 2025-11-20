@@ -1,23 +1,38 @@
 // routes/exam.js
 const express = require('express');
 const router = express.Router();
-const { createExam, getExamHistory, getExamSummary, getExamsBySchool, getExamsByTeacher, updateExam, getExamById, getExamsForResultEntry } = require('../controllers/exam/examController');
+const { 
+  createExam, 
+  updateExam, 
+  getExamById,
+  getExamsByTeacher, 
+  getExamsForResultEntry,
+  getExamHistory,
+  getExamsBySchool,
+  getExamSummary 
+} = require('../controllers/exam/examController');
+
 const authMiddleware = require('../middleware/authMiddleware');
-const { isAdmin, isTeacher, externalRoleMiddleware } = require('../middleware/roleMiddleware');
+const { isAdmin, isTeacher } = require('../middleware/roleMiddleware');
+const checkFeatureAccess = require('../middleware/checkFeatureAccess');
 
 router.use(authMiddleware);
 
-// Super Admin or Admin-only routes
-router.post('/create', [isAdmin], createExam);
-router.get('/school/:schoolId', [isAdmin], getExamsBySchool);
-router.get('/summary', [isAdmin], getExamSummary);
-router.put('/:examId', [isAdmin], updateExam);
+// Apply feature check ONLY where exam creation/modification happens
+const requireExamFeature = checkFeatureAccess('exam');
 
-// Teacher-only routes
-router.get('/teacher', [isTeacher], getExamsByTeacher); // For listing in ResultListComponent
-router.get('/teacher/exams', [isTeacher], getExamsForResultEntry); // For result entry
-router.get('/history/:classId', [isTeacher, externalRoleMiddleware(['teacher'])], getExamHistory);
-router.get('/teacher/:examId', [isTeacher], getExamById); // Ensure this doesn’t conflict
-router.get('/:examId', [isAdmin], getExamById);
+// Super Admin or Admin-only routes + Premium required
+router.post('/create', [isAdmin, requireExamFeature], createExam);
+router.put('/:examId', [isAdmin, requireExamFeature], updateExam);
+
+// These are safe (read-only or teacher access) → no need to block completely
+// But you can optionally restrict creation-only actions
+router.get('/school/:schoolId', [isAdmin], getExamsBySchool); // Can allow viewing
+router.get('/summary', [isAdmin], getExamSummary);
+
+router.get('/teacher', [isTeacher], getExamsByTeacher);
+router.get('/teacher/exams', [isTeacher], getExamsForResultEntry);
+router.get('/history/:classId', [isTeacher], getExamHistory);
+router.get('/:examId', getExamById); // Allow both admin & teacher with ID
 
 module.exports = router;

@@ -24,6 +24,13 @@ export class FeeInvoiceService {
   getStudentInvoices(studentId: string) {
     return this.http.get(`${this.apiUrl}/students/${studentId}/invoices`);
   }
+
+
+  searchInvoiceStudents(query: string, schoolId: string) {
+    return this.http.get<any>(`${this.apiUrl}/fees/search`, {
+      params: { q: query, schoolId }
+    });
+  }
 // fee-invoice.service.ts
 generateBulkInvoices(data: {
   schoolId: string;

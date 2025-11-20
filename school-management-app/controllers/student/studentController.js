@@ -2,12 +2,12 @@ const Student = require('../../models/student');
 const Subject = require('../../models/subject');
 const AcademicYear = require('../../models/academicyear');
 const APIError = require('../../utils/apiError');
-const Class = require('../../models/class'); // Added for getStudentsByClass
-const School = require('../../models/school'); // Added for getStudentsByClass
-const Teacher = require('../../models/teacher'); // Added for getStudentsByClass
-const mongoose = require('mongoose'); // Added for getStudentsByClass
+const Class = require('../../models/class');
+const School = require('../../models/school');
+const Teacher = require('../../models/teacher');
+const mongoose = require('mongoose');
 const multer = require('multer');
-const { paginate } = require('../../utils/paginationHelper'); // Adjust path as needed
+const { paginate } = require('../../utils/paginationHelper');
 const Route = require('../../models/route');
 const User = require('../../models/user');
 const crypto = require('crypto');
@@ -15,23 +15,46 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { toR2Key } = require('../../utils/image');
 const path = require('path');
 const classSubjectAssignment = require('../../models/classSubjectAssignment');
-const Subscription = require('../../models/subscription');
-const { deliver } = require('../../services/notificationService');
-const Notification = require('../../models/notifiation');
-const bcrypt = require('bcryptjs');
-const AuditLog =require('../../models/auditLogs')
-// Configure multer for file uploads
-// const storage = multer.memoryStorage({
-//   destination: (req, file, cb) => {
-//     cb(null, 'uploads/');
-//   },
-//   filename: (req, file, cb) => {
-//     cb(null, `${Date.now()}-${file.originalname}`);
-//   }
-// });
+const AuditLog = require('../../models/auditLogs');
+const subscription = require('../../models/subscription');
+const logger = require('../../config/logger');
 
-// const upload = multer({ storage });
+let ENCRYPTION_KEY = process.env.ENCRYPTION_KEY?.trim();
+const IV_LENGTH = 16;
 
+// ── VALIDATE KEY IMMEDIATELY ──
+if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('Invalid ENCRYPTION_KEY → using fallback');
+    ENCRYPTION_KEY = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f123';
+  } else {
+    throw new Error('ENCRYPTION_KEY must be 64-char hex string');
+  }
+}
+
+try {
+  if (Buffer.from(ENCRYPTION_KEY, 'hex').length !== 32) throw new Error();
+} catch {
+  if (process.env.NODE_ENV === 'development') {
+    ENCRYPTION_KEY = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f123';
+  } else {
+    throw new Error('ENCRYPTION_KEY must be valid 32-byte hex');
+  }
+}
+
+// ---------- Multer (memory) ----------
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new APIError('Only PNG/JPG/JPEG allowed', 400));
+  },
+});
+
+// ---------- R2 client ----------
 const s3Client = new S3Client({
   region: 'auto',
   endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -41,56 +64,7 @@ const s3Client = new S3Client({
   },
 });
 
-// Multer setup for file uploads
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-// Encryption configuration
-let ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
-const IV_LENGTH = 16; // AES-256-CBC IV length
-
-
-// Validate ENCRYPTION_KEY
-if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 64) {
-  if (process.env.NODE_ENV === 'development') {
-    console.warn(
-      `Invalid ENCRYPTION_KEY length: "${ENCRYPTION_KEY}". Using fallback key for development.`
-    );
-    ENCRYPTION_KEY = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f123';
-  } else {
-    throw new Error(
-      `ENCRYPTION_KEY must be a 64-character hex string in .env. Current value: "${ENCRYPTION_KEY}"`
-    );
-  }
-}
-
-try {
-  if (Buffer.from(ENCRYPTION_KEY, 'hex').length !== 32) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        `Invalid ENCRYPTION_KEY buffer length: "${ENCRYPTION_KEY}". Using fallback key for development.`
-      );
-      ENCRYPTION_KEY = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f123';
-    } else {
-      throw new Error(
-        `ENCRYPTION_KEY must produce a 32-byte buffer (64-character hex string) in .env. Current value: "${ENCRYPTION_KEY}"`
-      );
-    }
-  }
-} catch (err) {
-  if (process.env.NODE_ENV === 'development') {
-    console.warn(
-      `ENCRYPTION_KEY parsing failed: ${err.message}. Using fallback key for development.`
-    );
-    ENCRYPTION_KEY = '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f123';
-  } else {
-    throw new Error(
-      `ENCRYPTION_KEY parsing failed: ${err.message}. Ensure it is a 64-character hex string in .env. Current value: "${ENCRYPTION_KEY}"`
-    );
-  }
-}
-
-// Function to encrypt password
+// ── Function to encrypt password ──
 const encryptPassword = (text) => {
   try {
     const iv = crypto.randomBytes(IV_LENGTH);
@@ -99,12 +73,12 @@ const encryptPassword = (text) => {
     encrypted += cipher.final('hex');
     return `${iv.toString('hex')}:${encrypted}`;
   } catch (error) {
-    console.error('Encryption error:', error.message);
+    logger.error('Encryption error:', error.message);
     throw new APIError('Failed to encrypt password', 500);
   }
 };
 
-// Function to decrypt password
+// ── Function to decrypt password ──
 const decryptPassword = (encryptedText) => {
   try {
     if (!encryptedText || typeof encryptedText !== 'string') {
@@ -120,105 +94,12 @@ const decryptPassword = (encryptedText) => {
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (error) {
-    console.error('Decryption error:', error.message);
+    logger.error('Decryption error:', error.message);
     return null; // Return null for invalid decryption
-  }
-}
-
-// Moved getStudentsByClass from attendanceControllers.js
-const getStudentsByClass = async (req, res, next) => {
-  try {
-    const { classId } = req.params;
-    const { academicYearId } = req.query;
-
-    // Validate classId
-    if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
-      throw new APIError('Valid Class ID is required', 400);
-    }
-    if (!req.user || !req.user.id) {
-      throw new APIError('Authentication required', 401);
-    }
-
-    // Validate academicYearId if provided
-    let academicYearFilter;
-    if (academicYearId) {
-      if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
-        throw new APIError('Invalid academic year ID format', 400);
-      }
-      academicYearFilter = new mongoose.Types.ObjectId(academicYearId);
-    } else {
-      // Fetch the active academic year from the School model if not provided
-      const school = await School.findById(req.user.schoolId).select('activeAcademicYear');
-      if (!school || !school.activeAcademicYear) {
-        throw new APIError('No active academic year set for this school', 400);
-      }
-      academicYearFilter = school.activeAcademicYear;
-    }
-
-    // Verify the class exists in this school
-    const classExists = await Class.findOne({ _id: classId, schoolId: req.user.schoolId });
-    if (!classExists) {
-      throw new APIError('Class not found in this school', 404);
-    }
-
-    // Authorization check for teachers
-    if (req.user.role === 'teacher') {
-      const teacher = await Teacher.findOne({ userId: req.user.id });
-      if (!teacher) {
-        throw new APIError('Teacher profile not found', 404);
-      }
-      const teacherId = teacher._id;
-
-      // Check if the teacher is assigned to the class via ClassSubjectAssignment
-      const assignment = await classSubjectAssignment.findOne({
-        schoolId: req.user.schoolId,
-        classId: new mongoose.Types.ObjectId(classId),
-        teacherId: teacherId,
-        academicYearId: academicYearFilter,
-      });
-
-      // Check if the teacher is the primary or substitute attendance teacher
-      const isAttendanceTeacher = classExists.attendanceTeacher && classExists.attendanceTeacher.toString() === teacherId.toString();
-      const isSubstituteTeacher = classExists.substituteAttendanceTeachers.some(
-        (subTeacherId) => subTeacherId.toString() === teacherId.toString()
-      );
-
-      // If the teacher is neither assigned to the class nor an attendance teacher
-      if (!assignment && !isAttendanceTeacher && !isSubstituteTeacher) {
-        throw new APIError('You are not authorized to view students in this class', 403);
-      }
-    }
-
-    // Build the query
-    const query = {
-      schoolId: new mongoose.Types.ObjectId(req.user.schoolId),
-      classId: new mongoose.Types.ObjectId(classId),
-      academicYearId: academicYearFilter,
-      status: true, // Only fetch active students
-    };
-
-    // Use the pagination helper
-    const result = await paginate(
-      Student,
-      query,
-      req.query,
-      [{ path: 'classId', select: 'name' }],
-      { rollNo: 1 }
-    );
-
-    res.status(200).json({
-      students: result.data,
-      total: result.total,
-      page: result.page,
-      limit: result.limit,
-      totalPages: result.totalPages,
-    });
-  } catch (error) {
-    console.log('Error in getStudentsByClass:', error.message);
-    next(error);
   }
 };
 
+// ---------- Helper: generate admissionNo ----------
 const generateAdmissionNo = async (schoolId, academicYearId) => {
   try {
     // Fetch the school to verify existence
@@ -260,209 +141,315 @@ const generateAdmissionNo = async (schoolId, academicYearId) => {
 };
 
 
-const validateParent = async (req, res) => {
+// ---------- CREATE STUDENT (POST /api/students/add) ----------
+const createStudent = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
-    const studentId = req.params.studentId;
-    const userId = req.query.userId; // Extract userId from query params
+    // ---- auth & school ----
+    const userId = req.user._id || req.user.id;
+    const schoolId = req.user.schoolId;
+    if (!userId || !schoolId) throw new APIError('Unauthenticated', 401);
 
-    if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
+    // ---- parse FormData (multer already gave us req.body & req.file) ----
+    const body = { ...req.body };
+
+    // Convert stringified fields
+    if (body.section) body.section = Array.isArray(body.section) ? body.section : [body.section];
+    if (body.parents) body.parents = JSON.parse(body.parents);
+    // Phone: Optional, but 10 digits if provided
+    if (body.phone) {
+      const cleanedPhone = body.phone.toString().replace(/\D/g, '').slice(-10);
+      if (cleanedPhone.length !== 10) {
+        return next(new APIError('Phone number must be 10 digits', 400));
+      }
+      body.phone = cleanedPhone;
     }
 
-    const student = await Student.findOne({ _id: studentId, parentId: userId });
-    if (!student) {
-      return res.status(404).json({ error: 'Student not found or parent not authorized' });
+    // Parents
+    if (body.parents) {
+      if (body.parents.fatherName && !body.parents.fatherPhone) {
+        return next(new APIError("Father's phone number is required", 400));
+      }
+      if (body.parents.motherName && !body.parents.motherPhone) {
+        return next(new APIError("Mother's phone number is required", 400));
+      }
+      if (body.parents.fatherPhone && !/^\d{10}$/.test(body.parents.fatherPhone)) {
+        return next(new APIError("Father's phone number must be 10 digits", 400));
+      }
+      if (body.parents.motherPhone && !/^\d{10}$/.test(body.parents.motherPhone)) {
+        return next(new APIError("Mother's phone number must be 10 digits", 400));
+      }
+    }
+    body.usesTransport = body.usesTransport === 'true';
+    body.usesHostel = body.usesHostel === 'true';
+
+    // ---- required file ----
+    if (!req.file) throw new APIError('Profile picture is required', 400);
+
+    // ---- upload to R2 ----
+    const ext = req.file.originalname.split('.').pop().toLowerCase();
+    const key = `students/${Date.now()}-${userId}.${ext}`;
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: key,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      })
+    );
+
+    // ---- active academic year ----
+    const activeYearResp = await fetch(
+      `${req.protocol}://${req.get('host')}/api/academicyear/active/${schoolId}`,
+      { headers: { Authorization: req.headers.authorization } }
+    );
+    const activeYear = await activeYearResp.json();
+    if (!activeYear?._id) throw new APIError('No active academic year', 400);
+    body.academicYearId = activeYear._id;
+
+    // ---- generate admissionNo ----
+    body.admissionNo = await generateAdmissionNo(schoolId, body.academicYearId);
+
+    // ---- final object for Mongoose (only fields that exist in schema) ----
+    const studentData = {
+      admissionNo: body.admissionNo,
+      name: body.name?.trim(),
+      email: body.email?.trim() || '',
+      phone: body.phone?.trim() || '',
+      dateOfBirth: body.dateOfBirth,
+      city: body.city?.trim(),
+      state: body.state?.trim(),
+      country: body.country?.trim(),
+      address: body.address?.trim(),
+      classId: body.classId,
+      section: body.section,
+      gender: body.gender,
+      schoolId,
+      academicYearId: body.academicYearId,
+      profileImage: key,
+      routeId: body.usesTransport ? body.routeId : null,
+      feePreferences: new Map([
+        ['usesTransport', body.usesTransport],
+        ['usesHostel', body.usesHostel],
+        ['usesLibrary', false],
+        ['needsDress', false],
+        ['usesLab', false],
+        ['needsExamFee', true],
+        ['needsMiscFee', false],
+      ]),
+      parents: body.parents || {},
+      createdBy: userId,
+      status: true,
+    };
+
+    // ---- Mongoose will run ALL schema validators (including pre-validate) ----
+    const student = new Student(studentData);
+    await student.validate();               // throws if invalid
+    await student.save({ session });
+
+    // ───────────────────── SEND WELCOME TO PARENT ─────────────────────
+    try {
+      const [school, subscription] = await Promise.all([
+        School.findById(schoolId).select('name preferredChannel'),
+        Subscription.findOne({
+          schoolId,
+          status: { $in: ['active', 'grace_period'] },
+          expiresAt: { $gt: new Date() }
+        }).sort({ priority: -1 })
+      ]);
+
+      if (!school || !subscription) {
+        console.log('No school or subscription → skip welcome');
+      } else {
+        // Reset monthly usage if new month
+        const now = new Date();
+        const lastReset = subscription.usageStats.lastResetDate;
+        const isNewMonth = lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear();
+
+        if (isNewMonth) {
+          subscription.usageStats.smsUsedThisMonth = 0;
+          subscription.usageStats.whatsappUsedThisMonth = 0;
+          subscription.usageStats.lastResetDate = now;
+        }
+
+        const parentPhone = student.parents.fatherPhone || student.parents.motherPhone;
+        if (!parentPhone) {
+          console.log('No parent phone → skip welcome');
+        } else {
+          const cleanPhone = parentPhone.replace(/\D/g, '').slice(-10);
+          const fullPhone = `+91${cleanPhone}`;
+
+          const className = await Class.findById(student.classId).select('name').lean();
+          const message = `Welcome to ${school.name}! Your child ${student.name} is enrolled in ${className.name}, Section ${student.section.join(', ')}. Admission No: ${student.admissionNo}.`;
+
+          let smsSent = false, waSent = false;
+
+          // SEND SMS
+          if ((school.preferredChannel === 'sms' || school.preferredChannel === 'both') &&
+              subscription.usageStats.smsUsedThisMonth < subscription.messageLimits.smsMonthly) {
+            await sendSMS(fullPhone, { type: 'welcome-student', message }, school.name);
+            subscription.usageStats.smsUsedThisMonth++;
+            smsSent = true;
+          }
+
+          // SEND WHATSAPP
+          if ((school.preferredChannel === 'whatsapp' || school.preferredChannel === 'both') &&
+              subscription.usageStats.whatsappUsedThisMonth < subscription.messageLimits.whatsappMonthly) {
+            await sendWhatsApp(fullPhone, { type: 'welcome-student', message }, school.name);
+            subscription.usageStats.whatsappUsedThisMonth++;
+            waSent = true;
+          }
+
+          await subscription.save();
+
+          console.log(`Welcome → SMS: ${smsSent}, WhatsApp: ${waSent}`);
+        }
+      }
+    } catch (err) {
+      console.error('Welcome failed:', err.message);
+      // Don't fail student creation
     }
 
-    res.json({ success: true });
+    await session.commitTransaction();
+    res.status(201).json({ message: 'Student created successfully', student });
   } catch (err) {
-    console.error('Validation error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    await session.abortTransaction();
+    next(err);
+  } finally {
+    session.endSession();
   }
 };
 
-
-const createStudent = async (req, res, next) => {
+// ---------- GET STUDENTS BY CLASS ──
+const getStudentsByClass = async (req, res, next) => {
   try {
-    if (!req.user || (!req.user._id && !req.user.id)) {
-      return res.status(401).json({ message: 'User not authenticated, ID missing' });
+    const { classId } = req.params;
+    const { academicYearId } = req.query;
+
+    if (!classId || !mongoose.Types.ObjectId.isValid(classId)) {
+      throw new APIError('Valid Class ID required', 400);
     }
-    const userId = req.user._id || req.user.id;
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({ message: 'Invalid user ID format' });
+    if (!req.user || !req.user.id) {
+      throw new APIError('Authentication required', 401);
     }
 
-    const {
-      name,
-      email,
-      phone,
-      dateOfBirth,
-      city,
-      state,
-      country,
-      classId,
-      section,
-      address,
-      gender,
-      usesTransport,
-      usesHostel,
-      usesLibrary,
-      needsDress,
-      usesLab,
-      needsExamFee,
-      parents,
-      academicYearId,
-      routeId,
-    } = req.body;
-
-    const parsedSection = typeof section === 'string' ? JSON.parse(section) : section;
-    const parsedParents = typeof parents === 'string' ? JSON.parse(parents) : parents;
-
-    const schoolId = req.user.schoolId;
-    const admissionNo = await generateAdmissionNo(schoolId, academicYearId);
-    console.log('working first')
-
-    const feePreferences = new Map();
-    feePreferences.set('usesTransport', usesTransport === 'true');
-    feePreferences.set('usesHostel', usesHostel === 'true');
-    feePreferences.set('usesLibrary', usesLibrary === 'true');
-    feePreferences.set('needsDress', needsDress === 'true');
-    feePreferences.set('usesLab', usesLab === 'true');
-    feePreferences.set('needsExamFee', needsExamFee === 'true');
-
-    let finalRouteId = null;
-    if (usesTransport === 'true' && routeId) {
-      if (!mongoose.Types.ObjectId.isValid(routeId)) {
-        throw new APIError('Invalid route ID format', 400);
+    let academicYearFilter;
+    if (academicYearId) {
+      if (!mongoose.Types.ObjectId.isValid(academicYearId)) {
+        throw new APIError('Invalid academic year ID', 400);
       }
-      const route = await Route.findOne({ _id: routeId, schoolId });
-      if (!route) {
-        throw new APIError('Route not found or does not belong to this school', 404);
+      academicYearFilter = new mongoose.Types.ObjectId(academicYearId);
+    } else {
+      const school = await School.findById(req.user.schoolId).select('activeAcademicYear');
+      if (!school || !school.activeAcademicYear) {
+        throw new APIError('No active academic year', 400);
       }
-      finalRouteId = routeId;
-    } else if (usesTransport === 'true' && !routeId) {
-      throw new APIError('A route is required when transportation is enabled', 400);
+      academicYearFilter = school.activeAcademicYear;
     }
 
-    let profileImageUrl = '';
-    if (req.file) {
-      console.log('working second')
+    const classExists = await Class.findOne({ _id: classId, schoolId: req.user.schoolId });
+    if (!classExists) throw new APIError('Class not found in school', 404);
 
-      const fileBuffer = req.file.buffer;
-      const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      const params = {
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: `students/${fileName}`, // Add 'students/' prefix
-        Body: fileBuffer,
-        ContentType: req.file.mimetype,
-      };
+    if (req.user.role === 'teacher') {
+      const teacher = await Teacher.findOne({ userId: req.user.id });
+      if (!teacher) throw new APIError('Teacher profile not found', 404);
+      const teacherId = teacher._id;
 
-      const command = new PutObjectCommand(params);
-      await s3Client.send(command);
-      profileImageUrl = `students/${fileName}`;
+      const assignment = await classSubjectAssignment.findOne({
+        schoolId: req.user.schoolId,
+        classId: new mongoose.Types.ObjectId(classId),
+        teacherId: teacherId,
+        academicYearId: academicYearFilter,
+      });
 
+      const isAttendanceTeacher = classExists.attendanceTeacher && classExists.attendanceTeacher.toString() === teacherId.toString();
+      const isSubstituteTeacher = classExists.substituteAttendanceTeachers.some(sub => sub.toString() === teacherId.toString());
+
+      if (!assignment && !isAttendanceTeacher && !isSubstituteTeacher) {
+        throw new APIError('Unauthorized for this class', 403);
+      }
     }
 
-    const newStudent = new Student({
-      admissionNo,
-      name,
-      email,
-      phone: phone || undefined,
-      dateOfBirth,
-      city,
-      state,
-      country,
-      classId,
-      section: parsedSection,
-      address,
-      gender,
-      schoolId,
-      academicYearId,
-      feePreferences,
-      parents: parsedParents,
-      createdBy: userId,
-      profileImage: profileImageUrl,
-      routeId: finalRouteId,
+    const query = {
+      schoolId: new mongoose.Types.ObjectId(req.user.schoolId),
+      classId: new mongoose.Types.ObjectId(classId),
+      academicYearId: academicYearFilter,
       status: true,
+    };
+
+    const result = await paginate(Student, query, req.query, [{ path: 'classId', select: 'name' }], { rollNo: 1 });
+
+    res.json({
+      students: result.data,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
     });
-
-    await newStudent.save();
-
-    res.status(201).json({ message: 'Student created successfully', student: newStudent });
   } catch (error) {
-    console.error('Error creating student:', error.message, error.stack);
+    logger.error('getStudentsByClass error:', error);
     next(error);
   }
 };
 
+// ---------- VALIDATE PARENT ──
+const validateParent = async (req, res) => {
+  try {
+    const studentId = req.params.studentId;
+    const userId = req.query.userId;
 
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+
+    const student = await Student.findOne({ _id: studentId, parentId: userId });
+    if (!student) return res.status(404).json({ error: 'Student not found or parent not authorized' });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('validateParent error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// ---------- BULK CREATE STUDENTS ──
 const bulkCreateStudents = async (req, res, next) => {
   try {
     const studentsData = req.body;
-    if (!Array.isArray(studentsData) || studentsData.length === 0) {
-      throw new APIError('Students data must be a non-empty array', 400);
+    if (!Array.isArray(studentsData) || !studentsData.length) {
+      throw new APIError('Students data must be non-empty array', 400);
     }
 
     const schoolId = req.user.schoolId;
     const userId = req.user._id || req.user.id;
 
-    // Get active academic year if not provided
     const academicYear = await AcademicYear.findOne({ schoolId, isActive: true });
-    if (!academicYear) {
-      throw new APIError('No active academic year found', 404);
-    }
-    const academicYearId = academicYear._id;
+    if (!academicYear) throw new APIError('No active academic year', 404);
 
-    // Fetch all valid classIds for this school to validate
     const classes = await Class.find({ schoolId });
     const validClassIds = new Set(classes.map(cls => cls._id.toString()));
 
-    // Get the current student count once, before processing the batch
-    const studentCount = await Student.countDocuments({ schoolId, academicYearId });
-    let sequentialNumber = studentCount; // Start from the current count
+    const studentCount = await Student.countDocuments({ schoolId, academicYearId: academicYear._id });
+    let sequentialNumber = studentCount;
 
-    // Fetch school code once
-    const school = await School.findById(schoolId);
-    if (!school) {
-      throw new APIError('School not found', 404);
-    }
+    const school = await School.findById(schoolId).select('code');
     const schoolCode = school.code || 'SCH';
+    const year = academicYear.name.split('-')[0];
 
-    // Extract the year from the academic year name
-    const year = academicYear.name.split('-')[0]; // e.g., "2025"
-
-    // Prepare students data for insertion
     const studentsToInsert = await Promise.all(studentsData.map(async (student, index) => {
-      // Validate classId
-      if (!student.classId) {
-        throw new APIError(`Class ID is required for student at index ${index}`, 400);
+      const classId = student.classId?.trim();
+      if (!classId || !mongoose.Types.ObjectId.isValid(classId) || !validClassIds.has(classId)) {
+        throw new APIError(`Invalid class ID for student ${index}`, 400);
       }
 
-      const classId = student.classId.trim();
-      console.log(`Class ID for student at index ${index}: "${classId}"`); // Debug log
-
-      if (!mongoose.Types.ObjectId.isValid(classId)) {
-        throw new APIError(`Invalid class ID format for student at index ${index}: "${classId}"`, 400);
-      }
-
-      if (!validClassIds.has(classId)) {
-        throw new APIError(`Class ID ${classId} not found or does not belong to this school for student at index ${index}`, 404);
-      }
-
-      // Increment the sequential number for each student
       sequentialNumber += 1;
-      const formattedSequentialNumber = sequentialNumber.toString().padStart(3, '0');
-      const admissionNo = `${schoolCode}-${year}-${formattedSequentialNumber}`;
+      const admissionNo = `${schoolCode}-${year}-${sequentialNumber.toString().padStart(3, '0')}`;
 
-      console.log(`Generated admissionNo for student at index ${index}: ${admissionNo}`); // Debug log
-
-      // Parse address to extract city, state, country
       const addressParts = student.address.split(', ').map(part => part.trim());
       const city = addressParts[addressParts.length - 2] || '';
       const state = addressParts[addressParts.length - 1] || '';
-      const country = 'India'; // Default, adjust as needed
+      const country = 'India';
 
-      // Ensure parents data meets schema requirements
       const parents = student.parents || {
         fatherName: student.name.split(' ')[0] + ' Father',
         fatherPhone: student.phone,
@@ -479,12 +466,12 @@ const bulkCreateStudents = async (req, res, next) => {
         city,
         state,
         country,
-        classId: classId,
+        classId,
         section: student.section,
         address: student.address,
         gender: student.gender,
         schoolId,
-        academicYearId,
+        academicYearId: academicYear._id,
         usesTransport: student.transport === 'YES',
         usesHostel: student.hostel === 'YES',
         parents,
@@ -493,73 +480,60 @@ const bulkCreateStudents = async (req, res, next) => {
       };
     }));
 
-    // Insert students
     const createdStudents = await Student.insertMany(studentsToInsert, { ordered: false });
     res.status(201).json({ success: true, data: createdStudents });
   } catch (error) {
-    console.error('Error in bulkCreateStudents:', error);
+    logger.error('bulkCreateStudents error:', error);
     next(error);
   }
 };
 
+// ── GET STUDENTS ──
 const getStudents = async (req, res, next) => {
   try {
     const { page = 1, limit = 25, classId, academicYearId, search } = req.query;
-    const query = { schoolId: req.user.schoolId };
+    const query = { schoolId: req.user.schoolId, status: true };
 
     if (search) {
-      query.$or = [
-        { name: new RegExp(search, 'i') },
-        { admissionNo: new RegExp(search, 'i') }
-      ];
+      query.$or = [{ name: new RegExp(search, 'i') }, { admissionNo: new RegExp(search, 'i') }];
     }
-
-    if (classId) {
-      if (!mongoose.Types.ObjectId.isValid(classId)) throw new APIError('Invalid class ID format', 400);
-      query.classId = new mongoose.Types.ObjectId(classId);
-    }
-
-    if (academicYearId) {
-      if (!mongoose.Types.ObjectId.isValid(academicYearId)) throw new APIError('Invalid academic year ID format', 400);
-      query.academicYearId = new mongoose.Types.ObjectId(academicYearId);
-    }
+    if (classId) query.classId = new mongoose.Types.ObjectId(classId);
+    if (academicYearId) query.academicYearId = new mongoose.Types.ObjectId(academicYearId);
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);
-    const skip = (pageNum - 1) * limitNum;
 
-    const students = await Student.find(query)
-      .populate('classId', 'name')
-      .populate('academicYearId', 'name')
-      .sort({ name: 1 })
-      .skip(skip)
-      .limit(limitNum);
-
-    const total = await Student.countDocuments(query);
-
-    const base = `${req.protocol}://${req.get('host')}`; // Dynamic base URL
+    const [students, total] = await Promise.all([
+      Student.find(query)
+        .populate('classId', 'name')
+        .populate('academicYearId', 'name')
+        .sort({ name: 1 })
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .lean(),
+      Student.countDocuments(query)
+    ]);
 
     const studentsWithPortals = await Promise.all(students.map(async (student) => {
       const studentObjectId = new mongoose.Types.ObjectId(student._id);
-      const key = toR2Key(student.profileImage); // Extracts key from full URL
-      const url = key ? `${base}/api/proxy-image/${encodeURIComponent(key)}` : '';
+      const key = toR2Key(student.profileImage);
+      const url = key ? `${req.protocol}://${req.get('host')}/api/proxy-image/${encodeURIComponent(key)}` : '';
 
-      // Fetch student portal credentials
-      const studentUser = await User.findOne({
-        schoolId: req.user.schoolId,
-        role: 'student',
-        'additionalInfo.studentId': studentObjectId
-      }).select('username password');
-
-      // Fetch parent portal credentials
-      const parentUser = await User.findOne({
-        schoolId: req.user.schoolId,
-        role: 'parent',
-        'additionalInfo.parentOfStudentId': studentObjectId
-      }).select('username password');
+      const [studentUser, parentUser] = await Promise.all([
+        User.findOne({
+          schoolId: req.user.schoolId,
+          role: 'student',
+          'additionalInfo.studentId': studentObjectId
+        }).select('username password'),
+        User.findOne({
+          schoolId: req.user.schoolId,
+          role: 'parent',
+          'additionalInfo.parentOfStudentId': studentObjectId
+        }).select('username password')
+      ]);
 
       return {
-        ...student.toObject(),
+        ...student,
         profileImageKey: key,
         profileImageUrl: url,
         portalUsername: studentUser ? studentUser.username : '',
@@ -577,36 +551,32 @@ const getStudents = async (req, res, next) => {
       totalPages: Math.ceil(total / limitNum)
     });
   } catch (error) {
-    console.error('Error in getStudents:', error);
+    logger.error('getStudents error:', error);
     next(error);
   }
 };
 
-
-
+// ── GET STUDENT ──
 const getStudent = async (req, res, next) => {
   try {
-    const student = await Student.findById(req.params.id);
-    if (!student) {
-      throw new APIError('Student not found', 404);
-    }
+    const student = await Student.findById(req.params.id).populate('classId', 'name').populate('academicYearId', 'name');
+    if (!student) throw new APIError('Student not found', 404);
     res.status(200).json(student);
   } catch (error) {
     next(error);
   }
 };
 
+// ── UPDATE STUDENT ──
 const updateStudent = async (req, res, next) => {
   try {
     const studentId = req.params.id;
     const updateData = req.body;
 
-    // Validate student ID
     if (!mongoose.Types.ObjectId.isValid(studentId)) {
       throw new APIError('Invalid student ID format', 400);
     }
 
-    // Ensure the student belongs to the user's school
     const student = await Student.findOne({ _id: studentId, schoolId: req.user.schoolId });
     if (!student) {
       throw new APIError('Student not found or you are not authorized to update this student', 404);
@@ -658,6 +628,8 @@ const updateStudent = async (req, res, next) => {
     next(error);
   }
 };
+
+
 
 const softDeleteStudents = async (req, res, next) => {
   try {
@@ -751,21 +723,164 @@ const uploadStudentPhoto = async (req, res, next) => {
   }
 };
 
+
 const searchStudents = async (req, res, next) => {
   try {
-    const query = req.params.query;
+    // SUPPORT BOTH: /search/roh (param) AND /search?q=roh (query)
+    const rawQuery = req.params.query || req.query.q || '';
+    const q = rawQuery.trim();
+
+    const { schoolId, limit = 50 } = req.query;
+
+    // VALIDATE
+    if (!schoolId) {
+      return res.status(400).json({ message: 'schoolId is required' });
+    }
+
+    if (!q || q.length < 2) {
+      return res.json({ students: [] });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(schoolId)) {
+      return res.status(400).json({ message: 'Invalid schoolId format' });
+    }
+
+    // SEARCH BY NAME OR ADMISSION NO
     const students = await Student.find({
-      schoolId: req.user.schoolId,
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      status: true,
       $or: [
-        { name: new RegExp(query, 'i') },
-        { admissionNo: new RegExp(query, 'i') }
+        { name: { $regex: q, $options: 'i' } },
+        { admissionNo: { $regex: q, $options: 'i' } }
       ]
-    });
-    res.status(200).json(students);
+    })
+      .select('name admissionNo _id classId')
+      .limit(Math.min(parseInt(limit), 100)) // cap at 100
+      .sort({ name: 1 })
+      .lean();
+
+    res.json({ students });
   } catch (error) {
-    next(error);
+    console.error('Search error:', error.message);
+    res.status(500).json({ message: 'Server error' });
   }
 };
+
+const assignRollNumberToStudent = async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const studentId = req.params.id;
+    const { rollNo } = req.body;
+    const schoolId = req.user.schoolId;
+    const userId = req.user._id || req.user.id;
+
+    // ── VALIDATIONS ─────────────────────────────────────
+    if (!mongoose.Types.ObjectId.isValid(studentId)) {
+      throw new APIError('Invalid student ID format', 400);
+    }
+
+    if (!rollNo || !/^\d{1,3}$/.test(rollNo)) { // Allow 1-999, padded later if needed
+      throw new APIError('Valid roll number (1-999) is required', 400);
+    }
+
+    // ── FETCH STUDENT ──────────────────────────────────
+    const student = await Student.findOne({ _id: studentId, schoolId, status: true }).session(session);
+    if (!student) {
+      throw new APIError('Student not found or inactive', 404);
+    }
+
+    // ── AUTHORIZATION CHECK ───────────────────────────
+    if (req.user.role === 'teacher') {
+      const teacher = await Teacher.findOne({ userId: req.user.id, schoolId }).session(session);
+      if (!teacher) {
+        throw new APIError('Teacher profile not found', 404);
+      }
+
+      const teacherId = teacher._id;
+
+      const classExists = await Class.findOne({ 
+        _id: student.classId, 
+        schoolId,
+        $or: [
+          { attendanceTeacher: teacherId },
+          { substituteAttendanceTeachers: teacherId }
+        ]
+      }).session(session);
+
+      const assignment = await classSubjectAssignment.findOne({
+        schoolId,
+        classId: student.classId,
+        teacherId,
+        academicYearId: student.academicYearId,
+      }).session(session);
+
+      if (!classExists && !assignment) {
+        throw new APIError('Unauthorized to assign roll numbers for this student\'s class', 403);
+      }
+    }
+
+    // ── CHECK DUPLICATE ROLL NO IN CLASS/SECTION ──────
+    const existingWithRollNo = await Student.findOne({
+      schoolId,
+      academicYearId: student.academicYearId,
+      classId: student.classId,
+      section: { $all: student.section }, // Match all sections
+      rollNo: rollNo.toString().padStart(2, '0'), // Pad for comparison
+      _id: { $ne: studentId }, // Exclude self
+      status: true
+    }).session(session);
+
+    if (existingWithRollNo) {
+      throw new APIError(`Roll number ${rollNo} already assigned to another student in this section`, 409);
+    }
+
+    // ── UPDATE ROLL NO ─────────────────────────────────
+    const paddedRollNo = rollNo.toString().padStart(2, '0');
+    await Student.updateOne(
+      { _id: studentId },
+      { $set: { rollNo: paddedRollNo, updatedBy: userId, updatedAt: new Date() } }
+    ).session(session);
+
+    // ── AUDIT LOG ─────────────────────────────────────
+    await AuditLog.create([{
+      userId,
+      schoolId,
+      action: 'assign_roll_number',
+      details: {
+        studentId,
+        studentName: student.name,
+        classId: student.classId,
+        section: student.section,
+        rollNo: paddedRollNo,
+        assignedBy: req.user.role
+      },
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent')
+    }], { session });
+
+    await session.commitTransaction();
+
+    // ── REFETCH FOR RESPONSE ──────────────────────────
+    const updatedStudent = await Student.findById(studentId).populate('classId', 'name').session(session);
+
+    logger.info(`Roll number ${paddedRollNo} assigned to student ${student.name} (${studentId}) by ${req.user.role}:${userId}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Roll number ${paddedRollNo} assigned successfully to ${student.name}`,
+      student: updatedStudent
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    logger.error('assignRollNumberToStudent error:', error);
+    next(error);
+  } finally {
+    session.endSession();
+  }
+};
+
 
 const assignRollNumbers = async (req, res, next) => {
   try {
@@ -910,114 +1025,146 @@ const getActiveAcademicYearId = async (schoolId) => {
 
 const promoteStudents = async (req, res, next) => {
   try {
-    const { classId, academicYearId, nextAcademicYearId, nextClassId, studentIds, isPromotedManually = false } = req.body;
-    const schoolId = req.user.schoolId;
-
-    // Validate required inputs
-    if (!classId || !academicYearId || !nextAcademicYearId || !nextClassId) {
-      throw new APIError('Class ID, academic year ID, next academic year ID, and next class ID are required', 400);
-    }
-    if (!mongoose.Types.ObjectId.isValid(classId) || !mongoose.Types.ObjectId.isValid(nextClassId) ||
-        !mongoose.Types.ObjectId.isValid(academicYearId) || !mongoose.Types.ObjectId.isValid(nextAcademicYearId)) {
-      throw new APIError('Invalid ID format for class or academic year', 400);
-    }
-
-    // Validate studentIds if provided
-    if (studentIds) {
-      if (!Array.isArray(studentIds) || studentIds.length === 0) {
-        throw new APIError('Student IDs must be a non-empty array', 400);
-      }
-      if (!studentIds.every(id => mongoose.Types.ObjectId.isValid(id))) {
-        throw new APIError('All student IDs must be valid ObjectIds', 400);
-      }
-    }
-
-    // Validate class and academic years
-    const currentClass = await Class.findOne({ _id: classId, schoolId });
-    if (!currentClass) {
-      throw new APIError('Current class not found or does not belong to this school', 404);
-    }
-
-    const nextClass = await Class.findOne({ _id: nextClassId, schoolId });
-    if (!nextClass) {
-      throw new APIError('Next class not found or does not belong to this school', 404);
-    }
-
-    const currentAcademicYear = await AcademicYear.findOne({ _id: academicYearId, schoolId });
-    if (!currentAcademicYear) {
-      throw new APIError('Current academic year not found or does not belong to this school', 404);
-    }
-
-    const nextAcademicYear = await AcademicYear.findOne({ _id: nextAcademicYearId, schoolId });
-    if (!nextAcademicYear) {
-      throw new APIError('Next academic year not found or does not belong to this school', 404);
-    }
-
-    // Build query for students
-    const query = {
+    const {
       classId,
       academicYearId,
-      schoolId,
-      status: true
-    };
+      nextAcademicYearId,
+      nextClassId,
+      studentIds,
+      isPromotedManually = false
+    } = req.body;
+    const schoolId = req.user.schoolId;
+
+    // ── VALIDATIONS ─────────────────────────────────────
+    if (!classId || !academicYearId || !nextAcademicYearId || !nextClassId) {
+      throw new APIError('All IDs (class, academicYear, nextClass, nextYear) are required', 400);
+    }
+
+    const ids = [classId, nextClassId, academicYearId, nextAcademicYearId];
+    if (!ids.every(id => mongoose.Types.ObjectId.isValid(id))) {
+      throw new APIError('Invalid ID format', 400);
+    }
+
     if (studentIds) {
-      query._id = { $in: studentIds };
+      if (!Array.isArray(studentIds) || studentIds.length === 0) {
+        throw new APIError('studentIds must be a non-empty array', 400);
+      }
+      if (!studentIds.every(id => mongoose.Types.ObjectId.isValid(id))) {
+        throw new APIError('All studentIds must be valid ObjectIds', 400);
+      }
     }
 
-    // Find students to promote
-    const students = await Student.find(query);
-    if (studentIds && students.length !== studentIds.length) {
-      const foundIds = new Set(students.map(student => student._id.toString()));
-      const invalidIds = studentIds.filter(id => !foundIds.has(id));
-      throw new APIError(`Some student IDs are invalid or do not belong to the specified class/academic year: ${invalidIds.join(', ')}`, 400);
-    }
-    if (students.length === 0) {
-      throw new APIError('No students found to promote', 404);
-    }
+    // ── FETCH REFERENCE DOCS ───────────────────────────
+    const [currentClass, nextClass, currentYear, nextYear] = await Promise.all([
+      Class.findOne({ _id: classId, schoolId }),
+      Class.findOne({ _id: nextClassId, schoolId }),
+      AcademicYear.findOne({ _id: academicYearId, schoolId }),
+      AcademicYear.findOne({ _id: nextAcademicYearId, schoolId })
+    ]);
 
-    // Promote students
-    const promotedStudents = [];
-    const failedStudents = [];
-
-    const updatePromises = students.map(async (student) => {
-      try {
-        await Student.updateOne(
-          { _id: student._id },
-          {
-            $set: {
-              classId: nextClassId,
-              academicYearId: nextAcademicYearId,
-              rollNo: '', // Clear roll number
-              isPromotedManually
-            }
-          }
-        );
-        promotedStudents.push({ studentId: student._id, name: student.name });
-        console.log(`Promoted ${student.name} to ${nextClass.name}`);
-      } catch (error) {
-        failedStudents.push({ studentId: student._id, name: student.name, error: error.message });
+    [currentClass, nextClass, currentYear, nextYear].forEach((doc, i) => {
+      if (!doc) {
+        const names = ['Current class', 'Next class', 'Current year', 'Next year'];
+        throw new APIError(`${names[i]} not found or does not belong to this school`, 404);
       }
     });
 
-    await Promise.all(updatePromises);
+    // ── BUILD STUDENT QUERY ───────────────────────────
+    const query = { classId, academicYearId, schoolId, status: true };
+    if (studentIds) query._id = { $in: studentIds };
 
-    if (failedStudents.length > 0) {
-      throw new APIError(`Some students failed to promote: ${JSON.stringify(failedStudents)}`, 500);
+    // ── FETCH STUDENTS TO PROMOTE ─────────────────────
+    const students = await Student.find(query);
+    if (students.length === 0) {
+      throw new APIError('No active students found to promote', 404);
     }
 
+    if (studentIds && students.length !== studentIds.length) {
+      const found = new Set(students.map(s => s._id.toString()));
+      const missing = studentIds.filter(id => !found.has(id));
+      throw new APIError(`Invalid/missing student IDs: ${missing.join(', ')}`, 400);
+    }
+
+    // ── PROMOTE EACH STUDENT ──────────────────────────
+    const promoted = [];
+    const failed = [];
+
+    await Promise.all(
+      students.map(async student => {
+        try {
+          const historyEntry = {
+            classId: student.classId,
+            className: student.className || currentClass.name,
+            academicYearId: student.academicYearId,
+            academicYearName: student.academicYearName || currentYear.name,
+            promotedAt: new Date(),
+            promotionStatus: 'promoted'
+          };
+
+          await Student.updateOne(
+            { _id: student._id },
+            {
+              $set: {
+                classId: nextClassId,
+                academicYearId: nextAcademicYearId,
+                className: nextClass.name,
+                academicYearName: nextYear.name,
+                rollNo: '',
+                isPromotedManually
+              },
+              $push: { promotionHistory: historyEntry }
+            }
+          );
+
+          promoted.push({ studentId: student._id, name: student.name });
+        } catch (err) {
+          failed.push({ studentId: student._id, name: student.name, error: err.message });
+        }
+      })
+    );
+
+    if (failed.length > 0) {
+      throw new APIError(`Promotion failed for ${failed.length} student(s): ${JSON.stringify(failed)}`, 500);
+    }
+
+    // ── SUCCESS RESPONSE ───────────────────────────────
     res.status(200).json({
       success: true,
       data: {
-        promotedStudents,
-        failedStudents,
+        promotedStudents: promoted,
         nextClass: nextClass.name,
-        nextAcademicYear: nextAcademicYear.name
+        nextAcademicYear: nextYear.name
       }
     });
   } catch (error) {
     next(error);
   }
 };
+
+
+const getOldStudents = async (req, res, next) => {
+  try {
+    const { academicYearId, classId } = req.query;
+    const schoolId = req.user.schoolId;
+
+    if (!academicYearId || !classId) {
+      throw new APIError('academicYearId and classId query params required', 400);
+    }
+
+    const students = await Student.find({ schoolId })
+      .elemMatch('promotionHistory', { 
+        academicYearId: new mongoose.Types.ObjectId(academicYearId), 
+        classId: new mongoose.Types.ObjectId(classId) 
+      })
+      .select('name admissionNo phone section promotionHistory')
+      .populate('promotionHistory.classId', 'name'); // Show old class
+
+    res.json({ success: true, data: { students } });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 const getStudentsList = async (req, res) => {
   try {
@@ -1170,7 +1317,9 @@ module.exports = {
   searchStudents,
   assignRollNumbers,
   assignRollNumbersAlphabetically,
+  assignRollNumberToStudent,
   validateParent,
   softDeleteStudents,
+  getOldStudents,
   getStudentsByClass // Added to exports
 };

@@ -8,6 +8,6 @@ export const environment = {
   razorpayKeyId:'',
   googleMapsApiKey:'AIzaSyDKsK100m1obqgkQJILOEafWm2mReD0whA',
   testMode: false,
-  imageUrl:'https://school-management-backend-khaki.vercel.app'
+  imageUrl:'https://edglobe.vercel.app'
 
 };

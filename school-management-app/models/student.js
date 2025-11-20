@@ -30,9 +30,13 @@ const studentSchema = new mongoose.Schema({
   phone: { 
     type: String,  
     trim: true,
+    default: '',  // ← Allow empty
     validate: {
-      validator: (v) => /^\d{10}$/.test(v),
-      message: "Phone number must be 10 digits"
+      validator: function(v) {
+        if (!v || v === '') return true;  // ← OPTIONAL!
+        return /^\d{10}$/.test(v);
+      },
+      message: "Phone number must be 10 digits if provided"
     }
   },
   dateOfBirth: { 
@@ -167,7 +171,17 @@ const studentSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-}, { 
+  promotionHistory: [{
+    classId: { type: mongoose.Schema.Types.ObjectId, ref: 'Class' },
+    className: { type: String, required: true },
+    academicYearId: { type: mongoose.Schema.Types.ObjectId, ref: 'AcademicYear' },
+    academicYearName: { type: String, required: true },
+    promotedAt: { type: Date, default: Date.now },
+    promotionStatus: { type: String, enum: ['promoted', 'failed'], default: 'promoted' }
+  }]
+}, 
+
+{ 
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true },
@@ -229,6 +243,8 @@ studentSchema.index({ classId: 1 });
 studentSchema.index({ schoolId: 1 });
 studentSchema.index({ academicYearId: 1 });
 studentSchema.index({ routeId: 1 });
+studentSchema.index({ 'promotionHistory.academicYearId': 1 });
+studentSchema.index({ 'promotionHistory.classId': 1 });
 
 // Virtuals
 studentSchema.virtual('school', {

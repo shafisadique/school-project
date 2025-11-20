@@ -13,6 +13,7 @@ export class StudentService {
   createStudent(formData: FormData): Observable<any> {
     return this.http.post(`${this.apiUrl}/api/students/add`, formData);
   }
+  
 
   getActiveAcademicYear(schoolId: string): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/academicyear/active/${schoolId}`);

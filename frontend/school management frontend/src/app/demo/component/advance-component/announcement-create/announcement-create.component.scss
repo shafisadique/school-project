@@ -1,53 +1,55 @@
-.card {
+/* Use the same SCSS from your Student or Exam List — 100% match */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
+
+$primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+$card-bg: rgba(255, 255, 255, 0.95);
+$border-color: #e5e7eb;
+$shadow-light: 0 2px 4px -1px rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+$shadow-hover: 0 8px 25px rgba(102, 126, 234, 0.15);
+$border-radius: 12px;
+
+.container-fluid {
+  padding: 16px;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+}
+
+.header-section .header-card,
+.form-section .form-card {
+  background: $card-bg;
+  backdrop-filter: blur(10px);
+  border-radius: $border-radius;
+  box-shadow: $shadow-light;
+  border: 1px solid $border-color;
+  padding: 28px;
+}
+
+legend {
+  background: $primary-gradient;
+  color: white;
+  padding: 0.7rem 1.6rem;
   border-radius: 10px;
-  overflow: hidden;
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  float: none;
+  width: auto;
+  margin: 0 0 1.5rem 0;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
-.card-header {
-  h4 {
-    margin: 0;
-  }
-}
+.btn-material.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  padding: 12px 28px;
+  font-size: 1rem;
+  border-radius: 50px;
+  box-shadow: $shadow-light;
+  transition: all 0.3s ease;
 
-.btn-group {
-  .btn {
-    border-radius: 8px !important;
-    border: 1px solid #dee2e6;
-    flex: 1;
-
-    &.active {
-      background-color: #0d6efd;
-      border-color: #0d6efd;
-      color: white;
-    }
-  }
-}
-
-.table {
-  th {
-    background-color: #f8f9fa;
-    font-weight: 600;
-  }
-
-  td {
-    vertical-align: middle;
-  }
-}
-
-.form-check-input {
-  cursor: pointer;
-}
-
-@media (max-width: 768px) {
-  .btn-group {
-    flex-direction: column;
-
-    .btn {
-      margin-bottom: 0.25rem;
-    }
-  }
-
-  .table {
-    font-size: 0.875rem;
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: $shadow-hover;
   }
 }

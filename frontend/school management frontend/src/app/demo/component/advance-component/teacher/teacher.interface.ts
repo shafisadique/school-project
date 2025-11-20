@@ -3,11 +3,12 @@
 export interface UserId {
   _id: string;
   username: string;
-  password: string;
+  // Removed 'password' for security (handle separately if needed for portals)
 }
 
 export interface AcademicYear {
   _id: string;
+  name?: string; // Added for display (e.g., year name)
 }
 
 export interface Teacher {
@@ -15,18 +16,21 @@ export interface Teacher {
   userId: UserId;
   name: string;
   email: string;
+  portalUsername:any;
   phone: string;
-  designation: string;
+  designation?: string; // Made optional if not always set
   subjects: string[];
   gender: string;
   schoolId: string;
   createdBy: string;
   leaveBalance: number;
-  profileImage: string;
+  profileImage?: string; // Key or path
+  profileImageUrl?: string; // Full proxy URL from backend
   academicYearId: string;
   status: boolean;
   createdAt: string;
   updatedAt: string;
+  
   __v: number;
-  academicYear: AcademicYear;
+  academicYear?: AcademicYear; // Populated
 }

@@ -8,7 +8,8 @@ const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3'); // Add GetObjectCommand
-const logger = require('./config/logger')
+const logger = require('./config/logger');
+const APIError = require('./utils/apiError');
 
 dotenv.config();
 
@@ -79,15 +80,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
-// app.use('/uploads', express.static(path.join(__dirname, 'Uploads'), {
-//   setHeaders: (res, path) => {
-//     if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg')) {
-//       res.set('Content-Type', 'image/' + path.split('.').pop());
-//     }
-//   }
-// }));
 
 
+app.options('/api/proxy-image/:key(*)', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.sendStatus(200);
+});
 
 app.get('/api/proxy-image/:key(*)', async (req, res) => {
   try {
@@ -100,12 +100,13 @@ app.get('/api/proxy-image/:key(*)', async (req, res) => {
     }));
 
     res.setHeader('Content-Type', data.ContentType || 'image/jpeg');
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow all origins (adjust for production)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');  // <-- ADD THIS LINE
     res.setHeader('Cache-Control', 'public, max-age=31536000');
     data.Body.pipe(res);
   } catch (err) {
-    logger.error('Proxy-image error:', err.message, err.stack);
-    res.status(404).json({ message: 'Image not found', error: err.message });
+    logger.error('Proxy-image error:', err.message);
+    res.status(404).json({ message: 'Image not found' });
   }
 });
 
@@ -201,8 +202,40 @@ app.use('/api/dashboard',require('./routes/teacher-dashboard/teacher-dashboardRo
 // app.use('/api/parent', parentRoutes);
 
 app.use((err, req, res, next) => {
-  logger.error('Unhandled error:', err);
-  res.status(500).json({ message: 'Internal server error', error: err.message });
+  logger.error('Unhandled error:', {
+    message: err.message,
+    stack: err.stack,
+    status: err.statusCode,
+    name: err.name
+  });
+
+  // 1. APIError → return 400/401/etc with exact message
+  if (err instanceof APIError) {
+    return res.status(err.statusCode).json({
+      message: err.message
+    });
+  }
+
+  // 2. Mongoose Validation
+  if (err.name === 'ValidationError') {
+    const messages = Object.values(err.errors)
+      .map(e => e.message)
+      .join('; ');
+    return res.status(400).json({ message: messages });
+  }
+
+  // 3. JSON Parse
+  if (err instanceof SyntaxError && err.message.includes('JSON')) {
+    return res.status(400).json({ message: 'Invalid data format' });
+  }
+
+  // 4. Multer error
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ message: err.message });
+  }
+
+  // 5. Default 500
+  res.status(500).json({ message: 'Something went wrong' });
 });
 
 const PORT = process.env.PORT || 3000;

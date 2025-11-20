@@ -4,6 +4,7 @@ const Subscription = require('../models/subscription');
 const Razorpay = require('razorpay');
 const authMiddleware = require('../middleware/authMiddleware');
 const crypto = require('crypto');
+const School = require('../models/school');
 const rzp = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET
@@ -429,26 +430,23 @@ router.post('/verify-payment', authMiddleware, async (req, res) => {
 });
 
 // POST /api/subscriptions/webhook - Razorpay webhook for payment confirmation
-// POST /api/subscriptions/webhook
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
     const signature = req.headers['x-razorpay-signature'];
-    const body = JSON.parse(req.body.toString());
+    const body = req.body.toString();
 
     const expectedSignature = crypto
       .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
-      .update(JSON.stringify(body))
+      .update(body)
       .digest('hex');
 
     if (signature !== expectedSignature) {
-      console.log('Invalid webhook signature');
       return res.status(400).json({ message: 'Invalid signature' });
     }
 
-    const event = body.event;
-    const payment = body.payload.payment.entity;
-
-    console.log('Webhook:', event, payment.id);
+    const payload = JSON.parse(body);
+    const event = payload.event;
+    const payment = payload.payload.payment.entity;
 
     if (event === 'payment.captured') {
       const subscription = await Subscription.findOne({
@@ -462,13 +460,23 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         subscription.transactionId = payment.id;
         await subscription.save();
 
-        console.log('Subscription ACTIVATED:', subscription._id);
+        // ←←← THIS IS THE MISSING LINE (FIXED!)
+        await school.findByIdAndUpdate(subscription.schoolId, {
+          $set: {
+            smsPackActive: true,
+            remainingSms: subscription.messageLimits.smsMonthly || 1000,
+            smsExpiry: subscription.expiresAt,
+            smsPlan: subscription.planType
+          }
+        });
+
+        logger.info(`SMS pack activated for school ${subscription.schoolId} via webhook`);
       }
     }
 
-    res.status(200).json({ received: true });
+    res.json({ received: true });
   } catch (err) {
-    console.error('Webhook error:', err);
+    logger.error('Webhook error:', err);
     res.status(500).json({ message: 'Failed' });
   }
 });

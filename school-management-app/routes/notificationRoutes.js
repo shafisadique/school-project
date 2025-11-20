@@ -1,150 +1,130 @@
-// routes/notifications.js
+// routes/notifications.js — CLEAN & PROFESSIONAL (2025 Standard)
+
 const express = require('express');
 const router = express.Router();
-const authMiddleware = require('../middleware/authMiddleware');
 const mongoose = require('mongoose');
+
+const authMiddleware = require('../middleware/authMiddleware');
+const APIError = require('../utils/apiError');
+
+// Models
 const Student = require('../models/student');
 const User = require('../models/user');
 const ProgressReport = require('../models/progressReport');
-const Notification = require('../models/notifiation'); // Correct import
-const APIError = require('../utils/apiError');
-const progressReport = require('../models/progressReport');
+const Notification = require('../models/notifiation'); // ← Fixed typo!
 
-// Submit Progress Report (Teacher)
+/* ==================================================================
+   1. TEACHER: Submit Weekly Progress Reports
+   ================================================================== */
 router.post('/submit-progress-report', authMiddleware, async (req, res) => {
   try {
     const { studentProgress } = req.body;
-    if (!studentProgress || !Array.isArray(studentProgress) || studentProgress.length === 0) {
-      throw new APIError('Student progress data is required', 400);
+    if (!Array.isArray(studentProgress) || studentProgress.length === 0) {
+      throw new APIError('studentProgress array is required', 400);
     }
 
-    const senderId = req.user._id || req.user.id;
-    if (!senderId || !mongoose.Types.ObjectId.isValid(senderId)) {
-      throw new APIError('Sender ID is required and must be valid', 400);
-    }
+    const teacherId = req.user._id;
+    const schoolId = req.user.schoolId;
 
-    const sender = await User.findById(senderId);
-    if (!sender || sender.role !== 'teacher') {
+    // Verify sender is a teacher
+    const teacher = await User.findById(teacherId);
+    if (!teacher || teacher.role !== 'teacher') {
       throw new APIError('Only teachers can submit progress reports', 403);
     }
 
-    const progressReports = [];
-    const notifications = [];
+    const reportsToSave = [];
+    const notificationsToSave = [];
+
     for (const item of studentProgress) {
       const { studentId, grades, comments } = item;
-      if (!studentId || !mongoose.Types.ObjectId.isValid(studentId) || !grades || !comments) {
-        console.log(`Skipping invalid entry: studentId=${studentId}, grades=${JSON.stringify(grades)}, comments=${comments}`);
-        continue;
-      }
 
-      const studentObjectId = new mongoose.Types.ObjectId(studentId);
-      const student = await Student.findById(studentObjectId).select('name schoolId admissionNo');
-      if (!student) {
-        console.log(`Student not found: studentId=${studentId}`);
-        continue;
-      }
-      if (student.schoolId.toString() !== req.user.schoolId.toString()) {
-        console.log(`Student not in teacher's school: studentId=${studentId}, student.schoolId=${student.schoolId}, teacher.schoolId=${req.user.schoolId}`);
-        continue;
-      }
+      if (!mongoose.Types.ObjectId.isValid(studentId)) continue;
 
-      const report = {
-        schoolId: req.user.schoolId,
-        studentId: studentObjectId,
-        createdBy: senderId,
+      const student = await Student.findOne({
+        _id: studentId,
+        schoolId
+      }).select('name admissionNo parents');
+
+      if (!student) continue; // Skip invalid student
+
+      // Save Progress Report
+      reportsToSave.push({
+        schoolId,
+        studentId,
+        createdBy: teacherId,
         grades,
         comments
-      };
-      progressReports.push(report);
+      });
 
+      // Find parents of this student
       const parents = await User.find({
         role: 'parent',
-        schoolId: req.user.schoolId,
-        'additionalInfo.parentOfStudentId': studentObjectId
+        schoolId,
+        'additionalInfo.parentOfStudentId': studentId
       }).select('_id name');
-      console.log(`Found ${parents.length} parents for studentId=${studentId}:`, parents.map(p => p._id.toString()));
 
-      if (parents.length === 0) {
-        console.log(`No parents found for studentId=${studentId}, skipping notification`);
-      } else {
-        parents.forEach(parent => {
-          const notification = {
-            schoolId: req.user.schoolId,
-            studentId: studentObjectId,
-            senderId,
-            recipientId: parent._id,
-            type: 'progress-report',
-            title: `New Progress Report for ${student.name}`,
-            message: `A new weekly progress report has been submitted for ${student.name} (Admission No: ${student.admissionNo}).`,
-            data: { studentName: student.name, reportId: null },
-            status: 'pending',
-            createdAt: new Date() // Ensure createdAt is set
-          };
-          notifications.push(notification);
-          console.log(`Queued notification for recipientId=${parent._id}, studentId=${studentId}`);
+      // Create notification for each parent
+      parents.forEach(parent => {
+        notificationsToSave.push({
+          schoolId,
+          senderId: teacherId,
+          recipientId: parent._id,
+          studentId,
+          type: 'progress-report',
+          title: `Progress Report: ${student.name}`,
+          message: `New progress report submitted for ${student.name} (Adm: ${student.admissionNo})`,
+          data: { studentName: student.name },
+          status: 'pending'
         });
-      }
+      });
     }
 
-    if (progressReports.length === 0) {
-      throw new APIError('No valid student progress data provided', 400);
+    if (reportsToSave.length === 0) {
+      throw new APIError('No valid students found', 400);
     }
 
-    const savedReports = await ProgressReport.insertMany(progressReports, { ordered: false });
-    console.log(`Saved ${savedReports.length} progress reports:`, savedReports.map(r => ({ id: r._id.toString(), studentId: r.studentId.toString() })));
+    // Save reports
+    const savedReports = await ProgressReport.insertMany(reportsToSave);
 
-    // Assign reportIds to notifications
-    notifications.forEach(notification => {
-      const report = savedReports.find(r => r.studentId.toString() === notification.studentId.toString());
-      if (report) {
-        notification.data.reportId = report._id;
-      } else {
-        console.log(`No matching report found for notification studentId=${notification.studentId}`);
-      }
+    // Attach report ID to notifications
+    notificationsToSave.forEach(notif => {
+      const report = savedReports.find(r => r.studentId.toString() === notif.studentId.toString());
+      if (report) notif.data.reportId = report._id;
     });
 
-    if (notifications.length > 0) {
-      try {
-        const savedNotifications = await Notification.insertMany(notifications, { ordered: false });
-        console.log(`Successfully saved ${savedNotifications.length} notifications:`, savedNotifications.map(n => ({
-          id: n._id.toString(),
-          recipientId: n.recipientId.toString(),
-          studentId: n.studentId.toString()
-        })));
-      } catch (err) {
-        console.error('Error saving notifications:', err.message);
-        // Log but continue, as progress reports are the priority
-      }
-    } else {
-      console.log('No notifications to save');
+    // Save notifications (fire and forget if fails — reports are priority)
+    if (notificationsToSave.length > 0) {
+      await Notification.insertMany(notificationsToSave).catch(err => {
+        console.error('Failed to save some notifications:', err);
+      });
     }
 
-    res.json({ message: 'Progress reports saved successfully', reportIds: savedReports.map(r => r._id) });
+    res.json({
+      message: 'Progress reports submitted successfully',
+      savedCount: savedReports.length
+    });
+
   } catch (err) {
-    console.error('Error submitting progress report:', err.message);
-    res.status(err.statusCode || 500).json({ error: 'Failed to save progress reports', details: err.message });
+    console.error('Submit progress report error:', err);
+    res.status(err.statusCode || 500).json({
+      error: err.message || 'Server error'
+    });
   }
 });
 
-// Get Progress Reports for Parent
+/* ==================================================================
+   2. PARENT: Get My Child's Progress Reports
+   ================================================================== */
 router.get('/parent-progress-reports', authMiddleware, async (req, res) => {
   try {
-    const parentId = req.user._id || req.user.id;
-    if (!parentId || !mongoose.Types.ObjectId.isValid(parentId)) {
-      throw new APIError('Valid parent ID is required', 400);
-    }
-
+    const parentId = req.user._id;
     const parent = await User.findById(parentId);
     if (!parent || parent.role !== 'parent') {
-      throw new APIError('Only parents can access this endpoint', 403);
+      throw new APIError('Unauthorized', 403);
     }
 
     const studentId = parent.additionalInfo?.parentOfStudentId;
-    console.log(`Fetching progress reports for parentId=${parentId}, studentId=${studentId}`);
-    if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
-      console.log(`No linked student for parentId=${parentId}`);
-      return res.status(200).json([]);
-    }
+    if (!studentId) return res.json([]);
 
     const reports = await ProgressReport.find({
       studentId,
@@ -153,37 +133,28 @@ router.get('/parent-progress-reports', authMiddleware, async (req, res) => {
       .populate('studentId', 'name admissionNo')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 });
-    console.log(`Found ${reports.length} progress reports for studentId=${studentId}`);
 
     res.json(reports);
   } catch (err) {
-    console.error('Error fetching parent progress reports:', err.message);
-    res.status(err.statusCode || 500).json({ error: 'Failed to fetch progress reports', details: err.message });
+    res.status(500).json({ error: 'Failed to fetch reports' });
   }
 });
 
-// Get Notifications for Parent
+/* ==================================================================
+   3. PARENT: Get My Notifications (Bell Icon)
+   ================================================================== */
 router.get('/parent', authMiddleware, async (req, res) => {
   try {
-    console.log('req.user:', req.user);
-    const parentId = req.user._id || req.user.id;
-    if (!parentId || !mongoose.Types.ObjectId.isValid(parentId)) {
-      throw new APIError('Valid parent ID is required', 400);
-    }
-
+    const parentId = req.user._id;
     const parent = await User.findById(parentId);
     if (!parent || parent.role !== 'parent') {
-      throw new APIError('Only parents can access this endpoint', 403);
+      throw new APIError('Unauthorized', 403);
     }
 
     const studentId = parent.additionalInfo?.parentOfStudentId;
-    console.log(`ParentId=${parentId}, StudentId=${studentId}`);
-    if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
-      console.log(`No linked student for parentId=${parentId}`);
-      return res.status(200).json({ notifications: [], total: 0, page: 1, pages: 0 });
-    }
+    if (!studentId) return res.json({ notifications: [] });
 
-    const { page = 1, limit = 10, type } = req.query;
+    const { page = 1, limit = 10 } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = {
@@ -191,18 +162,16 @@ router.get('/parent', authMiddleware, async (req, res) => {
       studentId,
       schoolId: req.user.schoolId
     };
-    if (type) filter.type = type;
-    console.log('Notification filter:', filter);
 
-    const notifications = await Notification.find(filter)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate('studentId', 'name admissionNo')
-      .populate('senderId', 'name');
-    console.log(`Found ${notifications.length} notifications`);
-
-    const total = await Notification.countDocuments(filter);
+    const [notifications, total] = await Promise.all([
+      Notification.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('senderId', 'name')
+        .populate('studentId', 'name admissionNo'),
+      Notification.countDocuments(filter)
+    ]);
 
     res.json({
       notifications,
@@ -211,46 +180,59 @@ router.get('/parent', authMiddleware, async (req, res) => {
       pages: Math.ceil(total / parseInt(limit))
     });
   } catch (err) {
-    console.error('Error fetching parent notifications:', err.message);
-    res.status(err.statusCode || 500).json({ error: 'Failed to fetch notifications', details: err.message });
+    res.status(500).json({ error: 'Failed to load notifications' });
   }
 });
 
-// Mark Notification as Read
+/* ==================================================================
+   4. ANY USER (Teacher/Parent): Get My Bell Notifications
+   ================================================================== */
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const role = req.user.role;
+    const schoolId = req.user.schoolId;
+
+    const notifications = await Notification.find({
+      schoolId,
+      $or: [
+        { recipientId: userId },
+        { targetUserIds: userId },
+        { targetRoles: role }
+      ]
+    })
+      .populate('senderId', 'name')
+      .populate('studentId', 'name')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    res.json({ notifications });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+/* ==================================================================
+   5. Mark Notification as Read
+   ================================================================== */
 router.patch('/:notificationId/read', authMiddleware, async (req, res) => {
   try {
     const { notificationId } = req.params;
-    if (!notificationId || !mongoose.Types.ObjectId.isValid(notificationId)) {
-      throw new APIError('Valid notification ID is required', 400);
-    }
+    const userId = req.user._id;
 
-    const parentId = req.user._id || req.user.id;
-    if (!parentId || !mongoose.Types.ObjectId.isValid(parentId)) {
-      throw new APIError('Valid parent ID is required', 400);
-    }
-
-    const parent = await User.findById(parentId);
-    if (!parent || parent.role !== 'parent') {
-      throw new APIError('Only parents can mark notifications as read', 403);
-    }
-
-    const notification = await Notification.findOne({
-      _id: notificationId,
-      recipientId: parentId,
-      schoolId: req.user.schoolId
-    });
+    const notification = await Notification.findOneAndUpdate(
+      { _id: notificationId, recipientId: userId },
+      { status: 'read', readAt: new Date() },
+      { new: true }
+    );
 
     if (!notification) {
-      throw new APIError('Notification not found or not authorized', 404);
+      throw new APIError('Notification not found or unauthorized', 404);
     }
 
-    notification.status = 'delivered';
-    await notification.save();
-
-    res.json({ message: 'Notification marked as read' });
+    res.json({ message: 'Marked as read' });
   } catch (err) {
-    console.error('Error marking notification as read:', err.message);
-    res.status(err.statusCode || 500).json({ error: 'Failed to mark notification as read', details: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 });
 

@@ -73,7 +73,14 @@ export class AnnouncementCreateComponent {
             email: s.email,
             phone: s.parents?.fatherPhone || s.parents?.motherPhone
           })).filter((u: User) => u.phone); // Only with phone
-        } else {
+        } else if (key === 'teacher') {
+          this.users = res.data.map((t: any) => ({
+            _id: t.userId._id,        // ← SEND USER ID!
+            name: t.name,
+            email: t.email,
+            phone: t.phone
+          }));
+        }else {
           this.users = res.students || res.data || []; // Handle both keys
         }
         this.loading = false; // Stop loading

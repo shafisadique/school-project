@@ -97,6 +97,8 @@ exports.deliver = async (notification, session = null) => {
         console.error('WhatsApp failed to:', recipientPhone, 'Error:', whatsappErr.message);
         deliveryErrors.push(`WhatsApp: ${whatsappErr.message}`);
       }
+    }else if (notification.type === 'welcome-student') {
+        message = notification.message;
     }
 
     // Email delivery

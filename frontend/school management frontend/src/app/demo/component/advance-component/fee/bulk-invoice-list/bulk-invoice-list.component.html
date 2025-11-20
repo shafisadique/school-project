@@ -1,5 +1,5 @@
-<div class="invoice-container">
-  <!-- Header & Controls – Your Original -->
+<div class="invoice-container" (click)="onDocumentClick($event)">
+  <!-- Header & Controls -->
   <div class="header-section">
     <h1 class="title">Invoice Management Dashboard</h1>
     <p class="subtitle">Manage and track invoices for students and classes efficiently.</p>
@@ -7,37 +7,114 @@
 
   <div class="controls-section">
     <div class="toggle-group">
-      <button class="toggle-btn" [ngClass]="{'active': viewMode === 'class'}" (click)="setViewMode('class')">
-        Class View
+      <button 
+        class="toggle-btn" 
+        [ngClass]="{'active': viewMode === 'class'}" 
+        (click)="setViewMode('class')"
+        [attr.aria-pressed]="viewMode === 'class'"
+        role="button"
+        aria-label="Switch to Class View">
+        <i class="fas fa-users"></i> Class View
       </button>
-      <button class="toggle-btn" [ngClass]="{'active': viewMode === 'student'}" (click)="setViewMode('student')" [disabled]="!selectedClassId">
-        Student View
+      <button 
+        class="toggle-btn" 
+        [ngClass]="{'active': viewMode === 'student'}" 
+        (click)="setViewMode('student')" 
+        [disabled]="!selectedClassId"
+        [attr.aria-disabled]="!selectedClassId"
+        aria-label="Switch to Student View">
+        <i class="fas fa-user"></i> Student View
       </button>
     </div>
 
     <div class="filter-group">
-      <select class="form-select" [(ngModel)]="selectedClassId" (change)="updateClassSelection($event)" [disabled]="classList.length === 0">
-        <option value="">Select Class</option>
-        <option *ngFor="let classItem of classList" [value]="classItem.id">{{ classItem.name }}</option>
-      </select>
+      <!-- Class Select -->
+      <div class="filter-item">
+        <label for="classSelect">Class</label>
+        <select 
+          id="classSelect"
+          class="form-select" 
+          [(ngModel)]="selectedClassId" 
+          (change)="updateClassSelection($event)" 
+          [disabled]="classList.length === 0"
+          aria-label="Select Class">
+          <option value="">Select Class</option>
+          <option *ngFor="let classItem of classList; trackBy: trackByClassId" [value]="classItem.id">{{ classItem.name }}</option>
+        </select>
+        <i class="fas fa-graduation-cap"></i>
+      </div>
 
-      <select *ngIf="viewMode === 'student'" class="form-select" [(ngModel)]="selectedStudentId" (change)="updateStudentSelection($event)" [disabled]="!selectedClassId || studentData.length === 0">
-        <option value="">Select Student</option>
-        <option *ngFor="let student of studentData" [value]="student._id">{{ student.name }} ({{ student.admissionNo }})</option>
-      </select>
-      
-      <input type="month" class="form-input" [(ngModel)]="month" (change)="loadInvoices()" [min]="minMonth" [max]="maxMonth" style="width: 100%;">
+      <!-- Student Search: Custom dropdown -->
+      <div class="filter-item student-search-container" *ngIf="viewMode === 'student'">
+        <label for="studentSearch">Student</label>
+        <input 
+          #searchInput
+          id="studentSearch"
+          type="search" 
+          class="form-input" 
+          placeholder="Search by name or admission no..."
+          [(ngModel)]="searchQuery"
+          (input)="searchStudents($event)"
+          aria-describedby="search-help"
+          autocomplete="off">
+        <i class="fas fa-search"></i>
+        <div class="dropdown" *ngIf="showDropdown">
+          <ul>
+            <li *ngFor="let student of searchResults; trackBy: trackByStudentId" (click)="selectStudentFromList(student)">
+              <span class="student-name">{{ student.name }}</span>
+              <span class="admission-no" *ngIf="student.admissionNo">({{ student.admissionNo }})</span>
+            </li>
+          </ul>
+        </div>
+        <!-- <small id="search-help" class="form-text text-muted">
+          Minimum 2 characters to search
+        </small> -->
+        <small *ngIf="searchResults.length === 0 && queryLength >= 2" class="form-text text-muted">
+          No students found
+        </small>
+      </div>
 
-      <select class="form-select" [(ngModel)]="statusFilter" (change)="filterInvoices()">
-        <option value="">All Statuses</option>
-        <option value="Pending">Pending</option>
-        <option value="Partial">Partial</option>
-        <option value="Paid">Paid</option>
-        <option value="Overdue">Overdue</option>
-      </select>
+      <!-- Month Input -->
+      <div class="filter-item">
+        <label for="monthFilter">Month</label>
+        <input 
+          id="monthFilter"
+          type="month" 
+          class="form-input" 
+          [(ngModel)]="month" 
+          (change)="loadInvoices()" 
+          [min]="minMonth" 
+          [max]="maxMonth" 
+          aria-label="Select Month">
+        <i class="fas fa-calendar-alt"></i>
+      </div>
 
-      <button class="btn-notify" (click)="notifyParents()" [disabled]="!selectedClassId || !month">
-        Notify Parents
+      <!-- Status Filter -->
+      <div class="filter-item">
+        <label for="statusFilter">Status</label>
+        <select 
+          id="statusFilter"
+          class="form-select" 
+          [(ngModel)]="statusFilter" 
+          (change)="filterInvoices()"
+          aria-label="Filter by Status">
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Partial">Partial</option>
+          <option value="Paid">Paid</option>
+          <option value="Overdue">Overdue</option>
+        </select>
+        <i class="fas fa-filter"></i>
+      </div>
+
+      <!-- Notify Button -->
+      <button 
+        class="btn-notify" 
+        (click)="notifyParents()" 
+        [disabled]="!selectedClassId || !month"
+        [attr.aria-disabled]="!selectedClassId || !month"
+        aria-label="Notify Parents about Due Invoices">
+        <i class="fas fa-bell"></i> Notify Parents
       </button>
     </div>
   </div>
@@ -47,185 +124,321 @@
     <h2>Invoices for {{ viewMode === 'class' ? selectedClassName : (selectedStudent?.name || 'Selected Student') }} - {{ month }}</h2>
   </div>
 
-  <!-- ORIGINAL CLASS VIEW TABLE (Unchanged) -->
+  <!-- CLASS VIEW TABLE -->
   <div class="table-wrapper" *ngIf="viewMode === 'class'">
-    <table class="professional-table invoice-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Student</th>
-          <th>Total Amount</th>
-          <th>Remaining Due</th>
-          <th>Status</th>
-          <th>Due Date</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let invoice of filteredInvoices; let i = index">
-          <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
-          <td class="profile-cell">
-            <div class="profile-wrapper">
-              <div class="avatar-placeholder">{{ getInitials(invoice.studentId?.name || 'Unknown') }}</div>
-              <span class="teacher-name">{{ invoice.studentId?.name || 'Unknown' }}</span>
-            </div>
-          </td>
-          <td>{{ invoice.totalAmount | currency:'INR' }}</td>
-          <td>{{ invoice.remainingDue | currency:'INR' }}</td>
-          <td>
-            <span class="badge" [ngClass]="{
-              'bg-success': invoice.status === 'Paid',
-              'bg-warning': invoice.status === 'Pending',
-              'bg-info': invoice.status === 'Partial',
-              'bg-danger': invoice.status === 'Overdue'
-            }">
-              {{ invoice.status }}
-            </span>
-          </td>
-          <td>{{ invoice.dueDate | date:'dd-MMM-yyyy' }}</td>
-          <td class="text-center">
-            <button class="btn-material btn-outline-primary me-2" (click)="downloadInvoicePDF(invoice._id)">
-              <i class="fas fa-download"></i> Download
-            </button>
-            <button *ngIf="invoice.status !== 'Paid'" class="btn-material btn-outline-success" (click)="processPayment(invoice._id, invoice.remainingDue)">
-              <i class="fas fa-money-bill-wave"></i> Pay Now
-            </button>
-          </td>
-        </tr>
-        <tr *ngIf="filteredInvoices.length === 0 && selectedClassId && month">
-          <td colspan="8" class="text-center no-data">No invoices found for the selected criteria.</td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="professional-table invoice-table" role="table" aria-label="Class Invoices Table">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Student</th>
+            <th scope="col">Total Amount</th>
+            <th scope="col">Remaining Due</th>
+            <th scope="col">Status</th>
+            <th scope="col">Due Date</th>
+            <th scope="col" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let invoice of filteredInvoices; let i = index; trackBy: trackByInvoiceId">
+            <td>{{ (currentPage - 1) * pageSize + i + 1 }}</td>
+            <td class="profile-cell" data-label="Student">
+              <div class="profile-wrapper">
+                <div class="avatar-placeholder" [attr.aria-label]="'Avatar for ' + (invoice.studentId?.name || 'Unknown')">
+                  {{ getInitials(invoice.studentId?.name || 'Unknown') }}
+                </div>
+                <span class="teacher-name">{{ invoice.studentId?.name || 'Unknown Student' }}</span>
+              </div>
+            </td>
+            <td data-label="Total Amount">{{ invoice.totalAmount | currency:'INR' }}</td>
+            <td data-label="Remaining Due" [ngClass]="{'text-danger': invoice.remainingDue > 0}">{{ invoice.remainingDue | currency:'INR' }}</td>
+            <td data-label="Status">
+              <span 
+                class="badge" 
+                role="status"
+                [attr.aria-label]="'Invoice status: ' + invoice.status"
+                [ngClass]="{
+                  'bg-success': invoice.status === 'Paid',
+                  'bg-warning': invoice.status === 'Pending',
+                  'bg-info': invoice.status === 'Partial',
+                  'bg-danger': invoice.status === 'Overdue'
+                }">
+                {{ invoice.status }}
+              </span>
+            </td>
+            <td data-label="Due Date">{{ invoice.dueDate | date:'dd-MMM-yyyy' }}</td>
+            <td class="text-center" data-label="Actions">
+              <button 
+                class="btn-material btn-outline-primary" 
+                (click)="downloadInvoicePDF(invoice._id)"
+                [attr.aria-label]="'Download invoice for ' + (invoice.studentId?.name || 'Unknown')"
+                type="button">
+                <i class="fas fa-download"></i> Download
+              </button>
+              <button 
+                *ngIf="invoice.status !== 'Paid'" 
+                class="btn-material btn-outline-success" 
+                (click)="processPayment(invoice._id, invoice.remainingDue)"
+                [attr.aria-label]="'Process payment for ' + (invoice.studentId?.name || 'Unknown')"
+                type="button">
+                <i class="fas fa-money-bill-wave"></i> Pay Now
+              </button>
+              <button 
+                class="btn-material btn-outline-info" 
+                (click)="openStudentView(invoice.studentId?._id || invoice.student?._id, invoice.studentId?.name || invoice.student?.name)"
+                [attr.aria-label]="'View all invoices for ' + (invoice.studentId?.name || 'Unknown')"
+                type="button">
+                <i class="fas fa-eye"></i> All Invoices
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="filteredInvoices.length === 0 && selectedClassId && month" role="row" aria-label="No results">
+            <td colspan="7" class="text-center no-data" role="cell">No invoices found for the selected criteria.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <!-- STUDENT VIEW LEDGER TABLE -->
+  <!-- STUDENT VIEW -->
   <div class="table-wrapper" *ngIf="viewMode === 'student'">
-    <!-- Summary Card -->
-    <div class="summary-card mb-3 p-3 bg-light rounded shadow-sm">
-      <div class="row text-center">
-        <div class="col-md-3">
+    
+    <!-- ACADEMIC YEAR DROPDOWN -->
+    <div class="mb-3" *ngIf="ledgers.length > 0">
+      <label class="form-label fw-bold" for="academicYearSelect">Select Academic Year</label>
+      <select 
+        id="academicYearSelect"
+        class="form-select" 
+        [(ngModel)]="selectedLedger" 
+        (change)="onAcademicYearChange()"
+        aria-label="Select Academic Year">
+        <option *ngFor="let ledger of ledgers; trackBy: trackByLedgerId" [ngValue]="ledger">
+          {{ ledger.academicYearName }} 
+          ({{ ledger.ledger.length }} months | Due: {{ ledger.summary.totalDue | currency:'INR' }})
+        </option>
+      </select>
+    </div>
+
+    <!-- SUMMARY CARD - Unique: Grid with icons -->
+    <div class="summary-card mb-3 p-4 bg-white rounded-lg shadow-md" *ngIf="summary" role="region" aria-label="Payment Summary">
+      <div class="row g-3 text-center">
+        <div class="col-md-3 col-6">
+          <i class="fas fa-check-circle text-success fa-2x mb-2"></i>
           <h6 class="text-success">Total Paid</h6>
           <p class="h5">{{ summary.totalPaid | currency:'INR' }}</p>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 col-6">
+          <i class="fas fa-exclamation-circle text-danger fa-2x mb-2"></i>
           <h6 class="text-danger">Total Due</h6>
           <p class="h5">{{ summary.totalDue | currency:'INR' }}</p>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3 col-6">
+          <i class="fas fa-calendar-check text-info fa-2x mb-2"></i>
           <h6 class="text-info">Months Paid</h6>
           <p class="h5">{{ summary.monthsWithPayments }} / {{ summary.totalMonths }}</p>
         </div>
-        <div class="col-md-3">
-          <h6 class="text-muted">Overdue Months</h6>
-          <p class="h5 text-warning">{{ (summary.overdueMonths || 0) }}</p>
+        <div class="col-md-3 col-6">
+          <i class="fas fa-clock text-warning fa-2x mb-2"></i>
+          <h6 class="text-muted">Overdue</h6>
+          <p class="h5 text-warning">{{ summary.overdueMonths || 0 }}</p>
         </div>
       </div>
     </div>
 
-    <table class="table table-striped table-hover ledger-table">
-      <thead class="table-dark">
-        <tr>
-          <th>#</th>
-          <th>Month</th>
-          <th>Previous Dues</th>
-          <th>Current Fee</th>
-          <th>Total Amount</th>
-          <th>Receipts (Paid)</th>
-          <th>Remaining Due</th>
-          <th>Status</th>
-          <th>Due Date</th>
-          <th class="text-center">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let row of filteredInvoices; let i = index" [ngClass]="getRowClass(row.status)">
-          <td>{{ i + 1 }}</td>
-          <td class="fw-bold text-primary">{{ row.month }}</td>
-          <td class="text-end" [ngClass]="{ 'text-danger fw-bold': row.previousDue > 0 }">
-            {{ row.previousDue | currency:'INR' }}
-            <small *ngIf="row.previousDue > 0" class="d-block text-muted">Carry from last</small>
-          </td>
-          <td class="text-end">{{ row.currentFee | currency:'INR' }}</td>
-          <td class="text-end fw-bold text-primary">{{ row.totalDues | currency:'INR' }}</td>
-          <td class="text-end text-success">
-            {{ row.paidAmount | currency:'INR' }}
-            <small *ngIf="row.payments?.length > 0" class="d-block text-muted">({{ row.payments.length }} receipts)</small>
-          </td>
-          <td class="text-end fw-bold" [ngClass]="{ 'text-danger': row.remainingDue > 0 }">
-            {{ row.remainingDue | currency:'INR' }}
-          </td>
-          <td>
-            <span class="badge rounded-pill px-2 py-1" [ngClass]="getStatusClass(row.status)">
-              {{ row.status }}
-            </span>
-          </td>
-          <td class="text-muted">{{ row.dueDate | date:'dd-MMM-yyyy' }}</td>
-          <td class="text-center">
-            <button class="btn btn-sm btn-outline-primary me-1" (click)="downloadInvoicePDF(row._id)" title="Download PDF">
-              <i class="fas fa-download"></i>
-            </button>
-            <button *ngIf="row.remainingDue > 0" class="btn btn-sm btn-outline-success me-1" (click)="processPayment(row._id, row.remainingDue)" title="Pay Now">
-              <i class="fas fa-money-bill-wave"></i>
-            </button>
-            <button *ngIf="row.payments?.length > 0" class="btn btn-sm btn-outline-info" (click)="toggleRowExpansion(row._id)" title="View History">
-              <i class="fas fa-history"></i> History
-            </button>
-          </td>
-        </tr>
+    <!-- PAYMENT HISTORY SECTION -->
+    <div class="mb-3" *ngIf="overallPayments.length > 0">
+      <button 
+        class="btn btn-outline-info" 
+        (click)="togglePaymentHistory()"
+        [attr.aria-expanded]="showPaymentHistory"
+        aria-controls="payment-history-table"
+        type="button">
+        <i class="fas fa-history me-2"></i>
+        {{ showPaymentHistory ? 'Hide' : 'Show' }} Payment History 
+        ({{ overallPayments.length }} payments)
+      </button>
+    </div>
 
-        <!-- Expandable Payment History -->
-        <tr *ngFor="let row of filteredInvoices">
-          <td *ngIf="expandedRows.has(row._id) && row.payments.length > 0" colspan="10">
-            <div class="payment-history p-3 bg-light rounded border-start border-info">
-              <h6 class="mb-2 text-info"><i class="fas fa-receipt me-1"></i>Payment History for {{ row.month }}</h6>
-              <div class="table-responsive">
-                <table class="table table-sm table-bordered">
-                  <thead class="table-light">
-                    <tr>
-                      <th>Date & Time</th>
-                      <th>Amount</th>
-                      <th>Method</th>
-                      <th>Transaction ID</th>
-                      <th>Processed By</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let payment of row.payments">
-                      <td>{{ payment.date | date:'dd-MMM-yyyy HH:mm' }}</td>
-                      <td class="text-success fw-bold">{{ payment.amount | currency:'INR' }}</td>
-                      <td class="text-capitalize">{{ payment.method }}</td>
-                      <td>{{ payment.transactionId || 'N/A' }}</td>
-                      <td>{{ payment.processedBy || 'Admin' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <small class="text-muted mt-1 d-block">Total Paid: {{ row.paidAmount | currency:'INR' }} ({{ row.payments.length }} receipts)</small>
-            </div>
-          </td>
-        </tr>
+    <div 
+      *ngIf="showPaymentHistory && overallPayments.length > 0" 
+      id="payment-history-table"
+      class="payment-history-section mb-4"
+      role="region"
+      aria-label="Payment History">
+      <h5>
+        <i class="fas fa-money-bill-wave me-2"></i>
+        Payment History for {{ selectedStudent?.name }}
+      </h5>
+      
+      <div class="table-responsive">
+        <table class="table table-striped table-hover table-sm history-table" role="table" aria-label="Payment History Table">
+          <thead class="table-dark">
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Date & Time</th>
+              <th scope="col">Amount</th>
+              <th scope="col">Method</th>
+              <th scope="col">Reference</th>
+              <th scope="col">Invoice Month</th>
+              <th scope="col">Processed By</th>
+              <th scope="col">Balance After</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let payment of overallPayments; let i = index; trackBy: trackByPaymentId">
+              <td class="fw-bold text-muted">{{ i + 1 }}</td>
+              <td data-label="Date & Time">
+                {{ payment.date | date:'dd-MMM-yyyy' }}
+                <small class="d-block text-muted">{{ payment.date | date:'h:mm a' }}</small>
+              </td>
+              <td data-label="Amount" class="text-success fw-bold">
+                {{ payment.amount | currency:'INR' }}
+              </td>
+              <td data-label="Method">
+                <span 
+                  class="badge" 
+                  [attr.aria-label]="'Payment method: ' + payment.paymentMethod"
+                  [ngClass]="{
+                    'bg-success': payment.paymentMethod === 'Cash',
+                    'bg-info': payment.paymentMethod === 'Online',
+                    'bg-warning': payment.paymentMethod === 'Cheque'
+                  }">
+                  {{ payment.paymentMethod }}
+                </span>
+              </td>
+              <td data-label="Reference">
+                <span *ngIf="payment.transactionId" class="text-info small">
+                  {{ payment.transactionId }}
+                </span>
+                <span *ngIf="payment.chequeNumber" class="text-warning small">
+                  {{ payment.chequeNumber }}
+                </span>
+                <span *ngIf="!payment.transactionId && !payment.chequeNumber" class="text-muted small">
+                  N/A
+                </span>
+              </td>
+              <td data-label="Invoice Month">
+                <span class="badge bg-light text-dark">
+                  {{ payment.invoiceMonth }}
+                </span>
+              </td>
+              <td data-label="Processed By" class="text-muted">
+                {{ payment.processedBy }}
+              </td>
+              <td data-label="Balance After" class="text-end fw-bold" [ngClass]="{
+                'text-success': getBalanceAfter(i) === 0,
+                'text-warning': getBalanceAfter(i) > 0 && getBalanceAfter(i) <= 1000,
+                'text-danger': getBalanceAfter(i) > 1000
+              }">
+                {{ getBalanceAfter(i) | currency:'INR' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-        <tr *ngIf="filteredInvoices.length === 0">
-          <td colspan="10" class="text-center py-4">
-            <i class="fas fa-file-invoice fa-3x text-muted mb-3"></i>
-            <p class="text-muted">No invoices found for this student.</p>
-          </td>
-        </tr>
-      </tbody>
-      <tfoot *ngIf="filteredInvoices.length > 0" class="table-light fw-bold">
-        <tr>
-          <th colspan="4" class="text-end">Grand Totals</th>
-          <th>{{ summary.totalPaid | currency:'INR' }}</th>
-          <th></th>
-          <th class="text-danger">{{ summary.totalDue | currency:'INR' }}</th>
-          <th colspan="3"></th>
-        </tr>
-      </tfoot>
-    </table>
+    <div *ngIf="showPaymentHistory && overallPayments.length === 0" class="alert alert-info" role="alert">
+      <i class="fas fa-info-circle me-2"></i>
+      No payment history found for this student.
+    </div>
+
+    <!-- LEDGER TABLE -->
+    <div class="table-responsive" *ngIf="ledgerData.length > 0">
+      <table 
+        class="table table-striped table-hover ledger-table" 
+        role="table" 
+        aria-label="Student Ledger Table">
+        <thead class="table-dark">
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Month</th>
+            <th scope="col">Previous Dues</th>
+            <th scope="col">Current Fee</th>
+            <th scope="col">Total Amount</th>
+            <th scope="col">Receipts (Paid)</th>
+            <th scope="col">Remaining Due</th>
+            <th scope="col">Status</th>
+            <th scope="col">Due Date</th>
+            <th scope="col" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr 
+            *ngFor="let row of filteredInvoices; let i = index; trackBy: trackByLedgerRowId" 
+            [ngClass]="getRowClass(row.status)"
+            role="row">
+            <td>{{ i + 1 }}</td>
+            <td data-label="Month" class="fw-bold text-primary">{{ row.month }}</td>
+            <td data-label="Previous Dues" class="text-end" [ngClass]="{ 'text-danger fw-bold': row.previousDue > 0 }">
+              {{ row.previousDue | currency:'INR' }}
+              <small *ngIf="row.previousDue > 0" class="d-block text-muted">Carry from last</small>
+            </td>
+            <td data-label="Current Fee" class="text-end">{{ row.currentFee | currency:'INR' }}</td>
+            <td data-label="Total Amount" class="text-end fw-bold text-primary">{{ row.totalDues | currency:'INR' }}</td>
+            <td data-label="Receipts (Paid)" class="text-end text-success">
+              {{ row.paidAmount | currency:'INR' }}
+              <small *ngIf="row.payments?.length > 0" class="d-block text-muted">({{ row.payments.length }} receipts)</small>
+            </td>
+            <td data-label="Remaining Due" class="text-end fw-bold" [ngClass]="{ 'text-danger': row.remainingDue > 0 }">
+              {{ row.remainingDue | currency:'INR' }}
+            </td>
+            <td data-label="Status">
+              <span 
+                class="badge rounded-pill px-2 py-1" 
+                role="status"
+                [attr.aria-label]="'Invoice status: ' + row.status"
+                [ngClass]="getStatusClass(row.status)">
+                {{ row.status }}
+              </span>
+            </td>
+            <td data-label="Due Date" class="text-muted">{{ row.dueDate | date:'dd-MMM-yyyy' }}</td>
+            <td class="text-center" data-label="Actions">
+              <button 
+                class="btn btn-sm btn-outline-primary me-1" 
+                (click)="downloadInvoicePDF(row._id)"
+                [attr.aria-label]="'Download invoice for ' + row.month"
+                type="button">
+                <i class="fas fa-download me-1"></i>Download
+              </button>
+              <button 
+                *ngIf="row.remainingDue > 0" 
+                class="btn btn-sm btn-outline-success me-1" 
+                (click)="processPayment(row._id, row.remainingDue)"
+                [attr.aria-label]="'Process payment of ' + (row.remainingDue | currency:'INR') + ' for ' + row.month"
+                type="button">
+                <i class="fas fa-money-bill-wave me-1"></i>Pay
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- NO DATA -->
+    <div *ngIf="ledgers.length === 0" class="text-center py-5" role="alert" aria-label="No Invoices">
+      <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+      <p class="text-muted">No invoices found for this student.</p>
+      <small class="text-muted">Try selecting a different academic year or contact admin.</small>
+    </div>
   </div>
 
   <!-- Pagination -->
-  <app-pagination *ngIf="filteredInvoices.length > 0" [currentPage]="currentPage" [pageSize]="pageSize" [totalItems]="totalItems" [pageSizeOptions]="pageSizeOptions" (pageChange)="onPageChange($event)" (pageSizeChange)="onPageSizeChange($event)">
+  <app-pagination 
+    *ngIf="filteredInvoices.length > 0" 
+    [currentPage]="currentPage" 
+    [pageSize]="pageSize" 
+    [totalItems]="totalItems" 
+    [pageSizeOptions]="pageSizeOptions" 
+    (pageChange)="onPageChange($event)" 
+    (pageSizeChange)="onPageSizeChange($event)"
+    aria-label="Pagination Navigation">
   </app-pagination>
+
+  <!-- Error Alert -->
+  <div *ngIf="errorMessage" class="alert alert-danger" role="alert">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    {{ errorMessage }}
+    <button type="button" class="btn-close float-end" (click)="clearError()"></button>
+  </div>
 </div>

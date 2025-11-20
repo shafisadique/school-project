@@ -1,111 +1,128 @@
-<div class="row">
-  <div class="col-sm-12">
-    <app-card>
-      <div class="teacher-container">
-        <form [formGroup]="teacherForm" (ngSubmit)="onSubmit()" enctype="multipart/form-data">
-          <!-- Name & Username -->
-          <div class="row">
-            <div class="col-md-6 col-12">
-              <div class="form-group">
-                <label>Name:</label>
-                <input type="text" formControlName="name" class="form-control form-control-sm shadow-sm" />
-                <small *ngIf="submitted && f['name'].errors?.['required']" class="error">Name is required.</small>
-                <small *ngIf="submitted && f['name'].errors?.['minlength']" class="error">Minimum 3 characters required.</small>
+<div class="container-fluid py-3 py-md-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-10 col-xl-9">
+      <app-card cardTitle="Update Teacher">
+
+        <form *ngIf="form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+          <div class="row g-3">
+
+            <!-- Personal Details -->
+            <fieldset class="form-section">
+              <legend>Personal Details</legend>
+
+              <div class="row g-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" formControlName="name" placeholder="Full name">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['name'].errors?.['required']">
+                    Name is required
+                  </div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['name'].errors?.['minlength']">
+                    Minimum 2 characters
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Email</label>
+                  <input type="email" class="form-control form-control-sm" formControlName="email" placeholder="teacher@example.com">
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Phone</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="phone" placeholder="10 digits">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['phone'].errors?.['pattern']">
+                    10 digits only
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Gender <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="gender">
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['gender'].errors?.['required']">
+                    Gender required
+                  </div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Designation <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" formControlName="designation" placeholder="e.g., Math Teacher">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['designation'].errors?.['required']">
+                    Designation required
+                  </div>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Status <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="status">
+                    <option [value]="true">Active</option>
+                    <option [value]="false">Inactive</option>
+                  </select>
+                </div>
               </div>
-            </div>
-            <div class="col-md-6 col-12">
-              <div class="form-group">
-                <label>Username:</label>
-                <input type="text" formControlName="username" class="form-control form-control-sm shadow-sm" />
-                <small *ngIf="submitted && f['username'].errors?.['required']" class="error">Username is required.</small>
-                <small *ngIf="submitted && f['username'].errors?.['minlength']" class="error">Minimum 3 characters required.</small>
+            </fieldset>
+
+            <!-- Professional Details -->
+            <fieldset class="form-section">
+              <legend>Professional Details</legend>
+
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label">Subjects Taught <span class="text-danger">*</span></label>
+                  <ng-select [items]="subjectsList" 
+                             bindLabel="name" 
+                             bindValue="name" 
+                             formControlName="subjects" 
+                             [multiple]="true" 
+                             placeholder="Select subjects"
+                             class="form-select-sm">
+                  </ng-select>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['subjects'].errors?.['minlength']">
+                    Select at least one subject
+                  </div>
+                </div>
               </div>
+            </fieldset>
+
+            <!-- Profile Picture -->
+            <fieldset class="form-section">
+              <legend>Profile Picture</legend>
+
+              <div class="row g-3 align-items-center">
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Upload New Profile Picture (Optional)</label>
+                  <input type="file" class="form-control form-control-sm" accept="image/png,image/jpeg,image/jpg"
+                         (change)="onFileSelect($event)">
+                  <div class="text-danger small mt-1" *ngIf="fileError">{{ fileError }}</div>
+                </div>
+
+                <div class="col-12 col-md-6 text-center" *ngIf="imagePreview">
+                  <img [src]="imagePreview" alt="Preview" class="img-thumbnail" style="max-height: 110px;">
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- Server Error -->
+            <div class="col-12" *ngIf="serverError">
+              <div class="alert alert-danger small p-2">{{ serverError }}</div>
             </div>
+
+            <!-- Submit -->
+            <div class="col-12 d-flex justify-content-end gap-2">
+              <button type="submit" class="btn btn-primary btn-sm" [disabled]="loading || form.invalid">
+                <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span>
+                {{ loading ? 'Updating...' : 'Update Teacher' }}
+              </button>
+            </div>
+
           </div>
-          <!-- Email & Password -->
-          <div class="row">
-            <div class="col-md-6 col-12">
-              <div class="form-group">
-                <label>Email:</label>
-                <input type="email" formControlName="email" class="form-control form-control-sm shadow-sm" />
-                <small *ngIf="submitted && f['email'].errors?.['required']" class="error">Email is required.</small>
-                <small *ngIf="submitted && f['email'].errors?.['email']" class="error">Enter a valid email.</small>
-              </div>
-            </div>
-            <div class="col-md-6 col-12">
-              <!-- <div class="form-group">
-                <label>Password:</label>
-                <input type="password" formControlName="password" class="form-control form-control-sm shadow-sm" />
-              </div> -->
-            </div>
-          </div>
-          <!-- Phone & Designation -->
-          <div class="row">
-            <div class="col-md-6 col-12">
-              <div class="form-group">
-                <label>Phone:</label>
-                <input type="text" formControlName="phone" class="form-control form-control-sm shadow-sm" />
-                <small *ngIf="submitted && f['phone'].errors?.['required']" class="error">Phone number is required.</small>
-                <small *ngIf="submitted && f['phone'].errors?.['pattern']" class="error">Enter a valid 10-digit number.</small>
-              </div>
-            </div>
-            <div class="col-md-6 col-12">
-              <div class="form-group">
-                <label>Designation:</label>
-                <input type="text" formControlName="designation" class="form-control form-control-sm shadow-sm" />
-                <small *ngIf="submitted && f['designation'].errors?.['required']" class="error">Designation is required.</small>
-              </div>
-            </div>
-          </div>
-          <!-- Profile Picture Upload -->
-          <div class="row">
-            <div class="col-12">
-              <div class="form-group">
-                <label>Profile Picture:</label>
-                <input type="file" class="form-control form-control-sm" (change)="onFileSelect($event)" accept="image/*" />
-                <small *ngIf="submitted && fileError" class="error">{{ fileError }}</small>
-              </div>
-            </div>
-            <div class="col-md-6 col-12">
-              <div *ngIf="imagePreview" class="image-preview-container">
-                <label>Preview:</label>
-                <img [src]="imagePreview" crossorigin="anonymous" alt="Profile Preview" class="img-thumbnail" />
-              </div>
-            </div>
-          </div>
-          <!-- Subjects -->
-          <div class="form-group">
-            <label>Subjects:</label>
-            <ng-select
-              formControlName="subjects"
-              [items]="subjectsList"
-              bindLabel="name"
-              bindValue="name"
-              [multiple]="true"
-              placeholder="Select subjects"
-              [closeOnSelect]="false"
-              [searchable]="true"
-              class="custom-multiselect">
-            </ng-select>
-            <small *ngIf="submitted && f['subjects'].errors?.['required']" class="error">
-              Select at least one subject.
-            </small>
-          </div>
-          <!-- Gender -->
-          <div class="form-group">
-            <label>Gender:</label>
-            <select formControlName="gender" class="form-control form-control-sm shadow-sm">
-              <option value="">Select Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-              <option value="Other">Other</option>
-            </select>
-            <small *ngIf="submitted && f['gender'].errors?.['required']" class="error">Gender is required.</small>
-          </div>
-          <!-- Submit Button -->
-          <button type="submit" class="btn btn-primary">Update Teacher</button>
         </form>
-      </div>
-    </app-card>
+
+      </app-card>
+    </div>
   </div>
 </div>

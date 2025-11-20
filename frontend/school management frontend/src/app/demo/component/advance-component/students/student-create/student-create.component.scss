@@ -1,48 +1,66 @@
-
 .form-section {
-  margin-bottom: 20px;
-  border: 1px solid #e0e0e0;
-  padding: 10px;
-  border-radius: 5px;
+  border: 1px solid #e3e6f0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  background: #fafbfe;
+
+  legend {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    width: auto;
+    float: none;
+    margin-bottom: 1rem;
+  }
 }
 
-.form-section legend {
-  background: linear-gradient(90deg, #4a90e2, #50c9c3);
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  padding: 12px 20px;
-  border-radius: 5px 5px 0 0;
-  margin-bottom: 15px;
-  width: 100%;
-  box-sizing: border-box;
-  text-align: left;
+.form-label {
+  font-weight: 500;
+  color: #2d3748;
+  font-size: 0.9rem;
 }
 
-.form-group {
-  margin-bottom: 15px;
+.form-control, .form-select {
+  border: 1px solid #cbd5e0;
+  &:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+  }
 }
 
-.error {
-  color: red;
-  font-size: 12px;
+.text-danger {
+  font-size: 0.8rem;
 }
 
-.parent-error {
-  display: block;
-  margin-bottom: 15px;
-  color: red;
-  font-size: 14px;
+.img-thumbnail {
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
 }
 
-.server-error {
-  color: red;
-  margin-bottom: 15px;
+.alert-info {
+  background: #ebf8ff;
+  border: 1px solid #7dc4e4;
+  color: #0c4a6e;
 }
 
-.image-preview-container img {
-  max-width: 100%;
-  height: auto;
+button[disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+// Mobile
+@media (max-width: 576px) {
+  .form-section {
+    padding: 1rem;
+  }
+  legend {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+  }
 }

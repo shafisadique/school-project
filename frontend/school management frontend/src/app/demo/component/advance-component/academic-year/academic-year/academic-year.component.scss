@@ -1,0 +1,170 @@
+/* academic-year.component.scss — 100% SAME AS STUDENT & EXAM LIST */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
+
+$primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+$card-bg: rgba(255, 255, 255, 0.95);
+$border-color: #e5e7eb;
+$shadow-light: 0 2px 4px -1px rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+$shadow-hover: 0 8px 25px rgba(102, 126, 234, 0.15);
+$border-radius: 12px;
+
+.container-fluid {
+  padding: 16px;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+}
+
+.header-section {
+  margin-bottom: 24px;
+  .header-card {
+    background: $card-bg;
+    backdrop-filter: blur(10px);
+    border-radius: $border-radius;
+    padding: 28px;
+    box-shadow: $shadow-light;
+    border: 1px solid $border-color;
+    text-align: center;
+
+    .title {
+      font-size: 1.9rem;
+      font-weight: 600;
+      background: $primary-gradient;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 0 0 8px 0;
+    }
+    .subtitle { font-size: 1rem; color: #6b7280; margin: 0; }
+  }
+}
+
+.form-section, .current-session-card, .table-section {
+  .form-card, .table-card {
+    background: $card-bg;
+    backdrop-filter: blur(10px);
+    border-radius: $border-radius;
+    box-shadow: $shadow-light;
+    border: 1px solid $border-color;
+    padding: 0 10px 10px 10px;
+    overflow: hidden;
+  }
+}
+
+.form-section {
+  legend {
+    background: $primary-gradient;
+    color: white;
+    font-size: 1.05rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 0.7rem 1.6rem;
+    border-radius: 10px;
+    float: none;
+    width: auto;
+    margin: 0 0 1.5rem 1.5rem;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  }
+}
+
+.current-session-card {
+  .current-session-header {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    padding: 1rem 1.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .current-session-body {
+    padding: 1.8rem;
+    background: white;
+
+    .session-name {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 0 0 8px 0;
+    }
+    .session-dates {
+      font-size: 1rem;
+      color: #6b7280;
+      margin: 0;
+    }
+  }
+}
+
+.table-header {
+  background: linear-gradient(135deg, #2c3e50, #34495e);
+  color: white;
+  padding: 1rem 1.5rem;
+  font-weight: 600;
+
+  h3 { margin: 0; font-size: 1.2rem; }
+}
+
+.professional-table {
+  margin: 0;
+  font-size: 0.92rem;
+
+  thead {
+    background: #f8f9fa;
+    th {
+      font-weight: 600;
+      color: #4c1d95;
+      padding: 14px;
+      font-size: 0.9rem;
+    }
+  }
+
+  tbody tr:hover {
+    background-color: rgba(102, 126, 234, 0.05);
+  }
+
+  .badge {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+
+    &.badge-success { background: rgba(16, 185, 129, 0.15); color: #059669; border: 1px solid rgba(16, 185, 129, 0.3); }
+    &.badge-secondary { background: rgba(107, 114, 128, 0.15); color: #6b7280; border: 1px solid rgba(107, 114, 128, 0.3); }
+  }
+}
+
+.btn-material {
+  padding: 10px 22px;
+  border: none;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  box-shadow: $shadow-light;
+
+  &.btn-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    &:hover { transform: translateY(-2px); box-shadow: $shadow-hover; }
+  }
+  &.btn-secondary {
+    background: #95a5a6;
+    color: white;
+  }
+}
+
+@media (max-width: 768px) {
+  .container-fluid { padding: 12px; }
+  .header-card, .form-card, .table-card { padding: 16px; }
+  legend { font-size: 0.95rem; padding: 0.6rem 1.2rem; margin-left: 0; }
+  .current-session-body { padding: 1.2rem; }
+  .session-name { font-size: 1.4rem; }
+}

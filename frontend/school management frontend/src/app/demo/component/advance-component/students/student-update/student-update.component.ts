@@ -1,252 +1,318 @@
-import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
+// src/app/modules/student/student-update/student-update.component.ts
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import {
+  FormBuilder,
+  FormGroup,
+  Validators,
+  ReactiveFormsModule,
+} from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
+import { Subject, takeUntil } from 'rxjs';
 import { StudentService } from '../student.service';
 import { ClassSubjectService } from '../../class-subject-management/class-subject.service';
+import { RouteService } from '../../../route/route.service';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from 'src/app/theme/shared/components/card/card.component';
 
-interface ParentDetails {
-  fatherName?: string;
-  motherName?: string;
-  fatherPhone?: string;
-  motherPhone?: string;
-}
-
 @Component({
   selector: 'app-student-update',
   templateUrl: './student-update.component.html',
-  imports: [CommonModule, FormsModule, ReactiveFormsModule, CardComponent],
+  styleUrls: ['./student-update.component.scss'],
   standalone: true,
-  styleUrls: ['./student-update.component.scss']
+  imports: [CommonModule, ReactiveFormsModule, CardComponent],
 })
-export class StudentUpdateComponent implements OnInit {
-  studentForm!: FormGroup;
+export class StudentUpdateComponent implements OnInit, OnDestroy {
+  form!: FormGroup;
   submitted = false;
+  loading = false;
   classList: any[] = [];
-  sectionList: any[] = ['A', 'B', 'C'];
+  sectionList = ['A', 'B', 'C', 'D', 'E'];
+  routes: any[] = [];
   selectedFile: File | null = null;
   imagePreview: string | null = null;
-  fileError: string | null = null;
-  serverErrors: any = {};
-  schoolId = localStorage.getItem('schoolId');
+  fileError = '';
+  serverError = '';
   studentId: string | null = null;
+
+  private destroy$ = new Subject<void>();
+  private schoolId = localStorage.getItem('schoolId')!;
 
   constructor(
     private fb: FormBuilder,
-    private classSubjectService: ClassSubjectService,
-    private studentService: StudentService,
-    private toastr: ToastrService,
+    private classSvc: ClassSubjectService,
+    private routeSvc: RouteService,
+    private studentSvc: StudentService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private toastr: ToastrService
   ) {}
 
-  ngOnInit() {
+  ngOnInit(): void {
     this.studentId = this.route.snapshot.paramMap.get('id');
     if (!this.studentId) {
-      this.toastr.error('Invalid student ID', 'Error');
-      this.router.navigate(['/student/details']);
+      this.toastr.error('Invalid student ID');
+      this.router.navigate(['/student/student-details']);
       return;
     }
 
-    this.studentForm = this.fb.group({
-      name: ['', [Validators.required, Validators.minLength(3)]],
-      email: [''],
-      phone: [''],
-      // [Validators.required, Validators.pattern('^(?:\\+91)?[0-9]{10}$')]
-      dateOfBirth: ['', Validators.required],
-      city: ['', Validators.required],
-      state: ['', Validators.required],
-      country: ['', Validators.required],
-      classId: ['', Validators.required],
-      section: ['', Validators.required],
-      address: ['', Validators.required],
-      gender: ['', Validators.required],
-      usesTransport: [false, [Validators.required]],
-      usesHostel: [false, [Validators.required]],
-      fatherName: ['', Validators.minLength(2)],
-      motherName: ['', Validators.minLength(2)],
-      fatherPhone: ['', Validators.pattern('^(?:\\+91)?[0-9]{10}$')],
-      motherPhone: ['', Validators.pattern('^(?:\\+91)?[0-9]{10}$')],
-      status: [true] // Add status field
-    }, { 
-      validators: this.atLeastOneParentValidator
-    });
-
+    this.initForm();
     this.loadClasses();
+    this.loadRoutes();
+    this.watchTransport();
+    this.watchParents();
     this.loadStudent();
   }
 
-  atLeastOneParentValidator(formGroup: FormGroup) {
-    const fatherName = formGroup.get('fatherName')?.value;
-    const motherName = formGroup.get('motherName')?.value;
-    const fatherPhone = formGroup.get('fatherPhone')?.value;
-    const motherPhone = formGroup.get('motherPhone')?.value;
-
-    if (!fatherName && !motherName) {
-      return { noParentProvided: true };
-    }
-    if (fatherName && !fatherPhone) {
-      formGroup.get('fatherPhone')?.setErrors({ requiredIfFather: true });
-    }
-    if (motherName && !motherPhone) {
-      formGroup.get('motherPhone')?.setErrors({ requiredIfMother: true });
-    }
-    return null;
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  get f() {
-    return this.studentForm.controls;
-  }
-
-  loadClasses() {
-    this.classSubjectService.getClassesBySchool(this.schoolId).subscribe({
-      next: (classes) => {
-        this.classList = classes;
-      },
-      error: (err) => console.error('Error fetching classes:', err)
+  // --- Form ---
+  private initForm(): void {
+    this.form = this.fb.group({
+      name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
+      email: [''],
+      phone: ['', [Validators.pattern(/^\d{10}$/)]],
+      dateOfBirth: ['', Validators.required],
+      gender: ['', Validators.required],
+      classId: ['', Validators.required],
+      section: ['', Validators.required],
+      status: [true],
+      address: ['', [Validators.required, Validators.maxLength(200)]],
+      city: ['', [Validators.required, Validators.maxLength(100)]],
+      state: ['', [Validators.required, Validators.maxLength(100)]],
+      country: ['India', [Validators.required, Validators.maxLength(100)]],
+      usesTransport: [false],
+      routeId: [''],
+      usesHostel: [false],
+      fatherName: [''],
+      fatherPhone: [''],
+      motherName: [''],
+      motherPhone: [''],
     });
   }
 
-  loadStudent() {
-  if (this.studentId) {
-    this.studentService.getStudentById(this.studentId).subscribe({
-      next: (student) => {
-        console.log(student)
-        this.studentForm.patchValue({
-          name: student.name,
-          email: student.email,
-          phone: student.phone,
-          dateOfBirth: new Date(student.dateOfBirth).toISOString().split('T')[0],
-          city: student.city,
-          state: student.state,
-          country: student.country,
-          classId: student.classId?._id || student.classId,
-          section: student.section[0], // Assuming section is an array
-          address: student.address,
-          gender: student.gender,
-          usesTransport: student.feePreferences.usesTransport,
-          usesHostel: student.feePreferences.usesHostel,
-          fatherName: student.parents?.fatherName || '',
-          motherName: student.parents?.motherName || '',
-          fatherPhone: student.parents?.fatherPhone || '',
-          motherPhone: student.parents?.motherPhone || '',
-          status: student.status // Set the status
-        });
-        
-        // FIX: Use the profileImageUrl from backend or construct it properly
-        if (student.profileImage) {
-          // If it's already a full URL (from older entries)
-          if (student.profileImage.startsWith('http')) {
-            this.imagePreview = student.profileImage;
-          } else {
-            // If it's a key, use the proxy endpoint
-            let url= `https://school-management-backend-khaki.vercel.app`
-            this.imagePreview = `${url}/${encodeURIComponent(student.profileImage)}`;
-          }
+  get f() { return this.form.controls; }
+
+  // --- Dynamic Validation ---
+  private watchTransport(): void {
+    this.form.get('usesTransport')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(val => {
+        const routeCtrl = this.form.get('routeId');
+        if (val) routeCtrl?.setValidators(Validators.required);
+        else routeCtrl?.clearValidators();
+        routeCtrl?.updateValueAndValidity();
+      });
+  }
+
+  private watchParents(): void {
+    const watchParent = (nameCtrl: string, phoneCtrl: string) => {
+      this.form.get(nameCtrl)?.valueChanges.pipe(takeUntil(this.destroy$)).subscribe(name => {
+        const phone = this.form.get(phoneCtrl)?.value;
+        if (name && !phone) {
+          this.form.get(phoneCtrl)?.setErrors({ requiredIfName: true });
         } else {
-          this.imagePreview = null;
+          const errors = this.form.get(phoneCtrl)?.errors;
+          if (errors && errors['requiredIfName']) {
+            delete errors['requiredIfName'];
+            if (Object.keys(errors).length === 0) {
+              this.form.get(phoneCtrl)?.setErrors(null);
+            } else {
+              this.form.get(phoneCtrl)?.setErrors(errors);
+            }
+          }
         }
-      },
-      error: () => {
-        this.toastr.error('Error loading student details', 'Error');
-        this.router.navigate(['/student/details']);
-      }
-    });
-  }
-}
-
-  onFileSelect(event: any) {
-    const file = event.target.files[0];
-    if (file) {
-      const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg'];
-      if (!allowedTypes.includes(file.type)) {
-        this.fileError = 'Only PNG, JPG, and JPEG files are allowed.';
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        this.fileError = 'File size must be less than 2MB.';
-        return;
-      }
-      this.selectedFile = file;
-      this.fileError = null;
-      const reader = new FileReader();
-      reader.onload = () => {
-        this.imagePreview = reader.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
-  }
-
-  onSubmit() {
-    this.submitted = true;
-
-    if (this.studentForm.invalid) {
-      return;
-    }
-
-    const updateData: any = {
-      name: this.studentForm.value.name || '',
-      email: this.studentForm.value.email || '',
-      phone: this.studentForm.value.phone || '',
-      dateOfBirth: this.studentForm.value.dateOfBirth || '',
-      city: this.studentForm.value.city || '',
-      state: this.studentForm.value.state || '',
-      country: this.studentForm.value.country || '',
-      classId: this.studentForm.value.classId || '',
-      gender: this.studentForm.value.gender || '',
-      address: this.studentForm.value.address || '',
-      section: [this.studentForm.value.section],
-      usesTransport: this.studentForm.value.usesTransport,
-      usesHostel: this.studentForm.value.usesHostel,
-      status: this.studentForm.value.status // Include status
+        this.form.get(phoneCtrl)?.updateValueAndValidity({ emitEvent: false });
+      });
     };
+    watchParent('fatherName', 'fatherPhone');
+    watchParent('motherName', 'motherPhone');
+  }
 
-    const parents: ParentDetails = {};
-    if (this.studentForm.value.fatherName?.trim()) {
-      parents.fatherName = this.studentForm.value.fatherName;
-    }
-    if (this.studentForm.value.motherName?.trim()) {
-      parents.motherName = this.studentForm.value.motherName;
-    }
-    if (this.studentForm.value.fatherPhone?.trim()) {
-      parents.fatherPhone = this.studentForm.value.fatherPhone;
-    }
-    if (this.studentForm.value.motherPhone?.trim()) {
-      parents.motherPhone = this.studentForm.value.motherPhone;
-    }
-    if (Object.keys(parents).length > 0) {
-      updateData.parents = parents;
-    }
+  // --- Data Load ---
+  private loadClasses(): void {
+    this.classSvc.getClassesBySchool(this.schoolId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res: any) => {
+          this.classList = res.data || res || [];
+        },
+        error: (err) => {
+          console.error('Classes error:', err);
+          this.toastr.error('Failed to load classes. Please refresh.');
+          this.classList = [];
+        }
+      });
+  }
 
-    if (this.studentId) {
-      this.studentService.updateStudent(this.studentId, updateData).subscribe({
-        next: (res) => {
-          // If a new profile image is selected, upload it separately
-          if (this.selectedFile) {
-            const formData = new FormData();
-            formData.append('profileImage', this.selectedFile);
-            this.studentService.uploadStudentPhoto(this.studentId!, formData).subscribe({
-              next: () => {
-                this.toastr.success('Student updated successfully!', 'Success');
-              },
-              error: (err) => {
-                this.toastr.error('Student updated, but failed to upload profile picture', 'Warning');
-                this.router.navigate(['/student/student-details']);
-              }
-            });
-          } else {
-            this.toastr.success('Student updated successfully!', 'Success');
-            this.router.navigate(['/student/student-details']);
+  private loadRoutes(): void {
+    this.routeSvc.getRoutes()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res: any) => this.routes = res.data || [],
+        error: () => this.toastr.error('Failed to load routes')
+      });
+  }
+
+  private loadStudent(): void {
+    this.studentSvc.getStudentById(this.studentId!)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (student: any) => {
+          this.form.patchValue({
+            name: student.name,
+            email: student.email || '',
+            phone: student.phone || '',
+            dateOfBirth: new Date(student.dateOfBirth).toISOString().split('T')[0],
+            gender: student.gender,
+            classId: student.classId?._id || student.classId,
+            section: student.section?.[0] || '',
+            status: student.status,
+            address: student.address || '',
+            city: student.city || '',
+            state: student.state || '',
+            country: student.country || 'India',
+            usesTransport: student.feePreferences?.usesTransport || false,
+            usesHostel: student.feePreferences?.usesHostel || false,
+            fatherName: student.parents?.fatherName || '',
+            fatherPhone: student.parents?.fatherPhone || '',
+            motherPhone: student.parents?.motherPhone || '',
+            motherName: student.parents?.motherName || '',
+          });
+
+          if (student.routeId) {
+            this.form.patchValue({ routeId: student.routeId?._id || student.routeId });
+          }
+
+          // Set image preview
+          if (student.profileImage) {
+            if (student.profileImage.startsWith('http')) {
+              this.imagePreview = student.profileImage;
+            } else {
+              const proxyUrl = `https://edglobe.vercel.app`;
+              this.imagePreview = `${proxyUrl}/api/proxy-image/${encodeURIComponent(student.profileImage)}`;
+            }
           }
         },
         error: (err) => {
-          let errorMessage = err.error.message || 'Error updating student';
-          this.serverErrors = { message: errorMessage };
-          this.toastr.error(errorMessage, 'Error');
+          this.serverError = this.parseError(err);
+          this.toastr.error('Failed to load student details');
+          this.router.navigate(['/student/student-details']);
         }
       });
+  }
+
+  // --- File ---
+  onFileSelect(event: any): void {
+    const file: File = event.target.files[0];
+    if (!file) return;
+
+    if (!['image/png', 'image/jpeg', 'image/jpg'].includes(file.type)) {
+      this.fileError = 'Only PNG/JPG/JPEG allowed';
+      return;
     }
+    if (file.size > 2 * 1024 * 1024) {
+      this.fileError = 'Max 2 MB';
+      return;
+    }
+
+    this.selectedFile = file;
+    this.fileError = '';
+    const reader = new FileReader();
+    reader.onload = () => this.imagePreview = reader.result as string;
+    reader.readAsDataURL(file);
+  }
+
+  // --- Submit ---
+  onSubmit(): void {
+    this.submitted = true;
+    this.serverError = '';
+
+    // Client-side check for at least one parent
+    const val = this.form.value;
+    if (!val.fatherName && !val.motherName) {
+      this.serverError = 'At least one parent name is required';
+      return;
+    }
+
+    if (this.form.invalid) return;
+
+    this.loading = true;
+    const updateData = this.buildUpdateData(val);
+
+    this.studentSvc.updateStudent(this.studentId!, updateData)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          if (this.selectedFile) {
+            const fd = new FormData();
+            fd.append('profileImage', this.selectedFile!);
+            this.studentSvc.uploadStudentPhoto(this.studentId!, fd)
+              .pipe(takeUntil(this.destroy$))
+              .subscribe({
+                next: () => {
+                  this.toastr.success('Student updated successfully');
+                  this.router.navigate(['/student/student-details']);
+                },
+                error: (err) => {
+                  this.toastr.warning('Student updated, but failed to upload profile picture');
+                  this.router.navigate(['/student/student-details']);
+                }
+              });
+          } else {
+            this.toastr.success('Student updated successfully');
+            this.router.navigate(['/student/student-details']);
+          }
+        },
+        error: (err: any) => {
+          this.loading = false;
+          this.serverError = this.parseError(err);
+          const errorMsg = err.error?.message || 'Failed to update student';
+          this.toastr.error(errorMsg, 'Error');
+        }
+      });
+  }
+
+  private buildUpdateData(val: any): any {
+    const data: any = {};
+
+    // Basic fields
+    ['name', 'email', 'phone', 'dateOfBirth', 'address', 'city', 'state', 'country', 'classId', 'section', 'gender', 'status', 'usesTransport', 'usesHostel'].forEach(key => {
+      if (val[key] !== null && val[key] !== undefined && val[key] !== '') {
+        if (key === 'phone' && !/^\d{10}$/.test(val[key])) return; // Skip invalid phone
+        data[key] = val[key].trim ? val[key].trim() : val[key];
+      }
+    });
+
+    // Section as array
+    data.section = [val.section];
+
+    // Route
+    if (val.usesTransport && val.routeId) {
+      data.routeId = val.routeId;
+    } else if (!val.usesTransport) {
+      data.routeId = null;
+    }
+
+    // Parents
+    const parents: any = {};
+    ['fatherName', 'fatherPhone', 'motherName', 'motherPhone'].forEach(key => {
+      const v = val[key]?.trim();
+      if (v) parents[key] = v;
+    });
+    if (Object.keys(parents).length) data.parents = parents;
+
+    return data;
+  }
+
+  private parseError(err: any): string {
+    const msg = err.error?.message || 'Server error';
+    if (msg.includes('parent')) return 'Parent details incomplete';
+    if (msg.includes('phone')) return 'Phone number invalid';
+    if (msg.includes('route')) return 'Route required for transport';
+    return msg;
   }
 }

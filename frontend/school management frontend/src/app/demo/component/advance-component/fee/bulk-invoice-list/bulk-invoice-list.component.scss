@@ -7,429 +7,636 @@ $success-color: #10b981;
 $warning-color: #f59e0b;
 $danger-color: #ef4444;
 $info-color: #3b82f6;
+$border-color: #e5e7eb;
+$shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
+$shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+
 .ledger-table {
   font-size: 0.9rem;
-  th { background: #2C3E50; color: white; }
-  .table-overdue { background-color: #f8d7da !important; }
+  th { background: $primary-color; color: white; }
+  .table-overdue { background-color: $primary-color; }
   .profile-wrapper { min-width: 150px; }
-  .avatar-placeholder { width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
+  .avatar-placeholder { 
+    width: 35px; 
+    height: 35px; 
+    border-radius: 50%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 0.8rem; 
+  }
   .payment-history { border-left: 4px solid #007bff; }
   .history-table { font-size: 0.85rem; }
-  .summary-card { box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+  .summary-card { box-shadow: $shadow-light; }
   .no-data { color: #6c757d; font-style: italic; }
 }
+
 .invoice-container {
   padding: 20px;
   font-family: 'Poppins', sans-serif;
-  background-color: #ffffff;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
   max-width: 1400px;
   margin: 0 auto;
 
-  // Header Section
+  // Header Section - Unique: Gradient background, centered with subtle shadow
   .header-section {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 16px;
+    box-shadow: $shadow-light;
+    backdrop-filter: blur(10px);
 
     .title {
-      font-size: 1.5rem;
+      font-size: 2rem;
       font-weight: 700;
-      color: $primary-color;
+      background: linear-gradient(135deg, $primary-color, $info-color);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
       margin: 0;
+      letter-spacing: -0.5px;
     }
 
     .subtitle {
-      font-size: 0.9rem;
+      font-size: 1rem;
       color: #6b7280;
-      margin: 5px 0 0;
+      margin: 8px 0 0;
+      font-weight: 400;
     }
   }
 
-  // Controls Section
+  // Controls Section - Unique: Card-like filters row with icons, hover effects
   .controls-section {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    margin-bottom: 20px;
-
-    @media (min-width: 768px) {
-      flex-direction: row;
-      justify-content: space-between;
-      align-items: center;
-    }
+    gap: 20px;
+    margin-bottom: 30px;
 
     .toggle-group {
       display: flex;
-      gap: 10px;
+      gap: 12px;
+      justify-content: center;
 
       .toggle-btn {
-        padding: 8px 16px;
-        border: 1px solid $primary-color;
-        background: none;
+        padding: 10px 20px;
+        border: 2px solid $primary-color;
+        background: rgba(255, 255, 255, 0.8);
         color: $primary-color;
-        border-radius: 6px;
+        border-radius: 50px;
         cursor: pointer;
-        font-weight: 500;
-        transition: all 0.3s ease;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: $shadow-light;
 
         &.active {
-          background-color: $primary-color;
+          background: linear-gradient(135deg, $primary-color, $info-color);
           color: white;
+          transform: translateY(-2px);
+          box-shadow: $shadow-hover;
+        }
+
+        &:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: $shadow-hover;
         }
 
         &:disabled {
-          opacity: 0.6;
+          opacity: 0.5;
           cursor: not-allowed;
+          transform: none;
         }
       }
     }
 
     .filter-group {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-
-      .form-select,
-      .form-input {
-        padding: 8px;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.9rem;
-        background-color: white;
-        transition: border-color 0.3s ease;
-
-        &:focus {
-          border-color: $primary-color;
-          outline: none;
-          box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
-        }
-
-        &:disabled {
-          background-color: #f3f4f6;
-          cursor: not-allowed;
-        }
-      }
-
-      .btn-notify {
-        padding: 8px 16px;
-        background-color: $primary-color;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-
-        &:hover:not(:disabled) {
-          background-color: darken($primary-color, 10%);
-        }
-
-        &:disabled {
-          background-color: #9ca3af;
-          cursor: not-allowed;
-        }
-      }
-    }
-  }
-
-  // Invoice Title
-  .invoice-title {
-    margin-bottom: 20px;
-
-    h2 {
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: $primary-color;
-      margin: 0;
-    }
-  }
-
- // ... (Keep all existing styles above .table-wrapper unchanged)
-
-// Table Wrapper - Matching your student details table
-.table-wrapper {
-  padding-top: 10px;
-  font-family: 'Poppins', sans-serif;
-
-  .professional-table.invoice-table {
-    width: 100%;
-    border-collapse: collapse;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    border-radius: 8px;
-    background: white;
-
-    thead {
-      border-radius: 10px;
-      tr {
-        
-        background: #2C3E50; // Your official gradient
-        color: white;
-
-        th {
-          padding: 12px;
-          text-align: left;
-          font-weight: 600;
-          font-size: 14px;
-          white-space: nowrap;
-
-          &.text-center {
-            text-align: center;
-          }
-        }
-      }
-    }
-
-    tbody {
-      tr {
-        border-bottom: 1px solid #ECF0F1;
-        transition: background-color 0.2s;
-
-        &:nth-child(even) {
-          background-color: #F4FAFF;
-        }
-
-        &:hover {
-          background-color: #EAF6FF;
-        }
-
-        td {
-          padding: 8px;
-          color: #34495E;
-          font-size: 14px;
-          vertical-align: middle;
-
-          &.text-center {
-            text-align: center;
-          }
-        }
-      }
-    }
-
-    .profile-cell {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .profile-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .avatar-placeholder {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background-color: #2C3E50; // Your official accent color
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: 500;
-      font-size: 14px;
-      text-transform: uppercase;
-    }
-
-    .teacher-name {
-      font-weight: 500;
-      color: #2C3E50; // Your official accent color
-      font-size: 14px;
-    }
-
-    .badge {
-      font-size: 0.8rem;
-      padding: 0.4rem 0.65rem;
-      border-radius: 5px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) ;
-      &.bg-success { background-color: #10b981; color: white; }
-      &.bg-warning { background-color: #f59e0b; color: white; }
-      &.bg-info { background-color: #3b82f6; color: white; }
-      &.bg-danger { background-color: #ef4444; color: white; }
-    }
-
-    .no-data {
-      text-align: center;
-      font-weight: 500;
-      color: #6b7280;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: end;
       padding: 20px;
-    }
-  }
-}
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 16px;
+      box-shadow: $shadow-light;
+      backdrop-filter: blur(10px);
+      border: 1px solid $border-color;
 
-// Action Buttons - Matching your .btn-material
-.btn-material {
-  position: relative;
-  overflow: hidden;
-  border: none;
-  font-size: 10px;
-  border-radius: 5px;
-  margin-right: 10px;
-  padding: 8px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-
-  i {
-    font-size: 12px;
-    margin-right: 5px;
-  }
-
-  &:hover {
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
-    transform: translateY(-1px);
-  }
-
-  &::after {
-    content: "";
-    position: absolute;
-    background: rgba(255, 255, 255, 0.4);
-    border-radius: 50%;
-    transform: scale(0);
-    width: 100px;
-    height: 100px;
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.5s, opacity 1s;
-  }
-
-  &:active::after {
-    transform: scale(2.5);
-    opacity: 0;
-    transition: 0s;
-  }
-
-  &.btn-outline-primary {
-    background-color: #4a90e2; // Gradient start
-    color: white;
-
-    &:hover {
-      background-color: darken(#4a90e2, 10%);
-    }
-  }
-
-  &.btn-outline-success {
-    background-color: #50c9c3; // Gradient end
-    color: white;
-
-    &:hover {
-      background-color: darken(#50c9c3, 10%);
-    }
-  }
-}
-
-// Mobile Responsiveness (Adjusted for Icons)
-@media (max-width: 767px) {
-  .table-wrapper {
-    .professional-table.invoice-table {
-      thead {
-        display: none;
+      @media (max-width: 767px) {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 15px;
       }
 
-      tbody {
-        tr {
+      // Unique: Icon-integrated inputs with focus glow
+      .filter-item {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+
+        label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: $primary-color;
+          margin-bottom: 4px;
           display: block;
-          margin-bottom: 10px;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
+        }
 
-          td {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px;
-            font-size: 0.8rem;
+        .form-select,
+        .form-input,
+        input[type="month"],
+        input[type="search"] {
+          padding: 12px 16px 12px 45px;  // Space for icon
+          border: 2px solid $border-color;
+          border-radius: 12px;
+          font-size: 0.95rem;
+          background: white;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          min-height: 48px;
+          box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
 
-            &:before {
-              content: attr(data-label);
-              font-weight: 600;
-              color: #374151;
-              margin-right: 10px;
-            }
+          &:focus {
+            border-color: $info-color;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba($info-color, 0.1), inset 0 1px 3px rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
+          }
 
-            &.profile-cell {
-              flex-direction: column;
-              align-items: flex-start;
-              gap: 5px;
-            }
+          &:disabled {
+            background-color: $secondary-color;
+            cursor: not-allowed;
+          }
+        }
 
-            &.text-center {
-              flex-direction: column;
-              gap: 5px;
+        // Icons positioned absolutely
+        i {
+          position: absolute;
+          left: 14px;
+          top: 45px !important;
+          transform: translateY(-40%);
+          color: #9ca3af;
+          font-size: 1rem;
+          z-index: 1;
+          transition: color 0.3s ease;
+        }
 
-              .btn-material {
-                width: 100%;
-                margin: 2px 0;
-                i {
-                  margin-right: 8px; // Ensure icons have space on mobile
-                }
+        input:focus + i,
+        select:focus + i {
+          color: $info-color;
+        }
+      }
+
+      // Student search with custom dropdown - Unique: Animated dropdown with hover
+      .student-search-container {
+        position: relative;
+
+        input[type="search"] {
+          background-image: none;  // Remove default, use font-awesome
+          padding-left: 45px;
+          padding-right: 16px;
+        }
+
+        .dropdown {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: white;
+          border: 1px solid $border-color;
+          border-top: none;
+          border-radius: 0 0 12px 12px;
+          box-shadow: $shadow-hover;
+          max-height: 200px;
+          overflow-y: auto;
+          z-index: 1000;
+          animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+          ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+
+            li {
+              padding: 12px 16px;
+              cursor: pointer;
+              border-bottom: 1px solid $border-color;
+              transition: background-color 0.2s ease;
+              font-size: 0.95rem;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+
+              &:hover {
+                background-color: rgba($info-color, 0.1);
+              }
+
+              &:last-child {
+                border-bottom: none;
+              }
+
+              .student-name {
+                font-weight: 500;
+                color: $primary-color;
+              }
+
+              .admission-no {
+                color: #6b7280;
+                font-size: 0.85rem;
               }
             }
           }
         }
       }
+
+      .btn-notify {
+        padding: 12px 20px;
+        background: linear-gradient(135deg, $success-color, #059669);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        box-shadow: $shadow-light;
+
+        &:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: $shadow-hover;
+        }
+
+        &:disabled {
+          background: #9ca3af;
+          cursor: not-allowed;
+          transform: none;
+        }
+      }
+
+      .form-text {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-top: 4px;
+        grid-column: 1 / -1;
+      }
     }
   }
-}
 
+  // Invoice Title - Unique: Underlined with gradient
+  .invoice-title {
+    margin-bottom: 25px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid transparent;
+    background: linear-gradient(135deg, $primary-color, $info-color);
+    background-clip: text;
+    -webkit-background-clip: text;
 
-  // Mobile Responsiveness
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: transparent;
+      margin: 0;
+      letter-spacing: -0.3px;
+    }
+  }
+
+  // Table Wrapper - Production: Elevated cards for rows on mobile
+  .table-wrapper {
+    font-family: 'Poppins', sans-serif;
+
+    .professional-table.invoice-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      box-shadow: $shadow-light;
+      border-radius: 16px;
+      background: white;
+      overflow: hidden;
+
+      thead {
+        tr {
+          background: linear-gradient(135deg, $primary-color, #34495e);
+
+          th {
+            padding: 16px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: white;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+
+            &.text-center {
+              text-align: center;
+            }
+          }
+        }
+      }
+
+      tbody {
+        tr {
+          transition: all 0.2s ease;
+
+          &:nth-child(even) {
+            background-color: rgba(248, 250, 252, 0.5);
+          }
+
+          &:hover {
+            background-color: rgba($info-color, 0.05);
+            transform: scale(1.01);
+          }
+
+          td {
+            padding: 16px 12px;
+            color: $primary-color;
+            font-size: 0.9rem;
+            vertical-align: middle;
+            border-bottom: 1px solid $border-color;
+
+            &.text-center {
+              text-align: center;
+            }
+
+            &:last-child {
+              border-bottom: none;
+            }
+          }
+        }
+      }
+
+      .profile-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .profile-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .avatar-placeholder {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, $primary-color, $info-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        flex-shrink: 0;
+        box-shadow: $shadow-light;
+      }
+
+      .teacher-name {
+        font-weight: 500;
+        color: $primary-color;
+        font-size: 0.95rem;
+      }
+
+      .badge {
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        box-shadow: $shadow-light;
+        &.bg-success { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        &.bg-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        &.bg-info { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; }
+        &.bg-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+      }
+
+      .no-data {
+        text-align: center;
+        font-weight: 500;
+        color: #6b7280;
+        padding: 40px;
+        font-style: italic;
+      }
+    }
+  }
+
+  // Payment History - Unique: Collapsible with icon
+  .payment-history-section {
+    border: 1px solid $border-color;
+    border-radius: 12px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    margin-bottom: 20px;
+    box-shadow: $shadow-light;
+
+    h5 {
+      margin-bottom: 15px;
+      color: $primary-color;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .history-table {
+      margin-bottom: 0;
+
+      th {
+        background: $primary-color;
+        font-weight: 600;
+        color: white;
+        border: none;
+      }
+
+      td {
+        border-color: $border-color;
+        vertical-align: middle;
+      }
+
+      .badge {
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        border-radius: 12px;
+      }
+    }
+  }
+
+  // Action Buttons - Unique: Pill-shaped with gradients
+  .btn-material {
+    border: none;
+    border-radius: 20px;
+    margin-right: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: $shadow-light;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 90px;
+    justify-content: center;
+
+    i {
+      font-size: 0.9rem;
+    }
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: $shadow-hover;
+    }
+
+    &.btn-outline-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+    }
+
+    &.btn-outline-success {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+    }
+
+    &.btn-outline-info {
+      background: linear-gradient(135deg, #6b7280, #4b5563);
+      color: white;
+    }
+  }
+
+  // Animations
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  // Mobile Responsiveness - Unique: Stacked cards for tables
   @media (max-width: 767px) {
     padding: 10px;
 
+    .header-section {
+      padding: 15px;
+      margin-bottom: 20px;
+
+      .title {
+        font-size: 1.5rem;
+      }
+    }
+
     .controls-section {
-      flex-direction: column;
-      gap: 10px;
+      gap: 15px;
 
       .filter-group {
-        flex-direction: column;
-        gap: 8px;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 15px;
 
-        .form-select,
-        .form-input {
-          width: 100%;
+        .filter-item .form-select,
+        .filter-item .form-input,
+        .filter-item input[type="month"],
+        .filter-item input[type="search"] {
+          padding: 12px 16px 12px 45px;
+          min-height: 44px;
+        }
+
+        .btn-notify {
+          min-height: 44px;
         }
       }
     }
 
+    .invoice-title h2 {
+      font-size: 1.2rem;
+    }
+
     .table-wrapper {
-      .invoice-table {
+      .professional-table.invoice-table,
+      .ledger-table,
+      .history-table {
         thead {
-          display: none; // Hide headers on mobile
+          display: none;
         }
 
         tbody {
           tr {
             display: block;
-            margin-bottom: 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            margin-bottom: 12px;
+            border: 1px solid $border-color;
+            border-radius: 12px;
+            padding: 15px;
+            background: white;
+            box-shadow: $shadow-light;
+            transition: box-shadow 0.2s ease;
+
+            &:hover {
+              box-shadow: $shadow-hover;
+              transform: none;
+            }
 
             td {
+              display: block;
+              padding: 8px 0;
+              font-size: 0.85rem;
+              border: none !important;
+              border-bottom: 1px solid $border-color;
               display: flex;
               justify-content: space-between;
-              padding: 8px;
-              font-size: 0.8rem;
+              align-items: center;
 
               &:before {
-                content: attr(data-label);
+                content: attr(data-label) ": ";
                 font-weight: 600;
-                color: #374151;
-                margin-right: 10px;
+                color: $primary-color;
+                flex-shrink: 0;
+                min-width: 100px;
               }
 
-              &.student-cell {
+              &:last-child {
+                border-bottom: none;
+              }
+
+              &.profile-cell {
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 5px;
+                gap: 8px;
+                text-align: left;
+
+                .profile-wrapper {
+                  width: 100%;
+                }
               }
 
-              &.action-cell {
-                flex-direction: column;
-                gap: 5px;
+              &.text-center {
+                text-align: left;
+                flex-direction: row;
+                justify-content: space-between;
 
-                .btn-action {
-                  width: 100%;
+                .btn-material {
+                  flex: 1;
+                  margin: 0 2px;
+                }
+              }
+
+              &.text-end {
+                &:before {
+                  order: 2;
+                }
+
+                span, div {
+                  order: 1;
+                  text-align: right;
                 }
               }
             }
@@ -437,5 +644,29 @@ $info-color: #3b82f6;
         }
       }
     }
+
+    .payment-history-section {
+      padding: 15px;
+    }
+
+    .btn-material {
+      flex: 1;
+      margin: 2px;
+      padding: 10px;
+      font-size: 0.75rem;
+    }
+  }
+
+  // Accessibility
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 }

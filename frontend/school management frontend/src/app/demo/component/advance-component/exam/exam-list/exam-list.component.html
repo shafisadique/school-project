@@ -1,88 +1,155 @@
-<div class="container-fluid">
-  <header class="header">
-    <h2>Exam List</h2>
-    <button class="create-button" >Create New Exam</button>
-  </header>
+<div class="container-fluid py-1 py-md-1">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-12 col-xl-12">
 
-  <div class="exam-table">
-    <table>
-      <thead>
-        <tr>
-          <th>Exam Title</th>
-          <th>Exam Class</th>
-          <th>Exam Center</th>
-          <th>Start Date</th>
-          <th>End Date</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <ng-container *ngFor="let exam of exams">
-          <tr class="exam-row">
-            <td>{{ exam.examTitle }}</td>
-            <td>{{ exam.classId?.name }}</td>
-            <td>{{ exam.examCenter }}</td>
-            <td>{{ formatDate(exam.startDate) }}</td>
-            <td>{{ formatDate(exam.endDate) }}</td>
-            <td>
-              <span class="status-badge" [ngClass]="{
-                'status-scheduled': exam.examStatus === 'Scheduled',
-                'status-ongoing': exam.examStatus === 'Ongoing',
-                'status-completed': exam.examStatus === 'Completed'
-              }">
-                {{ exam.examStatus }}
-              </span>
-            </td>
-            <td>
-              <button class="action-button view" (click)="toggleRow(exam._id)">
-                {{ expandedRows[exam._id] ? 'Hide' : 'View' }} Papers
-              </button>
-              <button class="action-button edit" (click)="editExam(exam._id)">Edit</button>
-              <button class="action-button delete" (click)="deleteExam(exam._id)">Delete</button>
-            </td>
-          </tr>
-          <tr *ngIf="expandedRows[exam._id]" class="details-row">
-            <td colspan="7">
-              <div class="exam-papers">
-                <h3>Exam Papers</h3>
-                <table class="papers-table">
-                  <thead>
-                    <tr>
-                      <th>Subject</th>
-                      <th>Type</th>
-                      <th>Max Marks</th>
-                      <th>Min Marks</th>
-                      <th>Paper Code</th>
-                      <th>Start Date & Time</th>
-                      <th>End Date & Time</th>
-                      <th>Room No</th>
-                      <th>Grade Criteria</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let paper of exam.examPapers">
-                      <td>{{ paper.subjectId.name }}</td>
-                      <td>{{ paper.subjectType }}</td>
-                      <td>{{ paper.maxMarks }}</td>
-                      <td>{{ paper.minMarks }}</td>
-                      <td>{{ paper.paperCode }}</td>
-                      <td>{{ formatDate(paper.paperStartDateTime) }}</td>
-                      <td>{{ formatDate(paper.paperEndDateTime) }}</td>
-                      <td>{{ paper.roomNo }}</td>
-                      <td>{{ paper.gradeCriteria }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </td>
-          </tr>
-        </ng-container>
-      </tbody>
-    </table>
+      <!-- Header Card -->
+      <div class="header-section mb-4">
+        <div class="header-card">
+          <h1 class="title">Exam Management</h1>
+          <p class="subtitle">Schedule exams, manage papers, and track results efficiently.</p>
+        </div>
+      </div>
 
-    <div class="no-data" *ngIf="!exams.length">
-      No exams found. Click "Create New Exam" to add one.
+      <!-- Controls Card -->
+      <div class="controls-section mb-4">
+        <div class="controls-card d-flex flex-wrap align-items-center gap-3">
+
+          <!-- Create Button (with Premium Lock) -->
+          <button 
+            class="btn-material btn-success d-flex align-items-center gap-2"
+            [routerLink]="canCreateExam ? '/exams-&-progress/create-exam' : null"
+            [class.disabled]="!canCreateExam"
+            (click)="!canCreateExam && $event.preventDefault()">
+            <i class="fas fa-plus"></i> Create New Exam
+            <span *ngIf="!canCreateExam" class="premium-badge ms-2">
+              <i class="fas fa-lock"></i> Premium
+            </span>
+          </button>
+
+          <!-- Info Message for Non-Premium -->
+          <div *ngIf="!canCreateExam" class="text-muted small ms-auto">
+            <i class="fas fa-info-circle me-1"></i>
+            Exam creation is available in <strong>Premium Plan</strong>
+            <a routerLink="/subscription/plans" class="text-primary fw-medium ms-1">Upgrade Now →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Table Card -->
+      <div class="table-section">
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="table table-striped table-hover professional-table">
+              <thead class="table-dark">
+                <tr>
+                  <th>Exam Title</th>
+                  <th>Class</th>
+                  <th>Center</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Status</th>
+                  <th class="text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ng-container *ngFor="let exam of exams">
+                  <tr class="align-middle">
+                    <td class="fw-medium">{{ exam.examTitle }}</td>
+                    <td>{{ exam.classId?.name || 'N/A' }}</td>
+                    <td>{{ exam.examCenter }}</td>
+                    <td>{{ formatDate(exam.startDate) }}</td>
+                    <td>{{ formatDate(exam.endDate) }}</td>
+                    <td>
+                      <span class="badge badge-sm" 
+                            [ngClass]="{
+                              'badge-success': exam.examStatus === 'Completed',
+                              'badge-warning': exam.examStatus === 'Ongoing',
+                              'badge-info': exam.examStatus === 'Scheduled'
+                            }">
+                        {{ exam.examStatus }}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary btn-sm" 
+                                (click)="toggleRow(exam._id)"
+                                title="View Papers">
+                          <i class="fas" [ngClass]="expandedRows[exam._id] ? 'fa-eye-slash' : 'fa-eye'"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" 
+                                [routerLink]="['/exams-&-progress/edit-exam', exam._id]"
+                                [class.disabled]="!canCreateExam"
+                                title="Edit Exam">
+                          <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" 
+                                (click)="deleteExam(exam._id)"
+                                title="Delete Exam">
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Expanded Row - Exam Papers -->
+                  <tr *ngIf="expandedRows[exam._id]" class="details-row">
+                    <td colspan="7" class="p-0">
+                      <div class="exam-papers-details">
+                        <div class="p-4 bg-light">
+                          <h6 class="fw-bold text-primary mb-3">
+                            <i class="fas fa-file-alt me-2"></i>Exam Papers ({{ exam.examPapers.length }})
+                          </h6>
+                          <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                              <thead class="table-secondary">
+                                <tr>
+                                  <th>Subject</th>
+                                  <th>Type</th>
+                                  <th>Max</th>
+                                  <th>Min</th>
+                                  <th>Code</th>
+                                  <th>Time</th>
+                                  <th>Room</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr *ngFor="let paper of exam.examPapers">
+                                  <td><strong>{{ paper.subjectId?.name || 'N/A' }}</strong></td>
+                                  <td>{{ paper.subjectType }}</td>
+                                  <td>{{ paper.maxMarks }}</td>
+                                  <td>{{ paper.minMarks }}</td>
+                                  <td><code>{{ paper.paperCode }}</code></td>
+                                  <td class="small">
+                                    {{ formatDate(paper.paperStartDateTime) }} <br>
+                                    → {{ formatDate(paper.paperEndDateTime) }}
+                                  </td>
+                                  <td>{{ paper.roomNo }}</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </ng-container>
+
+                <!-- Empty State -->
+                <tr *ngIf="exams.length === 0">
+                  <td colspan="7" class="text-center py-5">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <p class="text-muted mb-1">No exams scheduled yet</p>
+                    <small class="text-muted">
+                      Click <strong>Create New Exam</strong> to get started
+                    </small>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>

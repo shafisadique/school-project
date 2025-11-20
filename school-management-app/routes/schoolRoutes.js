@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { addSchool, getSchoolById, updateSchool, setAcademicYear, getSchoolByUser, uploadSchoolLogo, getSchools, updateSchoolStatus, getSchoolByTeacher } = require('../controllers/school/schoolController');
+const { getSchoolById, updateSchool, setAcademicYear, getSchoolByUser, uploadSchoolLogo, getSchools, updateSchoolStatus, getSchoolByTeacher } = require('../controllers/school/schoolController');
 const { isAdmin, isSuperAdmin, isTeacher } = require('../middleware/roleMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
@@ -9,7 +9,6 @@ const upload = require('../middleware/upload');
 router.use(authMiddleware);
 
 // Super Admin only routes
-// router.post('/', isSuperAdmin, addSchool); 
 router.get('/all', isSuperAdmin, getSchools); // Get all schools (admin only)
 router.get('/:id',isAdmin, authMiddleware, getSchoolById); // Get school by ID
 router.put('/update/:id',isAdmin, authMiddleware, updateSchool); // Update school by ID

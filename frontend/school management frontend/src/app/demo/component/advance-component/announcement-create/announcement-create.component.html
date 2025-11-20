@@ -1,92 +1,112 @@
-<div class="container-fluid py-4">
+<div class="container-fluid py-3 py-md-4">
   <div class="row justify-content-center">
-    <div class="col-lg-10">
-      <div class="card shadow">
-        <div class="card-header bg-primary text-white text-center py-3">
-          <h4>Create Announcement</h4>
-        </div>
-        <div class="card-body p-4">
-          <form [formGroup]="form" (ngSubmit)="onSubmit()">
-            <div class="mb-3">
-              <label class="form-label">Title</label>
-              <input type="text" class="form-control" formControlName="title">
-              <div *ngIf="f['title']?.invalid && f['title']?.touched" class="text-danger small">
-                Title required
-              </div>
-            </div>
+    <div class="col-12 col-lg-10 col-xl-9">
 
-            <div class="mb-3">
-              <label class="form-label">Body</label>
-              <textarea class="form-control" formControlName="body" rows="4"></textarea>
-              <div *ngIf="f['body']?.invalid && f['body']?.touched" class="text-danger small">
-                Body required
-              </div>
-            </div>
-
-            <!-- Top Toggles -->
-            <div class="mb-4">
-              <h5>Select Group to Send</h5>
-              <div class="btn-group w-100" role="group">
-                <button type="button" class="btn btn-outline-primary"
-                        *ngFor="let toggle of toggles"
-                        [class.active]="activeToggle === toggle.key"
-                        (click)="onToggleChange(toggle.key)">
-                  <!-- <i class="bi {{ toggle.icon }} me-1"></i>  -->
-                  {{ toggle.label }}
-                </button>
-              </div>
-            </div>
-
-            <!-- List -->
-            <div *ngIf="activeToggle && users.length > 0" class="mb-4">
-              <div class="form-check mb-3">
-                <input type="checkbox" class="form-check-input" id="selectAll" [checked]="isAllSelected()" (change)="selectAll($event)">
-                <label class="form-check-label" for="selectAll">Select All ({{ users.length }})</label>
-              </div>
-
-              <div class="table-responsive">
-                <table class="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Select</th>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Phone</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let user of users">
-                      <td>
-                        <input type="checkbox" class="form-check-input" [id]="'chk' + user._id"
-                               [checked]="isUserSelected(user._id)" (change)="onUserToggle(user._id, $event)">
-                      </td>
-                      <td>{{ user.name }}</td>
-                      <td>{{ user.email }}</td>
-                      <td>{{ user.phone || 'N/A' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div *ngIf="getSelectedCount() > 0" class="alert alert-info mt-3">
-                Selected: {{ getSelectedCount() }} / {{ users.length }}
-              </div>
-            </div>
-
-            <!-- Loading -->
-            <div *ngIf="loading" class="text-center py-4">
-              <div class="spinner-border" role="status"></div>
-              <p>Loading...</p>
-            </div>
-
-            <!-- Submit -->
-            <button type="submit" class="btn btn-primary w-100" [disabled]="form.invalid || selectedUsers.length === 0 || loading">
-              <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
-              Send to {{ getSelectedCount() || 0 }} Users
-            </button>
-          </form>
+      <!-- Header -->
+      <div class="header-section mb-4">
+        <div class="header-card">
+          <h1 class="title">Create Announcement</h1>
+          <p class="subtitle">Send important messages to teachers, parents, or students</p>
         </div>
       </div>
+
+      <!-- Form Card -->
+      <div class="form-section">
+        <div class="form-card">
+          <fieldset>
+            <legend><i class="fas fa-bullhorn me-2"></i> New Announcement</legend>
+
+            <form [formGroup]="form" (ngSubmit)="onSubmit()" class="row g-3">
+
+              <!-- Title -->
+              <div class="col-12">
+                <label class="form-label">Title <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" formControlName="title" placeholder="e.g., Parent-Teacher Meeting on Friday">
+                <div *ngIf="f['title'].invalid && f['title'].touched" class="text-danger small mt-1">
+                  Title is required
+                </div>
+              </div>
+
+              <!-- Body -->
+              <div class="col-12">
+                <label class="form-label">Message <span class="text-danger">*</span></label>
+                <textarea class="form-control form-control-sm" formControlName="body" rows="5" placeholder="Write your announcement here..."></textarea>
+                <div *ngIf="f['body'].invalid && f['body'].touched" class="text-danger small mt-1">
+                  Message is required
+                </div>
+              </div>
+
+              <!-- Target Groups -->
+              <div class="col-12 mt-4">
+                <h5 class="mb-3">Send To</h5>
+                <div class="btn-group w-100 mb-3" role="group">
+                  <button type="button" class="btn btn-outline-primary flex-fill"
+                          *ngFor="let toggle of toggles"
+                          [class.active]="activeToggle === toggle.key"
+                          (click)="onToggleChange(toggle.key)">
+                    {{ toggle.label }}
+                  </button>
+                </div>
+
+                <!-- User List -->
+                <div *ngIf="activeToggle && users.length > 0" class="border rounded p-3 bg-light">
+                  <div class="form-check mb-3">
+                    <input type="checkbox" class="form-check-input" id="selectAll" [checked]="isAllSelected()" (change)="selectAll($event)">
+                    <label class="form-check-label fw-bold" for="selectAll">
+                      Select All ({{ users.length }})
+                    </label>
+                  </div>
+
+                  <div class="table-responsive" style="max-height: 300px;">
+                    <table class="table table-sm table-hover">
+                      <thead class="table-secondary">
+                        <tr>
+                          <th><input type="checkbox" disabled></th>
+                          <th>Name</th>
+                          <th>Contact</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let user of users">
+                          <td>
+                            <input type="checkbox" class="form-check-input"
+                                   [id]="'user-' + user._id"
+                                   [checked]="isUserSelected(user._id)"
+                                   (change)="onUserToggle(user._id, $event)">
+                          </td>
+                          <td class="fw-medium">{{ user.name }}</td>
+                          <td class="small text-muted">
+                            {{ user.phone || user.email || 'No contact' }}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div class="alert alert-info small mt-3" *ngIf="getSelectedCount() > 0">
+                    <strong>{{ getSelectedCount() }}</strong> selected out of {{ users.length }}
+                  </div>
+                </div>
+
+                <div *ngIf="activeToggle && users.length === 0 && !loading" class="text-center text-muted py-4">
+                  <i class="fas fa-users fa-2x mb-3"></i>
+                  <p>No {{ activeToggle }}s found</p>
+                </div>
+              </div>
+
+              <!-- Submit -->
+              <div class="col-12 mt-4 text-end">
+                <button type="submit" class="btn-material btn-success" [disabled]="loading || form.invalid || selectedUsers.length === 0">
+                  <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+                  <i class="fas fa-paper-plane me-2"></i>
+                  Send to {{ getSelectedCount() || 0 }} Recipients
+                </button>
+              </div>
+            </form>
+          </fieldset>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
