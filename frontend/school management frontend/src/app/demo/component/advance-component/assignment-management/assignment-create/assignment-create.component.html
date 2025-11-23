@@ -1,93 +1,128 @@
-<div class="card" [class.loading]="isLoading">
-  <div class="card-header">
-    <h4 class="card-title">Create New Assignment</h4>
+<div class="assignment-create-container">
+  <!-- Premium Header -->
+  <div class="header-section">
+    <div class="header-card">
+      <h1 class="title">Create Assignment</h1>
+      <p class="subtitle">Assign homework, worksheets, or projects to your students</p>
+    </div>
   </div>
-  <div class="card-body">
-    <form [formGroup]="assignmentForm" (ngSubmit)="handleUpload()" class="needs-validation" novalidate>
-      <div class="row mb-3">
-        <label for="title" class="col-sm-2 col-form-label required">Title</label>
-        <div class="col-sm-10">
-          <input type="text" class="form-control" id="title" formControlName="title" placeholder="Enter assignment title" required>
-          <div *ngIf="assignmentForm.get('title')?.invalid && assignmentForm.get('title')?.touched" class="invalid-feedback">
-            Title is required.
+
+  <!-- Loading Spinner -->
+  <div *ngIf="isLoading" class="text-center py-5">
+    <div class="spinner-border text-primary spinner-large" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+  <!-- Main Form Card -->
+  <div class="controls-card" *ngIf="!isLoading">
+    <form [formGroup]="assignmentForm" (ngSubmit)="handleUpload()" novalidate>
+      <!-- Assignment Details -->
+      <fieldset class="form-section">
+        <legend>Assignment Details</legend>
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Title <span class="text-danger">*</span></label>
+            <input type="text" class="form-control form-control-lg" formControlName="title" 
+                   placeholder="e.g. Math Worksheet Chapter 5">
+            <div class="text-danger small mt-1" *ngIf="assignmentForm.get('title')?.invalid && assignmentForm.get('title')?.touched">
+              Title is required (max 100 characters)
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Due Date <span class="text-danger">*</span></label>
+            <input type="date" class="form-control form-control-lg" formControlName="dueDate" [min]="today">
+            <div class="text-danger small mt-1" *ngIf="assignmentForm.get('dueDate')?.invalid && assignmentForm.get('dueDate')?.touched">
+              Please select a valid future date
+            </div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Description <span class="text-danger">*</span></label>
+            <textarea class="form-control" rows="4" formControlName="description"
+                      placeholder="Explain what students need to do..."></textarea>
+            <div class="text-danger small mt-1" *ngIf="assignmentForm.get('description')?.invalid && assignmentForm.get('description')?.touched">
+              Description is required (max 500 characters)
+            </div>
           </div>
         </div>
-      </div>
+      </fieldset>
 
-      <div class="row mb-3">
-        <label for="description" class="col-sm-2 col-form-label required">Description</label>
-        <div class="col-sm-10">
-          <textarea class="form-control" id="description" formControlName="description" placeholder="Enter assignment description" required></textarea>
-          <div *ngIf="assignmentForm.get('description')?.invalid && assignmentForm.get('description')?.touched" class="invalid-feedback">
-            Description is required.
+      <!-- Class & Subject -->
+      <fieldset class="form-section">
+        <legend>Class & Subject</legend>
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Class <span class="text-danger">*</span></label>
+            <select class="form-select form-select-lg" formControlName="classId" (change)="onClassChange()">
+              <option value="">Select Class</option>
+              <option *ngFor="let cls of classes" [value]="cls._id">{{ cls.name }}</option>
+            </select>
+            <div class="text-danger small mt-1" *ngIf="assignmentForm.get('classId')?.invalid && assignmentForm.get('classId')?.touched">
+              Class is required
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Subject <span class="text-danger">*</span></label>
+            <select class="form-select form-select-lg" formControlName="subjectId">
+              <option value="">Select Subject</option>
+              <option *ngFor="let sub of selectedSubjects" [value]="sub._id">{{ sub.name }}</option>
+            </select>
+            <div class="text-danger small mt-1" *ngIf="assignmentForm.get('subjectId')?.invalid && assignmentForm.get('subjectId')?.touched">
+              Subject is required
+            </div>
           </div>
         </div>
-      </div>
+      </fieldset>
 
-      <div class="row mb-3">
-        <label for="dueDate" class="col-sm-2 col-form-label required">Due Date</label>
-        <div class="col-sm-10">
-          <input type="date" class="form-control" id="dueDate" formControlName="dueDate" [min]="today" required>
-          <div *ngIf="assignmentForm.get('dueDate')?.invalid && assignmentForm.get('dueDate')?.touched" class="invalid-feedback">
-            Due date is required and must be a future date.
+      <!-- Assign To -->
+      <fieldset class="form-section">
+        <legend>Assign To</legend>
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Students (Optional)</label>
+            <select class="form-select form-select-lg" formControlName="assignedTo" multiple size="6">
+              <option *ngFor="let student of students" [value]="student._id">
+                {{ student.name }} - {{ student.admissionNo }}
+              </option>
+            </select>
+            <small class="text-muted">Leave empty to assign to all students in class</small>
           </div>
         </div>
-      </div>
+      </fieldset>
 
-      <div class="row mb-3">
-        <label for="classId" class="col-sm-2 col-form-label required">Class</label>
-        <div class="col-sm-10">
-          <select class="form-select" id="classId" formControlName="classId" (change)="onClassChange()" required>
-            <option value="">Select a class</option>
-            <option *ngFor="let class of classes" [value]="class._id">{{ class.name }}</option>
-          </select>
-          <div *ngIf="assignmentForm.get('classId')?.invalid && assignmentForm.get('classId')?.touched" class="invalid-feedback">
-            Class is required.
+      <!-- Attachments -->
+      <fieldset class="form-section">
+        <legend>Attachments (Optional)</legend>
+        <div class="row g-3">
+          <div class="col-12">
+            <input type="file" #fileInput class="form-control form-control-lg" 
+                   (change)="onFileChange($event)" multiple 
+                   accept=".pdf,.doc,.docx,.png,.jpg,.jpeg">
+            <div *ngIf="fileList.length > 0" class="mt-3">
+              <div class="alert alert-info">
+                <strong>Selected Files:</strong>
+                <ul class="mb-0 mt-2">
+                  <li *ngFor="let file of fileList; let i = index">
+                    {{ file.name }} 
+                    <button type="button" class="btn btn-sm btn-danger ms-2" (click)="removeFile(i)">Remove</button>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </fieldset>
 
-      <div class="row mb-3">
-        <label for="subjectId" class="col-sm-2 col-form-label required">Subject</label>
-        <div class="col-sm-10">
-          <select class="form-select" id="subjectId" formControlName="subjectId" required>
-            <option value="">Select a subject</option>
-            <option *ngFor="let subject of selectedSubjects" [value]="subject._id">{{ subject.name }}</option>
-          </select>
-          <div *ngIf="assignmentForm.get('subjectId')?.invalid && assignmentForm.get('subjectId')?.touched" class="invalid-feedback">
-            Subject is required.
-          </div>
-        </div>
-      </div>
-
-      <div class="row mb-3">
-        <label for="assignedTo" class="col-sm-2 col-form-label">Assign to Students</label>
-        <div class="col-sm-10">
-          <select class="form-select" id="assignedTo" formControlName="assignedTo" multiple>
-            <option *ngFor="let student of students" [value]="student._id">{{ student.name }}</option>
-          </select>
-          <small class="text-muted">Leave empty to assign to all students in the class.</small>
-        </div>
-      </div>
-
-      <div class="row mb-3">
-        <label for="attachments" class="col-sm-2 col-form-label">Attachments</label>
-        <div class="col-sm-10">
-          <input type="file" #fileInput class="form-control" id="attachments" (change)="onFileChange($event)" multiple accept=".pdf,.png,.jpg,.jpeg,.doc,.docx">
-          <div *ngIf="fileList.length > 0" class="mt-2">
-            <ul class="list-group">
-              <li class="list-group-item" *ngFor="let file of fileList; let i = index">
-                {{ file.name }} <button type="button" class="btn btn-danger btn-sm float-end" (click)="removeFile(i)">Remove</button>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col-sm-10 offset-sm-2">
-          <button type="submit" class="btn btn-primary" [disabled]="!assignmentForm.valid || isLoading">Create Assignment</button>
-        </div>
+      <!-- Submit -->
+      <div class="d-flex justify-content-end mt-4">
+        <button type="submit" class="btn-material btn-primary btn-lg"
+                [disabled]="assignmentForm.invalid || isLoading">
+          <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+          {{ isLoading ? 'Creating Assignment...' : 'Create Assignment' }}
+        </button>
       </div>
     </form>
   </div>

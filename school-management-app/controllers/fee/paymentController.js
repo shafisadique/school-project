@@ -5,7 +5,7 @@ const fs = require('fs').promises; // Promise-based fs
 const AdmZip = require('adm-zip');
 const School = require('../../models/school');
 const Receipt = require('../../models/receipt');
-const { FeeInvoice } = require('../../models');
+const FeeInvoice  = require('../../models/feeInvoice');
 const Student = require ('../../models/student')
 const Payment = require('../../models/payment');
 const Razorpay = require('razorpay');
@@ -314,7 +314,7 @@ exports.processPayment = async (req, res) => {
     const student = await Student.findOne({ 
       _id: studentId, 
       schoolId,
-      status: 'active'
+      status: true
     }).session(session);
 
     if (!student) {
@@ -1197,6 +1197,7 @@ const pdf = require('html-pdf');
 const Handlebars = require('handlebars');
 const path = require('path'); // Import the path module
 const feeInvoice = require('../../models/feeInvoice');
+const feeStructure = require('../../models/feeStructure');
 
 exports.generateInvoicePDF = async (req, res) => {
   try {
@@ -1321,7 +1322,7 @@ exports.generateInvoicePDF = async (req, res) => {
 exports.applyLateFees = async () => {
   const overdueInvoices = await FeeInvoice.find({ status: 'Pending', dueDate: { $lt: new Date() } });
   for (const invoice of overdueInvoices) {
-    const feeStructure = await FeeStructure.findOne({ schoolId: invoice.schoolId, classId: invoice.studentId.classId });
+    const feeStructure = await feeStructure.findOne({ schoolId: invoice.schoolId, classId: invoice.studentId.classId });
     if (feeStructure.lateFeeConfig.isEnabled) {
       const daysLate = Math.floor((new Date() - invoice.dueDate) / (1000 * 60 * 60 * 24));
       if (daysLate > feeStructure.lateFeeConfig.gracePeriodDays) {

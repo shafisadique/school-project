@@ -87,7 +87,7 @@ const generateMonthlyInvoices = async (schoolId, classId, month, year, academicY
         // Check if fee applies this month
         if (fee.frequency === 'Quarterly' && month % 3 !== 0) applies = false;
         if (fee.frequency === 'Yearly' && month !== 6) applies = false; // June example
-        if (fee.frequency === 'Specific Months' && !fee.specificMonths.includes(month)) applies = false;
+        if (fee.frequency === 'Specific Months' && !fee.specificMonths.includes(month + 1)) applies = false;
         if (fee.type === 'Optional' && fee.preferenceKey && !student[fee.preferenceKey]) applies = false;
 
         if (applies) {

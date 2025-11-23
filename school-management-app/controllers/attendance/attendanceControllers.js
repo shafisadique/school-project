@@ -11,19 +11,33 @@ const classSubjectAssignment = require('../../models/classSubjectAssignment');
 
 const markAttendance = async (req, res, next) => {
   try {
-    const { classId, subjectId, date, students, academicYearId: academicYearIdFromBody } = req.body;
+    const { 
+      classId, 
+      subjectId, 
+      date, 
+      students, 
+      academicYearId: academicYearIdFromBody,
+      location 
+    } = req.body;
+
     const schoolId = req.user.schoolId;
     const userId = req.user.id;
     const academicYearId = req.user.activeAcademicYear || academicYearIdFromBody;
 
+    // === 1. Validation ===
     if (!academicYearId || !classId || !subjectId || !date || !students?.length) {
-      throw new APIError('Missing required fields: academicYearId, classId, subjectId, date, and students are required', 400);
+      throw new APIError('Missing required fields', 400);
+    }
+
+    if (!location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
+      throw new APIError('Teacher location (latitude & longitude) is required', 400);
     }
 
     const teacher = await Teacher.findOne({ userId }).select('_id');
     if (!teacher) throw new APIError('Teacher profile not found', 404);
     const teacherId = teacher._id.toString();
 
+    // === 2. Authorization Check ===
     const classData = await Class.findById(classId)
       .populate('attendanceTeacher', '_id')
       .populate('substituteAttendanceTeachers', '_id');
@@ -35,70 +49,130 @@ const markAttendance = async (req, res, next) => {
       'teacherAssignments.academicYearId': academicYearId,
       classes: classId
     });
+
     const isAttendanceTeacher = classData.attendanceTeacher?._id.toString() === teacherId;
     const isSubstituteTeacher = classData.substituteAttendanceTeachers.some(t => t._id.toString() === teacherId);
+
     if (!isSubjectTeacher && !isAttendanceTeacher && !isSubstituteTeacher) {
       throw new APIError('Not authorized to mark attendance for this class/subject', 403);
     }
 
-    const attendanceDate = new Date(date);
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const today = new Date(new Date().getTime() + istOffset);
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const startOfInput = new Date(attendanceDate.getFullYear(), attendanceDate.getMonth(), attendanceDate.getDate());
+    // === 3. School Timing + Geolocation Check ===
+    const school = await School.findById(schoolId).select('schoolTiming latitude longitude radius weeklyHolidayDay');
+    if (!school) throw new APIError('School not found', 404);
 
-    if (startOfInput.getTime() !== startOfToday.getTime()) {
-      throw new APIError('Attendance can only be marked for today\'s date', 400);
+    // SAFE: Handle missing or partial schoolTiming
+    const schoolTiming = school.schoolTiming || {};
+    const openingTime = schoolTiming.openingTime || '08:00';
+    const closingTime = schoolTiming.closingTime || '14:00';
+    const weeklyHolidayDay = school.weeklyHolidayDay || 'Sunday';
+
+    const [openHour, openMinute] = openingTime.split(':').map(Number);
+    const [closeHour, closeMinute] = closingTime.split(':').map(Number);
+
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(now.getTime() + istOffset);
+
+    const todayStr = istNow.toISOString().split('T')[0];
+    if (date !== todayStr) {
+      throw new APIError('Attendance can only be marked for today', 400);
     }
 
-    const startOfDay = new Date(startOfInput);
-    const endOfDay = new Date(startOfInput);
+    // Check time window
+    const currentHour = istNow.getHours();
+    const currentMinute = istNow.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+    const openTimeInMinutes = openHour * 60 + openMinute;
+    const closeTimeInMinutes = closeHour * 60 + closeMinute;
+
+    if (currentTimeInMinutes < openTimeInMinutes || currentTimeInMinutes > closeTimeInMinutes) {
+      throw new APIError(
+        `Attendance can only be marked between ${openingTime} and ${closingTime} school hours`,
+        403
+      );
+    }
+
+    // === 4. Geofencing Check ===
+    const distance = calculateDistance(
+      location.latitude,
+      location.longitude,
+      school.latitude,
+      school.longitude
+    );
+
+    if (distance > school.radius) {
+      throw new APIError(
+        `You are ${Math.round(distance)}m away from school. Must be within ${school.radius}m radius.`,
+        403
+      );
+    }
+
+    // === 5. Holiday & Weekly Off Check ===
+    const attendanceDate = new Date(date);
+    const startOfDay = new Date(attendanceDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(attendanceDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const holiday = await Holiday.findOne({ schoolId, date: startOfDay }).lean();
-    if (holiday) throw new APIError(`Cannot mark attendance on holiday: ${holiday.title}`, 400);
-
-    const school = await School.findById(schoolId).select('weeklyHolidayDay');
-    if (!school) throw new APIError('School not found', 404);
-    const dayMap = {
-      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6
-    };
-    const weeklyHolidayNum = dayMap[school.weeklyHolidayDay];
-    if (startOfDay.getDay() === weeklyHolidayNum) {
-      throw new APIError(`Cannot mark attendance on weekly holiday: ${school.weeklyHolidayDay}`, 400);
+    const holiday = await Holiday.findOne({ 
+      schoolId, 
+      date: { $gte: startOfDay, $lte: endOfDay } 
+    });
+    if (holiday) {
+      throw new APIError(`Cannot mark attendance on holiday: ${holiday.title}`, 400);
     }
 
-    const existingAttendance = await Attendance.findOne({
+    // Safe weekly holiday check
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][startOfDay.getDay()];
+    if (dayName === weeklyHolidayDay) {
+      throw new APIError(`Today is weekly holiday: ${weeklyHolidayDay}`, 400);
+    }
+
+    // === 6. Prevent Duplicate ===
+    const existing = await Attendance.findOne({
+      schoolId,
       classId,
       subjectId,
-      date: { $gte: startOfDay, $lte: endOfDay },
-      schoolId
-    }).lean();
-    if (existingAttendance) {
-      throw new APIError('Attendance already marked for this class, subject, and date', 400);
+      date: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    if (existing) {
+      throw new APIError('Attendance already marked for this class & subject today', 400);
     }
 
-    const classStudents = await Student.find({ classId, _id: { $in: students.map(s => s.studentId) } }).select('_id');
-    if (classStudents.length !== students.length) {
+    // === 7. Validate Students ===
+    const validStudentIds = await Student.find({ classId, _id: { $in: students.map(s => s.studentId) } })
+      .select('_id')
+      .lean();
+
+    if (validStudentIds.length !== students.length) {
       throw new APIError('Some students do not belong to this class', 400);
     }
 
+    // === 8. Save Attendance ===
     const attendance = new Attendance({
+      schoolId,
       classId,
       subjectId,
       teacherId,
-      schoolId,
       academicYearId,
       date: startOfDay,
-      students: students.map(student => ({
-        studentId: student.studentId,
-        status: student.status,
-        remarks: student.remarks || ''
+      students: students.map(s => ({
+        studentId: s.studentId,
+        status: s.status || 'Present',
+        remarks: s.remarks || ''
       }))
     });
 
     await attendance.save();
-    res.status(201).json(attendance);
+
+    res.status(201).json({
+      message: 'Attendance marked successfully',
+      attendance
+    });
+
   } catch (error) {
     next(error);
   }
@@ -250,8 +324,6 @@ const getAttendanceHistory = async (req, res, next) => {
         $lte: new Date(end.getTime() + istOffset + 86399999), // End of day
       };
     }
-
-    console.log('MongoDB query:', query);
 
     const attendanceRecords = await Attendance.find(query)
       .populate({

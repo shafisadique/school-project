@@ -144,4 +144,8 @@ export class StudentProgressReportComponent implements OnInit {
       }
     });
   }
+  // Add this method only — rest of your code 100% unchanged
+  getInitials(name: string): string {
+    return name?.trim().split(' ').map(n => n[0]?.toUpperCase()).join('').slice(0, 2) || '??';
+  }
 }

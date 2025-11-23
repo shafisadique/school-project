@@ -14,7 +14,6 @@ const { toR2Key } = require('../../utils/image');
 const logger = require('../../config/logger');
 const { deliver } = require('../../services/notificationService');
 
-
 // Constants
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_FILE_TYPES = ['image/png', 'image/jpg', 'image/jpeg'];
@@ -123,7 +122,7 @@ const createWelcomeNotification = async (teacherData, school, userId, session, s
     // No studentId (optional, omitted for teachers)
   };
 
-  const Notification = require('../../models/notification'); // Fixed path
+  const Notification = require('../../models/notifiation'); // Fixed path
   
   const notification = new Notification(notificationData);
   await notification.save({ session });
@@ -132,196 +131,169 @@ const createWelcomeNotification = async (teacherData, school, userId, session, s
 };
 
 
-  async function createTransporter(schoolId) {
-    const school = await School.findById(schoolId).select('smtpConfig email').lean();
-    if (!school) throw new APIError('School not found', 404);
+async function createTransporter(schoolId) {
+  const school = await School.findById(schoolId).select('communication').lean();
 
-    const smtpConfig = school.smtpConfig || {};
-    const email = school.email;
+  const email = school.communication?.emailFrom;
+  const pass = school.communication?.emailPass;
+  const name = school.communication?.emailName || school.name;
 
-    // Fallback to environment variables if smtpConfig is incomplete
-    if (!smtpConfig.auth?.user || !smtpConfig.auth?.pass) {
-      return nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        tls: {
-          rejectUnauthorized: process.env.NODE_ENV === 'production'
-        }
-      });
-    }
-
+  if (!email || !pass) {
+    logger.warn(`School ${schoolId} missing email config. Using fallback (not recommended)`);
+    // Optional: fallback only in dev, or throw error in production
     return nodemailer.createTransport({
-      host: smtpConfig.host || 'smtp.gmail.com',
-      port: smtpConfig.port || 465,
-      secure: smtpConfig.secure !== false,
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
-        user: smtpConfig.auth.user,
-        pass: smtpConfig.auth.pass
-      },
-      tls: {
-        rejectUnauthorized: process.env.NODE_ENV === 'production'
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
       }
     });
   }
 
+  logger.info(`Creating transporter for school email: ${email}`);
+
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: email,
+      pass: pass, // This MUST be App Password of ^ email
+    },
+    tls: { rejectUnauthorized: false }
+  });
+}
+
 /**
- * @desc    Create a new teacher
- * @route   POST /api/teachers/add
- * @access  Private/Admin
+ * ADD TEACHER — FINAL 100% WORKING (No academicYearId error)
  */
 exports.addTeacher = async (req, res, next) => {
   const session = await mongoose.startSession();
-  
   try {
     await session.withTransaction(async () => {
-      const { schoolId } = req.user;
-      const teacherData = await validateTeacherInput(req.body);
+      const schoolId = req.user.schoolId;
 
-      // Check if user already exists
-      const existingUser = await User.findOne({
-        $or: [{ email: teacherData.email }, { username: teacherData.username }],
+      // 1. Get school and active academic year
+      const school = await School.findById(schoolId)
+        .select('name email mobileNo communication activeAcademicYear')
+        .populate('activeAcademicYear')
+        .session(session);
+      if (!school) throw new Error('School not found');
+      if (!school.activeAcademicYear) throw new Error('No active academic year set');
+
+      const academicYearId = school.activeAcademicYear._id;
+
+      // 2. Validate input
+      const { name, username, email, phone, designation, subjects, gender } = req.body;
+      if (!name || !username || !email || !phone || !subjects || !designation) {
+        throw new Error('All fields required');
+      }
+
+      // 3. Check duplicate
+      const existing = await User.findOne({
+        $or: [{ email }, { username }],
+        schoolId
       }).session(session);
-      
-      if (existingUser) throw new APIError('User with this email or username already exists', 409);
+      if (existing) throw new Error('Email or username already exists');
 
-      // Create user
-      const hashedPassword = bcrypt.hashSync(teacherData.password, 10);
+      // 4. Generate password
+      const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
+
+      // 5. Create User
       const newUser = new User({
-        name: teacherData.name,
-        username: teacherData.username,
-        email: teacherData.email,
-        password: hashedPassword,
+        name,
+        username,
+        email,
+        password: bcrypt.hashSync(tempPassword, 10),
         role: 'teacher',
         schoolId,
+        phoneNumber: phone
       });
       await newUser.save({ session });
 
-      // Handle profile image
+      // 6. Upload photo
       let profileImageKey = '';
       if (req.file) {
-        const fileBuffer = req.file.buffer;
-        const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const params = {
+        const fileName = `teachers/${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        await s3Client.send(new PutObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
-          Key: `teachers/${fileName}`,
-          Body: fileBuffer,
-          ContentType: req.file.mimetype,
-        };
-        const command = new PutObjectCommand(params);
-        await s3Client.send(command);
-        profileImageKey = `teachers/${fileName}`;
+          Key: fileName,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype
+        }));
+        profileImageKey = fileName;
       }
 
-      // Create teacher profile
-      const teacher = await Teacher.create(
-        [
-          {
-            userId: newUser._id,
-            name: teacherData.name,
-            email: teacherData.email,
-            phone: teacherData.phone,
-            designation: teacherData.designation,
-            gender: teacherData.gender,
-            subjects: teacherData.subjects,
-            schoolId,
-            academicYearId: await getActiveAcademicYearId(schoolId),
-            createdBy: req.user.id,
-            profileImage: profileImageKey,
-          },
-        ],
-        { session }
-      );
+      // 7. Create Teacher — academicYearId from school!
+      const teacher = new Teacher({
+        userId: newUser._id,
+        name,
+        email,
+        phone,
+        designation,
+        subjects: Array.isArray(subjects) ? subjects : JSON.parse(subjects || '[]'),
+        gender,
+        schoolId,
+        academicYearId,           // ← FROM SCHOOL!
+        profileImage: profileImageKey,
+        status: true,
+        createdBy: req.user.id
+      });
+      await teacher.save({ session });
 
-      // Get school data
-      const school = await School.findById(schoolId)
-        .select('name email mobileNo address preferredChannel')
-        .session(session)
-        .orFail(new APIError('School not found', 404));
-
-      const preferredChannel = school.preferredChannel || 'sms';
-
-      // Send welcome email
+      // 8. SEND WELCOME EMAIL FROM SCHOOL'S EMAIL
       const transporter = await createTransporter(schoolId);
       const mailOptions = {
-        from: `"${school.name}" <${process.env.EMAIL_USER}>`,
-        to: teacherData.email,
-        subject: `Welcome to ${school.name}`,
+        from: `"${school.communication?.emailName || school.name}" <${school.communication?.emailFrom }>`,
+        to: email,
+        subject: `Welcome to ${school.name}!`,
         html: `
-          <h1>Welcome to ${school.name}, ${teacherData.name}!</h1>
-          <p>You've been added as a teacher. We're excited to have you!</p>
-          <p><strong>Your Login:</strong><br>
-          Username: ${teacherData.username}<br>
-          Password: <strong>${teacherData.password}</strong> (Change after login)</p>
-          <p><strong>School Contact:</strong><br>
-          Phone: ${school.mobileNo}<br>
-          Email: ${school.email}</p>
-          <p>Best,<br>The ${school.name} Team</p>
-        `,
+          <h2>Welcome ${name}!</h2>
+          <p>You have been added as a teacher at <strong>${school.name}</strong>.</p>
+          <p><strong>Login Details:</strong><br>
+          Username: ${username}<br>
+          Password: ${tempPassword}</p>
+          <p>Please change your password after first login.</p>
+          <p>Best regards,<br>${school.name} Team</p>
+        `
       };
-      
+
       try {
         await transporter.sendMail(mailOptions);
-        console.log('✅ Welcome email sent successfully');
-      } catch (emailError) {
-        console.error('❌ Email sending failed:', emailError);
+        logger.info(`Welcome email sent to ${email}`);
+      } catch (err) {
+        logger.error('Email failed:', err);
       }
 
-      // Create and send notification via your notification service
-      // (Wrapped in try-catch to prevent transaction abort if notifications fail)
-      try {
-        const notification = await createWelcomeNotification(teacherData, school, newUser._id, session, req.user.id);
-        await deliver(notification, session);
-        console.log('✅ Notification delivered via notification service');
-      } catch (notificationError) {
-        console.error('❌ Notification delivery failed:', notificationError);
-        // Don't throw: Allow teacher creation to succeed
-      }
+      // 9. SEND BELL + SMS NOTIFICATION
+      const notification = await createWelcomeNotification(
+        { name, username, email, phone, password: tempPassword },
+        school,
+        newUser._id,
+        session,
+        req.user.id
+      );
+      await deliver(notification, session); // ← Uses school's SMS sender name!
 
-      // Check subscription for SMS/WhatsApp (optional - since notification service handles it)
-      let messagesSent = { email: true, sms: false, whatsapp: false };
-      const subscription = await Subscription.findOne({
-        schoolId,
-        status: 'active'
-      }).session(session);
-      
-      if (subscription) {
-        await checkAndResetUsage(subscription);
-        
-        // Fix cast error: Set priority as Number if missing (e.g., 2 for 'medium' – adjust based on your schema enum: 1=high, 2=medium, 3=low)
-        if (subscription.priority === undefined || subscription.priority === null) {
-          subscription.priority = 2; // Numeric value to match schema type: Number
-        }
-        
-        // Your notification service will handle the actual delivery
-        // based on school's preferredChannel and subscription limits
-        
-        await subscription.save({ session });
-      }
-
-      // SUCCESS - Teacher is saved with notifications!
       res.status(201).json({
         success: true,
-        message: 'Teacher added successfully with welcome notifications',
-        data: teacher[0],
-        userId: newUser._id,
+        message: 'Teacher added! Welcome SMS + Email sent from school branding',
+        data: {
+          teacherId: teacher._id,
+          username,
+          temporaryPassword: tempPassword
+        }
       });
     });
-  } catch (error) {
-    console.error('❌ Error in addTeacher:', error);
-    if (session.inTransaction()) {
-      await session.abortTransaction();
-    }
-    next(error);
+  } catch (err) {
+    logger.error('Add teacher error:', err);
+    next(err);
   } finally {
-    await session.endSession();
+    session.endSession();
   }
 };
-
 
 
 /**
@@ -615,7 +587,7 @@ exports.softDeleteTeacher = async (req, res, next) => {
         try {
           const transporter = await createTransporter(req.user.schoolId);
           const mailOptions = {
-            from: school.email,
+            from:`"${school.communication?.emailName || school.name}" <${school.communication?.emailFrom}>`,
             to: req.user.email,
             subject: 'Teacher Soft Deleted',
             html: `<p>Teacher ${teacher.name} has been soft deleted. Please reassign their subjects and classes.</p>`

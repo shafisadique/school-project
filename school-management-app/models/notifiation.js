@@ -11,7 +11,7 @@ const notificationSchema = new mongoose.Schema({
   // For sending to all users of a role (e.g. all teachers)
   targetRoles: [{ 
     type: String, 
-    enum: ['admin', 'teacher', 'parent', 'student'] 
+    enum: ['pending', 'sent', 'delivered', 'failed'], // ← ADD 'failed' 
   }],
 
   // For sending to specific multiple users

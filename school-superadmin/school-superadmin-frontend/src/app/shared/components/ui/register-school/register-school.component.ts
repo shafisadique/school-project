@@ -53,14 +53,23 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
     private toastr: ToastrService
   ) {
     this.schoolForm = this.fb.group({
-      schoolName: ['', Validators.required],
-      adminName: ['', Validators.required],
-      username: ['', [Validators.required, Validators.minLength(6)]],
-      email: ['', [Validators.required, Validators.email]],
-      mobileNo: ['', [Validators.required, Validators.pattern(/^\+?[1-9]\d{9,14}$/)]],
-      preferredChannel: ['sms', Validators.required],
-      whatsappOptIn: [false]
-    });
+    schoolName: ['', Validators.required],
+    adminName: ['', Validators.required],
+    username: ['', [Validators.required, Validators.minLength(6)]],
+    email: ['', [Validators.required, Validators.email]],
+    mobileNo: ['', [Validators.required, Validators.pattern(/^\+?[1-9]\d{9,14}$/)]],
+    preferredChannel: ['sms', Validators.required],
+    whatsappOptIn: [false],
+
+    // ←←← FIX THESE 4 LINES
+    smsSenderName: ['EDGLOBE', [Validators.required, Validators.maxLength(11)]],
+    emailFrom: ['', [Validators.required, Validators.email]],
+    emailName: [''],
+    emailPass: ['', Validators.required],   // ← ADD THIS LINE
+    openingTime: ['08:00'],
+    closingTime: ['14:00'],
+    lunchBreak: ['12:00 - 12:30']
+  });
 
     this.addressForm = this.fb.group({
       street: ['', Validators.required],
@@ -84,6 +93,7 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
     if (this.step() === 1 && this.schoolForm.valid) {
       this.schoolForm.markAllAsTouched();
       this.formData.set({ ...this.formData(), ...this.schoolForm.value });
+      console.log(this.schoolForm.value)
       this.sendOtp();
     } else if (this.step() === 2 && this.otpForm.valid && this.otpSent()) {
       this.otpForm.markAllAsTouched();
@@ -159,6 +169,13 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
       mobileNo: d.mobileNo,
       preferredChannel: d.preferredChannel,
       whatsappOptIn: d.whatsappOptIn,
+      smsSenderName: d.smsSenderName,
+      emailFrom: d.emailFrom,
+      emailName: d.emailName,
+      emailPass: d.emailPass,
+      openingTime: d.openingTime,
+      closingTime: d.closingTime,
+      lunchBreak: d.lunchBreak,
       address: {
         street: d.address.street,
         city: d.address.city,

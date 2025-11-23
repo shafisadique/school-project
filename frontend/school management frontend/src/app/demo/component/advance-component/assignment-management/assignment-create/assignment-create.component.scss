@@ -1,0 +1,86 @@
+.assignment-create-container {
+  padding: 16px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+  font-family: 'Poppins', sans-serif;
+
+  .header-section {
+    margin-bottom: 24px;
+    .header-card {
+      background: rgba(255,255,255,0.97);
+      border-radius: 20px;
+      padding: 32px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      backdrop-filter: blur(12px);
+
+      .title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #4a90e2, #50c9c3);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+      }
+      .subtitle {
+        color: #64748b;
+        font-size: 1.1rem;
+        margin-top: 10px;
+      }
+    }
+  }
+
+  .controls-card {
+    background: white;
+    border-radius: 24px;
+    padding: 32px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+    border: 1px solid #e2e8f0;
+  }
+
+  .form-section {
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 28px;
+    background: #fafbfe;
+
+    legend {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 12px;
+      width: auto;
+      float: none;
+      margin-bottom: 16px;
+    }
+  }
+
+  .form-control, .form-select {
+    border-radius: 14px;
+    padding: 14px 16px;
+    font-size: 1rem;
+    border: 2px solid #cbd5e0;
+
+    &:focus {
+      border-color: #4a90e2;
+      box-shadow: 0 0 0 4px rgba(74,144,226,0.2);
+    }
+  }
+
+  .btn-material {
+    border-radius: 30px;
+    padding: 16px 32px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #4a90e2, #50c9c3);
+    border: none;
+    box-shadow: 0 8px 25px rgba(74,144,226,0.4);
+
+    &:hover:not(:disabled) {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 35px rgba(74,144,226,0.5);
+    }
+  }
+}

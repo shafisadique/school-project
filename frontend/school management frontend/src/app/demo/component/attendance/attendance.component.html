@@ -1,73 +1,234 @@
-<div class="container py-5">
-  <!-- Loading Spinner -->
-  <div *ngIf="loading" class="text-center my-4">
-    <div class="spinner-border text-primary" role="status">
+<!-- attendance.component.html -->
+<div class="attendance-container">
+  <!-- Header Section -->
+  <div class="header-section">
+    <div class="header-card">
+      <h1 class="title">Mark Attendance</h1>
+      <p class="subtitle">Take daily attendance quickly and efficiently for your classes.</p>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="text-center py-5">
+    <div class="spinner-border text-primary spinner-large" role="status">
       <span class="visually-hidden">Loading...</span>
     </div>
   </div>
 
-  <!-- Attendance Form Card -->
-  <div class="card shadow-sm mb-5">
-    <div class="card-body">
-      <form [formGroup]="attendanceForm" (ngSubmit)="onSubmit()">
-        <div class="row mb-4">
-          <div class="col-md-4">
-         <!-- Class Dropdown -->
-            <label for="classId" class="form-label fw-semibold">Class</label>
-
-            <select id="classId" class="form-select" formControlName="classId">
-              <option value="" disabled>Select Class</option>
-              <option *ngFor="let cls of getClasses()" [value]="cls._id">
-                {{ cls.name }} ({{ getSubjectNames(cls.taughtSubjects) }})
-              </option>
-            </select>
-            </div>
-          <div class="col-md-4">
-          <!-- Subject Dropdown -->
-            <label for="classId" class="form-label fw-semibold">Subject</label>
-          <select id="subjectId" class="form-select" formControlName="subjectId">
-            <option value="" disabled>Select Subject</option>
-            <option *ngFor="let sub of getSubjects()" [value]="sub._id">
-              {{ sub.name }}
+  <!-- Main Attendance Card -->
+  <div class="controls-card mb-4" *ngIf="!loading">
+    <form [formGroup]="attendanceForm" (ngSubmit)="onSubmit()">
+      <div class="form-grid">
+        <!-- Class Selection -->
+        <div class="form-group">
+          <label class="form-label">Class <span class="text-danger">*</span></label>
+          <select class="form-select" formControlName="classId" (change)="onClassChange()">
+            <option value="" disabled>Select Class</option>
+            <option *ngFor="let cls of getClasses()" [value]="cls._id">
+              {{ cls.name }} ({{ getSubjectNames(cls.taughtSubjects) }})
             </option>
           </select>
+        </div>
+
+        <!-- Subject Selection -->
+        <div class="form-group">
+          <label class="form-label">Subject <span class="text-danger">*</span></label>
+          <select class="form-select" formControlName="subjectId">
+            <option value="" disabled>Select Subject</option>
+            <option *ngFor="let sub of getSubjects()" [value]="sub._id">{{ sub.name }}</option>
+          </select>
+        </div>
+
+        <!-- Date -->
+        <div class="form-group">
+          <label class="form-label">Date <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" formControlName="date" />
+          <div class="text-danger small mt-1" *ngIf="attendanceForm.get('date')?.touched && attendanceForm.get('date')?.errors?.['notToday']">
+            Only today's date is allowed
           </div>
-          <div class="col-md-4">
-            <label for="date" class="form-label fw-semibold">Date</label>
-            <input id="date" type="date" class="form-control" formControlName="date" required />
-            <div *ngIf="attendanceForm.get('date')?.hasError('required') && attendanceForm.get('date')?.touched" class="text-danger">
-              Date is required.
-            </div>
-            <div *ngIf="attendanceForm.get('date')?.hasError('notToday') && attendanceForm.get('date')?.touched" class="text-danger">
-              Date must be today.
-            </div>
+        </div>
+      </div>
+
+      <!-- Authorization Warning -->
+      <div *ngIf="attendanceForm.get('classId')?.value && !canMarkAttendance" class="alert alert-warning alert-modern">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        You are not authorized to mark attendance for this class.
+      </div>
+
+      <!-- Students Table -->
+      <div *ngIf="students.length > 0" class="table-section mt-4">
+        <div class="table-header">
+          <h5 class="mb-0">
+            <i class="fas fa-users me-2"></i>
+            Students ({{ students.length }})
+          </h5>
+          <div class="legend">
+            <span class="legend-item present">Present</span>
+            <span class="legend-item absent">Absent</span>
+            <span class="legend-item late">Late</span>
           </div>
         </div>
 
-        <div *ngIf="attendanceForm.get('classId')?.value && !canMarkAttendance" class="alert alert-warning mb-4">
-          You are not authorized to mark attendance for this class.
+        <div class="table-responsive">
+          <table class="table professional-table table-hover">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Student Name</th>
+                <th>Roll No</th>
+                <th class="text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let student of studentsWithAvatar; let i = index" class="student-row">
+                <td class="index">{{ i + 1 }}</td>
+
+                <!-- Avatar + Name -->
+                <td class="student-name-cell">
+                  <div class="d-flex align-items-center">
+                    <div class="avatar-sm me-3">
+                      <img 
+                        [src]="student.avatarUrl" 
+                        alt="{{ student.name }}" 
+                        class="avatar-img"
+                        (error)="handleImageError($event, student)">
+                      <span class="initials-overlay">
+                        {{ student.initials }}
+                      </span>
+                    </div>
+                    <div class="student-name">{{ student.name }}</div>
+                  </div>
+                </td>
+
+                <!-- Roll No -->
+                <td class="roll-no text-center">{{ student.rollNo || '—' }}</td>
+
+                <!-- STATUS DROPDOWN - THIS WAS MISSING! -->
+                <td class="status-cell text-center">
+                  <select 
+                    class="form-select form-select-sm status-select"
+                    [value]="getAttendanceStatus(student._id)"
+                    (change)="updateAttendanceStatus(student._id, $event)"
+                    [disabled]="!canMarkAttendance">
+                    <option value="Present">Present</option>
+                    <option value="Absent">Absent</option>
+                    <option value="Late">Late</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-buttons mt-4">
+        <button type="button" class="btn-material btn-secondary" 
+                (click)="goToMonthlyAttendance()"
+                [disabled]="!selectedClassId || !attendanceForm.value.subjectId">
+          <i class="fas fa-calendar-alt me-2"></i>View Monthly
+        </button>
+        <button type="submit" class="btn-material btn-primary" 
+                [disabled]="attendanceForm.invalid || loading || !canMarkAttendance || students.length === 0">
+          <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+          <i class="fas fa-check-circle me-2" *ngIf="!loading"></i>
+          {{ loading ? 'Marking Attendance...' : 'Mark Attendance' }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Attendance History -->
+  <div class="history-section" *ngIf="attendanceHistory.length > 0">
+    <div class="section-title">
+      <i class="fas fa-history me-2"></i>Recent Attendance Records
+    </div>
+    <div class="table-responsive">
+      <table class="table professional-table table-sm">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Class</th>
+            <th>Subject</th>
+            <th>Present</th>
+            <th>Absent</th>
+            <th>Late</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let record of attendanceHistory | slice:0:10">
+            <td>{{ record.date | date:'dd MMM yyyy' }}</td>
+            <td>{{ record.classId?.name }}</td>
+            <td>{{ record.subjectId?.name }}</td>
+            <td><span class="badge bg-success">{{ countStatus(record, 'Present') }}</span></td>
+            <td><span class="badge bg-danger">{{ countStatus(record, 'Absent') }}</span></td>
+            <td><span class="badge bg-warning text-dark">{{ countStatus(record, 'Late') }}</span></td>
+            <td>
+              <button class="btn btn-sm btn-outline-info" 
+                      (click)="openEditModal(editModal, record)"
+                      [disabled]="!isToday(record.date) || !canMarkAttendance">
+                <i class="fas fa-edit"></i>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Modal - PERFECT VERSION (Only 2 fixes needed) -->
+<ng-template #editModal let-modal>
+  <div class="custom-modal-container">
+    <div class="custom-modal-dialog">
+      <div class="custom-modal">
+        <div class="custom-modal-header">
+          <h5 class="custom-modal-title">
+            Edit Attendance
+          </h5>
+          <button class="custom-modal-close" (click)="modal.dismiss()">
+            ×
+          </button>
         </div>
 
-        <div *ngIf="students.length > 0" class="mb-4">
-          <h4 class="text-secondary mb-3">Students</h4>
+        <div class="custom-modal-body">
+          <div class="mb-4 text-center">
+            <h6><strong>Class:</strong> {{ selectedAttendance?.classId?.name }}</h6>
+            <h6><strong>Subject:</strong> {{ selectedAttendance?.subjectId?.name }}</h6>
+            <h6><strong>Date:</strong> {{ selectedAttendance?.date | date:'dd MMM yyyy' }}</h6>
+          </div>
+
           <div class="table-responsive">
-            <table class="table table-hover table-bordered align-middle">
+            <table class="table table-bordered align-middle">
               <thead class="table-primary">
                 <tr>
-                  <th scope="col">Student Name</th>
-                  <th scope="col">Roll No</th>
-                  <th scope="col">Status</th>
+                  <th width="60">#</th>
+                  <th>Name</th>
+                  <th width="100">Roll No</th>
+                  <th width="140">Status</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let student of students">
-                  <td>{{ student.name || 'N/A' }}</td>
-                  <td>{{ student.rollNo || 'Not assigned' }}</td>
+                <tr *ngFor="let s of selectedAttendance?.students; let i = index">
+                  <td class="text-center">{{ i + 1 }}</td>
                   <td>
-                    <select class="form-select"
-                            [value]="getAttendanceStatus(student._id)"
-                            (change)="updateAttendanceStatus(student._id, $event)"
-                            [disabled]="!canMarkAttendance">
+                    <div class="d-flex align-items-center">
+                      <div class="avatar-sm me-2">
+                        <span class="initials-overlay">
+                          {{ getInitials(s.studentId?.name) }}
+                        </span>
+                      </div>
+                      <strong>{{ s.studentId?.name || 'Unknown' }}</strong>
+                    </div>
+                  </td>
+                  <td class="text-center fw-bold">{{ s.studentId?.rollNo || '—' }}</td>
+                  <td>
+                    <!-- THIS WAS THE BUG: Use ngModel + (ngModelChange) -->
+                    <select 
+                      class="form-select form-select-sm"
+                      [(ngModel)]="selectedAttendance.students[i].status"
+                      [ngModelOptions]="{standalone: true}">
                       <option value="Present">Present</option>
                       <option value="Absent">Absent</option>
                       <option value="Late">Late</option>
@@ -79,117 +240,19 @@
           </div>
         </div>
 
-        <div class="d-flex justify-content-end">
-          <button type="button" class="btn btn-secondary me-2" (click)="goToMonthlyAttendance()" [disabled]="!selectedClassId || !attendanceForm.value.subjectId">
-            View Monthly Attendance
+        <div class="custom-modal-footer">
+          <button class="btn-close-modal btn-secondary" (click)="modal.dismiss()">
+            Cancel
           </button>
-          <button type="submit" class="btn btn-primary" [disabled]="attendanceForm.invalid || loading || !canMarkAttendance">
-            <span class="me-2">✅</span> {{ loading ? 'Marking...' : 'Mark Attendance' }}
+          <button 
+            class="btn-close-modal btn-primary" 
+            (click)="onEditSubmit(modal)" 
+            [disabled]="loading">
+            <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+            Save Changes
           </button>
         </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Attendance History Section -->
-  <div class="card shadow-sm">
-    <div class="card-body">
-      <h3 class="text-primary fw-bold mb-4">📜 Attendance History</h3>
-      <div *ngIf="attendanceHistory.length === 0" class="alert alert-info">
-        No attendance records found.
-      </div>
-      <div *ngIf="attendanceHistory.length > 0" class="table-responsive">
-        <table class="table table-hover table-bordered align-middle">
-          <thead class="table-primary">
-            <tr>
-              <th scope="col">Date</th>
-              <th scope="col">Class</th>
-              <th scope="col">Subject</th>
-              <th scope="col">Student</th>
-              <th scope="col">Status</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let record of attendanceHistory">
-              <td>{{ record.date | date:'mediumDate' }}</td>
-              <td>{{ record.classId?.name || 'N/A' }}</td>
-              <td>{{ record.subjectId?.name || 'N/A' }}</td>
-              <td>
-                <div *ngFor="let att of record.students">
-                  {{ att.studentId?.name || att.studentId || 'N/A' }} (Roll: {{ att.studentId?.rollNo || 'N/A' }})
-                </div>
-              </td>
-              <td>
-                <div *ngFor="let att of record.students">
-                  <span [ngClass]="{
-                    'badge bg-success': att.status === 'Present',
-                    'badge bg-danger': att.status === 'Absent',
-                    'badge bg-warning': att.status === 'Late'
-                  }">
-                    {{ att.status }}
-                  </span>
-                </div>
-              </td>
-              <td>
-                <button class="btn btn-sm btn-warning" (click)="openEditModal(editModal, record)"
-                        [disabled]="!isToday(record.date) || !canMarkAttendance">
-                  Edit
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </div>
   </div>
-
-  <!-- Edit Modal -->
-  <ng-template #editModal let-modal>
-    <div class="modal-header">
-      <h5 class="modal-title" id="modal-title">Edit Attendance</h5>
-      <button type="button" class="btn-close" (click)="modal.dismiss('Close click')"></button>
-    </div>
-    <div class="modal-body">
-      <form [formGroup]="editForm" (ngSubmit)="onEditSubmit(modal)">
-        <div class="mb-3">
-          <h4>Class: {{ selectedAttendance?.classId?.name || 'N/A' }}</h4>
-          <h4>Subject: {{ selectedAttendance?.subjectId?.name || 'N/A' }}</h4>
-          <h4>Date: {{ selectedAttendance?.date | date:'mediumDate' }}</h4>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-bordered align-middle">
-            <thead class="table-primary">
-              <tr>
-                <th>Student Name</th>
-                <th>Roll No</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let student of selectedAttendance?.students">
-                <td>{{ student.studentId?.name || student.studentId || 'N/A' }}</td>
-                <td>{{ student.studentId?.rollNo || 'Not assigned' }}</td>
-                <td>
-                  <select class="form-select"
-                          [value]="getAttendanceStatus(student.studentId?._id || student.studentId, editForm)"
-                          (change)="updateAttendanceStatus(student.studentId?._id || student.studentId, $event, editForm)">
-                    <option value="Present">Present</option>
-                    <option value="Absent">Absent</option>
-                    <option value="Late">Late</option>
-                  </select>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="d-flex justify-content-end">
-          <button type="button" class="btn btn-secondary me-2" (click)="modal.dismiss('Cancel')">Cancel</button>
-          <button type="submit" class="btn btn-primary" [disabled]="editForm.invalid || loading">
-            <span class="me-2">💾</span> {{ loading ? 'Saving...' : 'Save Changes' }}
-          </button>
-        </div>
-      </form>
-    </div>
-  </ng-template>
-</div>
+</ng-template>

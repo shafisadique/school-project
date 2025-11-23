@@ -76,6 +76,19 @@ const schoolSchema = new mongoose.Schema({
   logo: { 
     type: String,
     default: ''
+  },
+communication: {
+    smsSenderName: { type: String, default: 'EDGLOBE', maxlength: 11 }, // e.g., RAINBOWSCH
+    emailFrom: { type: String, default: 'no-reply@edglobe.in' },       // principal@rainbow.com
+    emailName: { type: String, default: 'EDGlobe School' },            // "Rainbow Public School"
+    emailPass: {type:String}
+  },
+
+  // School Timing (you asked!)
+  schoolTiming: {
+    openingTime: { type: String, default: '09:00' }, // 8 AM
+    closingTime: { type: String, default: '4:00' }, // 2 PM
+    lunchBreak: { type: String, default: '12:00-12:30' }
   }
 });
 

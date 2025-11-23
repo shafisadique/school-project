@@ -10,7 +10,7 @@ const Subscription = require('../../../models/subscription');
 const PendingSchool = require('../../../models/pendingSchool');
 const Notification = require('../../../models/notification');
 const auditLogs = require('../../../models/auditLogs');
-const notificationService = require('../../../services/notificationService');
+// const notificationService = require('../../../services/notificationService');
 const subscriptionPlans = require('../../../utils/subscriptionPlans');
 
 const registerSchool = async (req, res) => {
@@ -29,7 +29,14 @@ const registerSchool = async (req, res) => {
         preferredChannel,
         whatsappOptIn = false,
         pendingSchoolId,
-        isMobileVerified
+        isMobileVerified,
+        smsSenderName,
+        emailFrom,
+        emailName,
+        emailPass,
+        openingTime,
+        closingTime,
+        lunchBreak
       } = req.body;
 
       /* ────────────────────── 1. AUTH & OTP ────────────────────── */
@@ -126,7 +133,14 @@ const registerSchool = async (req, res) => {
         preferredChannel,
         weeklyHolidayDay: 'Sunday',
         smsPackActive: false,
-        status: true
+        status: true,
+        'communication.smsSenderName': smsSenderName || 'EDGLOBE',
+        'communication.emailFrom': emailFrom,
+        'communication.emailName': emailName || schoolName,
+        'communication.emailPass': emailPass || emailPass,
+        'schoolTiming.openingTime': openingTime || '08:00',
+        'schoolTiming.closingTime': closingTime || '14:00',
+        'schoolTiming.lunchBreak': lunchBreak || '12:00 - 12:30'
       });
 
       const currentYear = new Date().getFullYear();
@@ -205,8 +219,6 @@ const registerSchool = async (req, res) => {
       }
 
       /* ────────────────────── 15. EMAIL WITH RESET LINK ONLY ────────────────────── */
-        console.log('Sending email to:', email); // Debug
-        console.log('From:', process.env.EMAIL_USER);
 
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
         throw { status: 500, message: 'Email credentials missing in environment' };

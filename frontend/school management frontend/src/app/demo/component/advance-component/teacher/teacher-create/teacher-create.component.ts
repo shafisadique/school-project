@@ -104,7 +104,7 @@ export class TeacherCreateComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.toastr.success('Teacher added successfully');
-          this.resetForm();
+          // this.resetForm();
           this.loading = false;
         },
         error: (err: any) => {

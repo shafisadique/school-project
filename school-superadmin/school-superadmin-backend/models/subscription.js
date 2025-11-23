@@ -90,6 +90,13 @@ const subscriptionSchema = new mongoose.Schema({
     whatsappUsedThisMonth: { type: Number, default: 0 },
     lastResetDate: { type: Date, default: Date.now }  // When we last reset counts
   },
+  // In Subscription Schema
+    priority: { 
+    type: Number, 
+    enum: [1, 2, 3], // 1 = Trial, 2 = Basic, 3 = Premium
+    required: true,
+    default:1 
+    },
 
   features: {
     type: [String],

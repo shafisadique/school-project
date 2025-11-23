@@ -19,7 +19,7 @@ mongoose.connect(process.env.MONGODB_URI)
         name: 'Sadique Shafi',
         username: 'sadique_shafi',
         email: 'shafisadique123@gmail.com',
-        password: 'SuperAdmin@123',  // Plain text—model pre-save will hash it
+        password: 'Patanahiwipro@123',  // Plain text—model pre-save will hash it
         role: 'superadmin'
       });
 

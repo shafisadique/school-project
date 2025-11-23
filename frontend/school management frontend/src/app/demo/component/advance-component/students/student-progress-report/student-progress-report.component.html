@@ -1,51 +1,129 @@
-<div class="container mt-4">
-  <div class="card shadow">
-    <div class="card-header bg-primary text-white">
-      <h5 class="mb-0">Submit Weekly Progress Reports</h5>
+<div class="progress-report-container">
+  <!-- Premium Header -->
+  <div class="header-section">
+    <div class="header-card">
+      <h1 class="title">Weekly Progress Report</h1>
+      <p class="subtitle">Submit grades and feedback for your students</p>
     </div>
-    <div class="card-body">
-      <form [formGroup]="reportForm" (ngSubmit)="onSubmit()">
-        <div class="mb-3">
-          <label for="classId" class="form-label">Select Class</label>
-          <select id="classId" formControlName="classId" class="form-select" (change)="onClassChange($event)" [ngClass]="{ 'is-invalid': reportForm.get('classId')?.invalid && reportForm.get('classId')?.touched }">
-            <option value="">Choose a class...</option>
-            <option *ngFor="let classItem of classList" [value]="classItem._id">{{ classItem.name }}</option>
-          </select>
-          <div *ngIf="reportForm.get('classId')?.invalid && reportForm.get('classId')?.touched" class="invalid-feedback">Class is required</div>
-        </div>
+  </div>
 
-        <div *ngIf="students.length > 0" class="table-responsive">
-          <table class="table table-bordered">
+  <!-- Loading -->
+  <div *ngIf="loading" class="text-center py-5">
+    <div class="spinner-border text-primary spinner-large"></div>
+  </div>
+
+  <!-- Main Card -->
+  <div class="controls-card" *ngIf="!loading">
+    <form [formGroup]="reportForm" (ngSubmit)="onSubmit()">
+      <div class="mb-4">
+        <label class="form-label fw-600">Select Class <span class="text-danger">*</span></label>
+        <select 
+          id="classId" 
+          class="form-select form-select-lg shadow-sm" 
+          formControlName="classId" 
+          (change)="onClassChange($event)"
+          [ngClass]="{ 'is-invalid': reportForm.get('classId')?.invalid && reportForm.get('classId')?.touched }">
+          <option value="">Choose a class...</option>
+          <option *ngFor="let classItem of classList" [value]="classItem._id">
+            {{ classItem.name }}
+          </option>
+        </select>
+        <div *ngIf="reportForm.get('classId')?.invalid && reportForm.get('classId')?.touched" class="invalid-feedback">
+          Class is required
+        </div>
+      </div>
+
+      <!-- Students Table (Desktop) / Cards (Mobile) -->
+      <div *ngIf="students.length > 0" class="mt-4" formArrayName="studentProgress">
+        
+        <!-- Desktop: Table View -->
+        <div class="table-responsive d-none d-lg-block">
+          <table class="table professional-table table-hover align-middle">
             <thead>
               <tr>
-                <th>Student Name</th>
-                <th>Admission No</th>
-                <th>Grades</th>
-                <th>Comments</th>
+                <th width="5%">#</th>
+                <th width="30%">Student Name</th>
+                <th width="15%">Admission No</th>
+                <th width="25%">Grades</th>
+                <th width="25%">Comments</th>
               </tr>
             </thead>
-            <tbody formArrayName="studentProgress">
+            <tbody>
               <tr *ngFor="let student of students; let i = index" [formGroupName]="i">
-                <td>{{ student.name }}</td>
-                <td>{{ student.admissionNo }}</td>
+                <td class="text-center fw-bold">{{ i + 1 }}</td>
                 <td>
-                  <input type="text" class="form-control" formControlName="grades" placeholder="e.g., Math: A, Science: B" [ngClass]="{ 'is-invalid': studentProgress.controls[i].get('grades')?.invalid && studentProgress.controls[i].get('grades')?.touched }">
-                  <div *ngIf="studentProgress.controls[i].get('grades')?.invalid && studentProgress.controls[i].get('grades')?.touched" class="invalid-feedback">Valid grades are required (e.g., Math: A)</div>
+                  <div class="d-flex align-items-center">
+                    <div class="avatar-sm me-3">
+                      <div class="avatar-placeholder">
+                        {{ getInitials(student.name) }}
+                      </div>
+                    </div>
+                    <div>
+                      <div class="fw-600">{{ student.name }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-center">{{ student.admissionNo }}</td>
+                <td>
+                  <input type="text" class="form-control" formControlName="grades" 
+                         placeholder="e.g., Math: A, Science: B"
+                         [ngClass]="{ 'is-invalid': studentProgress.controls[i].get('grades')?.invalid && studentProgress.controls[i].get('grades')?.touched }">
+                  <div *ngIf="studentProgress.controls[i].get('grades')?.invalid && studentProgress.controls[i].get('grades')?.touched" class="invalid-feedback">
+                    Valid grades required
+                  </div>
                 </td>
                 <td>
-                  <textarea class="form-control" formControlName="comments" rows="2" placeholder="Enter comments" [ngClass]="{ 'is-invalid': studentProgress.controls[i].get('comments')?.invalid && studentProgress.controls[i].get('comments')?.touched }"></textarea>
-                  <div *ngIf="studentProgress.controls[i].get('comments')?.invalid && studentProgress.controls[i].get('comments')?.touched" class="invalid-feedback">Comments are required (max 160 characters)</div>
+                  <textarea class="form-control" rows="2" formControlName="comments"
+                            placeholder="Enter comments..."
+                            [ngClass]="{ 'is-invalid': studentProgress.controls[i].get('comments')?.invalid && studentProgress.controls[i].get('comments')?.touched }"></textarea>
+                  <div *ngIf="studentProgress.controls[i].get('comments')?.invalid && studentProgress.controls[i].get('comments')?.touched" class="invalid-feedback">
+                    Comments required (max 160 chars)
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100 mt-3" [disabled]="reportForm.invalid || loading || students.length === 0">
+        <!-- Mobile: Card View -->
+        <div class="d-block d-lg-none">
+          <div *ngFor="let student of students; let i = index" class="student-mobile-card mb-4" [formGroupName]="i">
+            <div class="card shadow-sm border-0">
+              <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                  <div class="avatar-sm me-3">
+                    <div class="avatar-placeholder">
+                      {{ getInitials(student.name) }}
+                    </div>
+                  </div>
+                  <div>
+                    <h6 class="mb-0 fw-bold">{{ student.name }}</h6>
+                    <small class="text-muted">Adm: {{ student.admissionNo }}</small>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small text-muted">Grades</label>
+                  <input type="text" class="form-control" formControlName="grades" placeholder="Math: A, Science: B">
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small text-muted">Comments</label>
+                  <textarea class="form-control" rows="3" formControlName="comments" placeholder="Great improvement..."></textarea>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="mt-5">
+        <button type="submit" class="btn btn-primary btn-lg w-100 shadow-lg"
+                [disabled]="reportForm.invalid || loading || students.length === 0">
           <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
-          {{ loading ? 'Saving...' : 'Save All Reports' }}
+          {{ loading ? 'Saving Reports...' : 'Save All Reports' }}
         </button>
-      </form>
-    </div>
+      </div>
+    </form>
   </div>
-</div>
