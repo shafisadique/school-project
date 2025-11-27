@@ -10,7 +10,6 @@ const Teacher = require('../../models/teacher'); // Note: Capital T for model
 // Create an exam (Super Admin or Admin only)
 const createExam = async (req, res, next) => {
   try {
-    console.log('createExam called with:', { body: req.body, user: req.user });
     const { classId, academicYearId: academicYearIdFromBody, examTitle, examCenter, startDate, endDate, examStatus, examPapers } = req.body;
     const schoolId = req.user.schoolId;
 

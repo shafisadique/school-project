@@ -14,7 +14,7 @@ const SchoolInvoice = require('../../models/schoolInvoice');
 const Subscription = require('../../models/subscription');
 const auditLogs = require('../../models/auditLogs');
 const { paymentSchema, orderSchema, sanitizeInput } = require('../../validation/feeValidation');
-
+const SMSService = require('../../utils/smsProvider')
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET
@@ -731,6 +731,153 @@ exports.getInvoiceDetails = async (req, res) => {
 //   }
 // };
 
+// POST /api/fee/send-defaulter-sms
+exports.sendDefaulterSMS = async (req, res) => {
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const schoolId = new mongoose.Types.ObjectId(req.user.schoolId);
+      const { message: customMessage } = req.body;
+
+      // 1. Get active subscription
+      const subscription = await Subscription.findOne({
+        schoolId,
+        status: 'active'
+      }).session(session);
+
+      if (!subscription) throw new APIError('No active subscription found', 403);
+
+      // 2. Check SMS limit
+      const smsUsed = subscription.usageStats.smsUsedThisMonth || 0;
+      const smsLimit = subscription.messageLimits.smsMonthly || 0;
+      const smsRemaining = smsLimit - smsUsed;
+
+      if (smsRemaining <= 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'SMS limit exceeded for this month',
+          used: smsUsed,
+          limit: smsLimit,
+          remaining: 0
+        });
+      }
+
+      // 3. GET ONE ROW PER STUDENT → CORRECT TOTAL DUE
+      const defaulters = await FeeInvoice.aggregate([
+        { $match: { schoolId, remainingDue: { $gt: 0 } } },
+
+        // Sort by latest month first
+        { $sort: { dueDate: -1 } },
+
+        // Keep only latest invoice per student
+        {
+          $group: {
+            _id: '$studentId',
+            latestRemainingDue: { $first: '$remainingDue' },
+            latestMonth: { $first: '$month' },
+            doc: { $first: '$$ROOT' }
+          }
+        },
+
+        // Lookup student
+        {
+          $lookup: {
+            from: 'students',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'student'
+          }
+        },
+        { $unwind: '$student' },
+
+        // Must have at least one parent phone
+        {
+          $match: {
+            $or: [
+              { 'student.parents.fatherPhone': { $ne: null, $ne: '' } },
+              { 'student.parents.motherPhone': { $ne: null, $ne: '' } }
+            ]
+          }
+        },
+
+        // Final fields
+        {
+          $project: {
+            studentName: '$student.name',
+            admissionNo: '$student.admissionNo',
+            remainingDue: '$latestRemainingDue', // This is correct: 3400 only
+            parentPhone: {
+              $cond: [
+                { $ne: ['$student.parents.fatherPhone', ''] },
+                '$student.parents.fatherPhone',
+                '$student.parents.motherPhone'
+              ]
+            }
+          }
+        },
+
+        { $sort: { remainingDue: -1 } }
+      ]).session(session);
+
+
+      if (defaulters.length === 0) {
+        return res.json({ success: true, sent: 0, message: 'No defaulters with valid phone' });
+      }
+
+      // 4. Send SMS — only 1 per student!
+      const toSend = defaulters.slice(0, smsRemaining);
+      const school = await School.findById(schoolId).session(session);
+      const senderId = school.communication?.smsSenderName || 'EDGLOBE';
+      let sent = 0;
+      const failed = [];
+      for (const defaulter of toSend) {
+      try {
+        const schoolName = school.name || 'Your School';
+        const senderName = school.communication?.smsSenderName || 'EDGLOBE';
+
+        // This format is REQUIRED for template
+        const templateMessage = `${defaulter.studentName}|${defaulter.remainingDue}|${schoolName}`;
+
+        await SMSService.sendSMS(defaulter.parentPhone, templateMessage, senderName);
+        sent++;
+      } catch (error) {
+        failed.push({
+          name: defaulter.studentName,
+          phone: defaulter.parentPhone,
+          error: error.message || 'SMS failed'
+        });
+      }
+    }
+
+      // 5. Update usage
+      subscription.usageStats.smsUsedThisMonth += sent;
+      await subscription.save({ session });
+
+      school.smsRemaining = smsLimit - subscription.usageStats.smsUsedThisMonth;
+      await school.save({ session });
+
+      // 6. Response
+      res.json({
+        success: true,
+        message: 'Defaulter SMS sent successfully',
+        sent,
+        failed: failed.length,
+        totalUniqueDefaulters: defaulters.length,
+        remainingSMS: school.smsRemaining,
+        failedDetails: failed
+      });
+    });
+  } catch (error) {
+    console.error('Send SMS Error:', error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to send SMS'
+    });
+  } finally {
+    session.endSession();
+  }
+};
+
 exports.getDefaultersList = async (req, res) => {
   try {
     const { academicYearId, className } = req.query;
@@ -940,6 +1087,7 @@ exports.getFeeCollectionReport = async (req, res) => {
 
 exports.generateClassReceipts = async (req, res) => {
   try {
+    console.log(req.body)
     const { schoolId, className, month, academicYearId } = req.body;  // Keep as-is
 
     if (!schoolId || !className || !month || !academicYearId) {

@@ -25,6 +25,7 @@ const {
   getStudentInvoices,
   searchInvoiceStudents,
   getStudentPaymentHistory,
+  sendDefaulterSMS,
 } = require('../controllers/fee/paymentController');
 const invoiceService = require('../models/invoice.service');
 const { searchStudents } = require('../controllers/student/studentController');
@@ -122,6 +123,7 @@ router.post('/students/:studentId/payments', authMiddleware, processPayment);
 router.get('/invoices/:id/pdf', authMiddleware, validateSchoolAccess(Invoice), generateInvoicePDF);
 router.get('/reports/collection', authMiddleware, getFeeCollectionReport);
 router.get('/reports/defaulters', authMiddleware, getDefaultersList);
+router.post('/send-defaulter-sms', authMiddleware, sendDefaulterSMS);
 router.get('/paid-invoices', authMiddleware, adminOrAccountant,getPaidInvoiceList );
 router.get('/invoices/student/:studentId', authMiddleware, getStudentInvoices);
 router.get('/students/:studentId/payment-history', authMiddleware, getStudentPaymentHistory);

@@ -7,6 +7,7 @@ export const environment = {
   razorpayKey: 'rzp_live_xxxxxxxxxxxx',
   razorpayKeyId:'',
   googleMapsApiKey:'AIzaSyDKsK100m1obqgkQJILOEafWm2mReD0whA',
+  proxyImageUrl: 'https://edglobe.vercel.app/api/proxy-image',
   testMode: false,
   imageUrl:'https://edglobe.vercel.app'
 

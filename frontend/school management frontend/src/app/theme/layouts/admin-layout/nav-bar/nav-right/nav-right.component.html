@@ -13,10 +13,10 @@
             Upgrade
           </button>
           <div *ngIf="subscriptionData.subscriptionStatus === 'active'" class="alert alert-success p-2 mb-0">
-  <strong>{{ subscriptionData.name }}</strong>
-  <span *ngIf="subscriptionData.isTrial"> (Trial – {{ subscriptionData.daysRemaining }} days left)</span>
-  <span *ngIf="!subscriptionData.isTrial"> until {{ subscriptionData.expiresAt | date:'mediumDate' }}</span>
-</div>
+            <strong>{{ subscriptionData.name }}</strong>
+            <span *ngIf="subscriptionData.isTrial"> (Trial – {{ subscriptionData.daysRemaining }} days left)</span>
+            <span *ngIf="!subscriptionData.isTrial"> until {{ subscriptionData.expiresAt | date:'mediumDate' }}</span>
+          </div>
           </div>
           <div *ngIf="isExpired" class="alert alert-danger alert-dismissible fade show" role="alert">
             Your subscription has expired. You can only view data.

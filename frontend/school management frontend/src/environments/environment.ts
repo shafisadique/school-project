@@ -10,7 +10,7 @@ export const environment = {
   // apiUrl: 'https://school-management-backend-khaki.vercel.app',
   // apiUrl: 'https://edglobe.vercel.app',
     apiUrl: 'http://localhost:5675', 
-
+  proxyImageUrl: 'https://edglobe.vercel.app/api/proxy-image',
   razorpayKey: 'rzp_test_RYaocvTKMe1oqH', // Replace with your Razorpay test key
   razorpayKeyId:'',
   testMode: false,

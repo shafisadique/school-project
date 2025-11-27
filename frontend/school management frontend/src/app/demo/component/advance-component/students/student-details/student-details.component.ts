@@ -12,6 +12,7 @@ import { NgbDropdownModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { ToastrService } from 'ngx-toastr';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
+import { SubscriptionService } from '../../../subscription-management/subscription.service';
 
 interface Student {
   _id: string;
@@ -96,6 +97,7 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     private classService: ClassSubjectService,
     private toastr: ToastrService,
     private academicYearService: AcademicYearService,
+    private subscriptionService:SubscriptionService,
     private route: ActivatedRoute,
     private router: Router,
     private modalService: NgbModal
@@ -361,25 +363,48 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
   }
 
   createPortal(studentId: string, role: 'student' | 'parent') {
-    if (role === 'parent' && localStorage.getItem('role') !== 'admin') {
-      this.toastr.error('Only admins can create parent portals.', 'Error');
-      return;
-    }
-
-    this.studentService.createPortal(studentId, role).subscribe({
-      next: (res) => {
-        this.toastr.success(`${res.message}`, 'Success');
-        if (role === 'parent' && res.parent) {
-          // Optionally open a modal to show credentials
-          this.showPortalCredentials(res.parent);
-          this.loadStudents();
-        }
-      },
-      error: (err) => {
-        this.toastr.error(err.error.message || 'Error creating portal', 'Error');
-      }
-    });
+  if (role === 'parent' && localStorage.getItem('role') !== 'admin') {
+    this.toastr.error('Only admins can create parent portals.', 'Error');
+    return;
   }
+
+  // CHECK PREMIUM PLAN BEFORE CALLING API
+  this.subscriptionService.getCurrentSubscription().subscribe({
+    next: (sub: any) => {
+      const isPremium = sub.planType && (
+        sub.planType.toLowerCase().includes('premium') ||
+        sub.planType === 'Premium Yearly'
+      );
+
+      if (!isPremium) {
+        this.toastr.warning(
+          'Student/Parent Portal is only available in Premium plans. Please upgrade.',
+          'Premium Feature Required',
+          { timeOut: 8000 }
+        );
+        this.router.navigate(['/subscription/plans']);
+        return;
+      }
+
+      // PREMIUM USER → CALL API
+      this.studentService.createPortal(studentId, role).subscribe({
+        next: (res) => {
+          this.toastr.success(`${res.message}`, 'Success');
+          if (role === 'parent' && res.parent) {
+            this.showPortalCredentials(res.parent);
+            this.loadStudents();
+          }
+        },
+        error: (err) => {
+          this.toastr.error(err.error?.message || 'Error creating portal', 'Error');
+        }
+      });
+    },
+    error: () => {
+      this.toastr.error('Failed to check your plan');
+    }
+  });
+}
 
   showPortalCredentials(parent: any) {
     const modalRef = this.modalService.open(NgbModal, { size: 'sm', backdrop: 'static' });

@@ -38,8 +38,9 @@ export class ExamListComponent implements OnInit {
     }
     this.subscriptionService.getCurrentSubscription().subscribe({
     next: (sub) => {
-      this.canCreateExam = sub.features?.includes('exam') === true;
-    },
+      const isPremium = sub.planType && sub.planType.toLowerCase().includes('premium');
+      this.canCreateExam = isPremium;
+      },
     error: () => {
       this.canCreateExam = false;
     }

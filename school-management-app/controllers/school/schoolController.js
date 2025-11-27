@@ -1,74 +1,88 @@
+require('dotenv').config()
 const auditLogs = require('../../models/auditLogs');
 const School = require('../../models/school');
 const pendingSchool = require('../../models/pendingSchool');
 const mongoose = require('mongoose'); // ✅ Added
 const User = require('../../models/user'); // Added
 const academicyear = require('../../models/academicyear');
-
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const path = require('path');
 // Lazy load Subscription to avoid circular dependency
 let SubscriptionModel = null;
 
-const addSchool = async (req, res) => {
-  const { name, address, mobileNo, email, contactPerson,latitude, longitude, radius, website, activeAcademicYear } = req.body;
+const s3Client = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID,
+    secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY,
+  },
+});
 
-  try {
-    if (!name || !address || !mobileNo || !email || !activeAcademicYear) {
-      return res.status(400).json({ message: 'Name, address, mobileNo, email, and activeAcademicYear are required' });
-    }
+// const addSchool = async (req, res) => {
+//   const { name, address, mobileNo, email, contactPerson,latitude, longitude, radius, website, activeAcademicYear } = req.body;
 
-    if (!mongoose.Types.ObjectId.isValid(activeAcademicYear)) {
-      return res.status(400).json({ message: 'Invalid activeAcademicYear ID' });
-    }
+//   try {
+//     if (!name || !address || !mobileNo || !email || !activeAcademicYear) {
+//       return res.status(400).json({ message: 'Name, address, mobileNo, email, and activeAcademicYear are required' });
+//     }
 
-    const existingSchool = await School.findOne({ email });
-    if (existingSchool) {
-      return res.status(400).json({ message: 'Email is already associated with another school' });
-    }
+//     if (!mongoose.Types.ObjectId.isValid(activeAcademicYear)) {
+//       return res.status(400).json({ message: 'Invalid activeAcademicYear ID' });
+//     }
 
-    const academicYear = await AcademicYear.findById(activeAcademicYear);
-    if (!academicYear) {
-      return res.status(400).json({ message: 'Active academic year not found' });
-    }
+//     const existingSchool = await School.findOne({ email });
+//     if (existingSchool) {
+//       return res.status(400).json({ message: 'Email is already associated with another school' });
+//     }
 
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        const school = new School({ 
-          name, 
-          address,
-          mobileNo,
-          email,
-          latitude, longitude, radius,
-          contactPerson: contactPerson || {},
-          website: website || '',
-          activeAcademicYear,
-          createdBy: req.user._id,
-          status: true
-        });
+//     const academicYear = await AcademicYear.findById(activeAcademicYear);
+//     if (!academicYear) {
+//       return res.status(400).json({ message: 'Active academic year not found' });
+//     }
 
-        await school.save({ session });
+//     const session = await mongoose.startSession();
+//     try {
+//       await session.withTransaction(async () => {
+//         const school = new School({ 
+//           name, 
+//           address,
+//           mobileNo,
+//           email,
+//           latitude, longitude, radius,
+//           contactPerson: contactPerson || {},
+//           website: website || '',
+//           activeAcademicYear,
+//           createdBy: req.user._id,
+//           status: true
+//         });
 
-        // Create a trial subscription automatically
-        const SubscriptionModel = require('../../models/subscription');
-        const subscription = new SubscriptionModel({
-          schoolId: school._id,
-          planType: 'trial',
-          status: 'active',
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30-day trial
-        });
-        await subscription.save({ session });
+//         await school.save({ session });
 
-        res.status(201).json({ message: 'School added successfully', school, subscription });
-      });
-    } finally {
-      await session.endSession();
-    }
-  } catch (err) {
-    res.status(500).json({ message: 'Error adding school', error: err.message });
-  }
-};
+//         // Create a trial subscription automatically
+//         const SubscriptionModel = require('../../models/subscription');
+//         const subscription = new SubscriptionModel({
+//           schoolId: school._id,
+//           planType: 'trial',
+//           status: 'active',
+//           expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30-day trial
+//         });
+//         await subscription.save({ session });
+
+//         res.status(201).json({ message: 'School added successfully', school, subscription });
+//       });
+//     } finally {
+//       await session.endSession();
+//     }
+//   } catch (err) {
+//     res.status(500).json({ message: 'Error adding school', error: err.message });
+//   }
+// };
+
+
 
 // ✅ Get all schools
+
 const getSchools = async (req, res) => {
   try {
     const schools = await School.find({ status: true }); // Only active schools
@@ -78,16 +92,31 @@ const getSchools = async (req, res) => {
   }
 };
 
-// ✅ Get a single school by ID
 const getSchoolById = async (req, res) => {
   try {
-    const school = await School.findById(req.params.id).where('status').equals(true);
-    if (!school) {
-      return res.status(404).json({ message: 'School not found' });
-    }
+    const school = await School.findById(req.params.id)
+      .select('-communication -smtpConfig -__v')  // ← HIDE THESE
+      .where('status').equals(true);
+
+    if (!school) return res.status(404).json({ message: 'School not found' });
+
     res.status(200).json(school);
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching school', error: err.message });
+    res.status(500).json({ message: 'Error', error: err.message });
+  }
+};
+
+const getSchoolByUser = async (req, res) => {
+  try {
+    const school = await School.findOne({ createdBy: req.user.id, status: true })
+      .select('name address mobileNo code latitude longitude logo schoolTiming communication.smsSenderName') // ← Only needed fields
+      .populate('activeAcademicYear', 'year');
+
+    if (!school) return res.status(404).json({ message: 'School not found' });
+
+    res.status(200).json(school);
+  } catch (err) {
+    res.status(500).json({ message: 'Error', error: err.message });
   }
 };
 
@@ -226,74 +255,69 @@ const approveSchoolRequest = async (req, res) => {
   }
 };
 
-// ✅ Get School By User ID
-const getSchoolByUser = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    console.log('Searching for school with createdBy:', userId);
-    if (!userId) {
-      return res.status(400).json({ message: 'User ID is required' });
-    }
-
-    const school = await School.findOne({ createdBy: userId, status: true }).populate('activeAcademicYear');
-    if (!school) {
-      return res.status(404).json({ message: 'School not found for this user' });
-    }
-
-    res.status(200).json({
-      _id: school._id,
-      name: school.name,
-      address: school.address,
-      contact: school.mobileNo,
-      academicYear: school.activeAcademicYear ? school.activeAcademicYear.year : '',
-      logo: school.logo || ''
-    });
-  } catch (err) {
-    console.error('Error in getSchoolByUser:', err.message);
-    res.status(500).json({ message: 'Failed to fetch school details', error: err.message });
-  }
-};
 
 // ✅ Update School
+// UPDATE SCHOOL - NOW SUPPORTS schoolTiming (openingTime, closingTime, lunchBreak)
 const updateSchool = async (req, res) => {
   try {
-    const { schoolName, address, mobileNo: contact, email, contactPerson, website, activeAcademicYear, status,latitude, longitude, radius } = req.body;
+    const { 
+      schoolName, 
+      address, 
+      mobileNo: contact, 
+      academicYear,
+      latitude, 
+      longitude, 
+      radius,
+      openingTime,
+      closingTime,
+      lunchBreak
+    } = req.body;
+
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: 'Invalid School ID' });
     }
 
-    if (activeAcademicYear && !mongoose.Types.ObjectId.isValid(activeAcademicYear)) {
-      return res.status(400).json({ message: 'Invalid AcademicYear ID' });
-    }
-
     const updateData = {
-      name: schoolName,
-      address,
-      latitude, longitude, radius,
-      mobileNo: contact,
-      email,
-      contactPerson: contactPerson || undefined,
-      website: website || undefined,
-      activeAcademicYear: activeAcademicYear || undefined,
-      status: status !== undefined ? status : true
+      ...(schoolName && { name: schoolName.trim() }),
+      ...(contact && { mobileNo: contact.trim() }),
+      ...(address && { address }),
+      ...(latitude && { latitude: parseFloat(latitude) }),
+      ...(longitude && { longitude: parseFloat(longitude) }),
+      ...(radius && { radius: parseInt(radius) }),
+      ...(academicYear && { activeAcademicYear: academicYear })
     };
+
+    // Only update schoolTiming if at least one timing field is sent
+    if (openingTime || closingTime || lunchBreak) {
+      updateData.schoolTiming = {
+        ...(openingTime && { openingTime: openingTime.trim() }),
+        ...(closingTime && { closingTime: closingTime.trim() }),
+        ...(lunchBreak && { lunchBreak: lunchBreak.trim() })
+      };
+    }
 
     const updatedSchool = await School.findByIdAndUpdate(
       id,
       { $set: updateData },
       { new: true, runValidators: true, context: 'query' }
-    );
+    ).select('-communication -smtpConfig -__v');
 
     if (!updatedSchool) {
       return res.status(404).json({ message: 'School not found' });
     }
 
-    res.status(200).json({ message: 'School updated successfully', school: updatedSchool });
+    res.status(200).json({ 
+      message: 'School updated successfully', 
+      school: updatedSchool 
+    });
   } catch (err) {
     console.error('Error updating school:', err.message);
-    res.status(500).json({ message: 'Error updating school', error: err.message });
+    res.status(500).json({ 
+      message: 'Error updating school', 
+      error: err.message 
+    });
   }
 };
 
@@ -324,6 +348,7 @@ const setAcademicYear = async (req, res) => {
   }
 };
 
+// controllers/schoolController.js
 const uploadSchoolLogo = async (req, res) => {
   try {
     const { id } = req.params;
@@ -336,29 +361,46 @@ const uploadSchoolLogo = async (req, res) => {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const maxSize = 2 * 1024 * 1024;
-    if (req.file.size > maxSize) {
-      return res.status(400).json({ message: 'File too large (max 2MB)' });
-    }
-    if (!['image/jpeg', 'image/png', 'image/jpg'].includes(req.file.mimetype)) {
-      return res.status(400).json({ message: 'Only JPEG, JPG, and PNG files are allowed' });
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({ message: 'Only JPEG/JPG/PNG allowed' });
     }
 
-    const school = await School.findById(id).where('status').equals(true);
+    if (req.file.size > 2 * 1024 * 1024) {
+      return res.status(400).json({ message: 'File too large (max 2MB)' });
+    }
+
+    const school = await School.findById(id);
     if (!school) {
       return res.status(404).json({ message: 'School not found' });
     }
 
-    school.logo = `/uploads/${req.file.filename}`;
+    // Generate unique key — same as student
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    const key = `school-logos/${school._id}-${Date.now()}${ext}`;
+
+    // Upload to R2
+    await s3Client.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: key,
+        Body: req.file.buffer,
+        ContentType: req.file.mimetype,
+      })
+    );
+
+    // SAVE ONLY THE KEY IN DB — LIKE STUDENT!
+    school.logo = key;
     await school.save();
 
-    const logoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    console.log('Generated logoUrl:', logoUrl);
-
-    res.status(200).json({ message: 'Logo uploaded successfully', logoUrl });
-  } catch (err) {
-    console.error('Error uploading logo:', err.message);
-    res.status(500).json({ message: 'Error uploading logo', error: err.message });
+    // Return key — frontend will use proxy
+    res.status(200).json({
+      message: 'Logo uploaded successfully',
+      logoKey: key,
+    });
+  } catch (error) {
+    console.error('School logo upload failed:', error);
+    res.status(500).json({ message: 'Upload failed', error: error.message });
   }
 };
 
@@ -401,7 +443,7 @@ const getSchoolByTeacher = async (req,res)=>{
 }
 
 module.exports = { 
-  addSchool, 
+  // addSchool, 
   getSchoolByUser,
   getSchools, 
   getSchoolById,

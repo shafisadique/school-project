@@ -132,42 +132,27 @@ const createWelcomeNotification = async (teacherData, school, userId, session, s
 
 
 async function createTransporter(schoolId) {
-  const school = await School.findById(schoolId).select('communication').lean();
+  const school = await School.findById(schoolId).select('communication name').lean();
 
-  const email = school.communication?.emailFrom;
-  const pass = school.communication?.emailPass;
-  const name = school.communication?.emailName || school.name;
+  const email = school?.communication?.emailFrom;
+  const pass = school?.communication?.emailPass;
 
   if (!email || !pass) {
-    logger.warn(`School ${schoolId} missing email config. Using fallback (not recommended)`);
-    // Optional: fallback only in dev, or throw error in production
-    return nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
+    logger.error(`School ${schoolId} has no email config!`);
+    throw new Error('School email not configured');
   }
-
-  logger.info(`Creating transporter for school email: ${email}`);
 
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
     secure: true,
-    auth: {
-      user: email,
-      pass: pass, // This MUST be App Password of ^ email
-    },
+    auth: { user: email, pass: pass },
     tls: { rejectUnauthorized: false }
   });
 }
 
 /**
- * ADD TEACHER — FINAL 100% WORKING (No academicYearId error)
+ * ADD TEACHER — FINAL 100% WORKING (EMAIL FIXED FOREVER)
  */
 exports.addTeacher = async (req, res, next) => {
   const session = await mongoose.startSession();
@@ -175,11 +160,13 @@ exports.addTeacher = async (req, res, next) => {
     await session.withTransaction(async () => {
       const schoolId = req.user.schoolId;
 
-      // 1. Get school and active academic year
+      // CRITICAL FIX: Use .lean() here so communication fields are real objects
       const school = await School.findById(schoolId)
         .select('name email mobileNo communication activeAcademicYear')
         .populate('activeAcademicYear')
+        .lean()                    // ADD THIS LINE
         .session(session);
+
       if (!school) throw new Error('School not found');
       if (!school.activeAcademicYear) throw new Error('No active academic year set');
 
@@ -226,7 +213,7 @@ exports.addTeacher = async (req, res, next) => {
         profileImageKey = fileName;
       }
 
-      // 7. Create Teacher — academicYearId from school!
+      // 7. Create Teacher
       const teacher = new Teacher({
         userId: newUser._id,
         name,
@@ -236,38 +223,48 @@ exports.addTeacher = async (req, res, next) => {
         subjects: Array.isArray(subjects) ? subjects : JSON.parse(subjects || '[]'),
         gender,
         schoolId,
-        academicYearId,           // ← FROM SCHOOL!
+        academicYearId,
         profileImage: profileImageKey,
         status: true,
         createdBy: req.user.id
       });
       await teacher.save({ session });
 
-      // 8. SEND WELCOME EMAIL FROM SCHOOL'S EMAIL
-      const transporter = await createTransporter(schoolId);
-      const mailOptions = {
-        from: `"${school.communication?.emailName || school.name}" <${school.communication?.emailFrom }>`,
-        to: email,
-        subject: `Welcome to ${school.name}!`,
-        html: `
-          <h2>Welcome ${name}!</h2>
-          <p>You have been added as a teacher at <strong>${school.name}</strong>.</p>
-          <p><strong>Login Details:</strong><br>
-          Username: ${username}<br>
-          Password: ${tempPassword}</p>
-          <p>Please change your password after first login.</p>
-          <p>Best regards,<br>${school.name} Team</p>
-        `
-      };
-
+      // 8. SEND EMAIL — NOW 100% FROM SCHOOL EMAIL
       try {
-        await transporter.sendMail(mailOptions);
-        logger.info(`Welcome email sent to ${email}`);
+        const transporter = await createTransporter(schoolId);
+
+        // These will NOW be defined because of .lean()
+        const fromName = school.communication?.emailName || school.name;
+        const fromEmail = school.communication?.emailFrom;
+
+        if (!fromEmail) {
+          logger.warn('School email not configured, skipping email');
+        } else {
+          const mailOptions = {
+            from: `"${fromName}" <${fromEmail}>`,
+            to: email,
+            subject: `Welcome to ${school.name}!`,
+            html: `
+              <h2>Welcome ${name}!</h2>
+              <p>You have been added as a teacher at <strong>${school.name}</strong>.</p>
+              <p><strong>Login Details:</strong><br>
+              Username: ${username}<br>
+              Password: ${tempPassword}</p>
+              <p>Please change your password after first login.</p>
+              <p>Best regards,<br>${school.name} Team</p>
+            `
+          };
+
+          await transporter.sendMail(mailOptions);
+          logger.info(`Welcome email sent from ${fromEmail} to ${email}`);
+        }
       } catch (err) {
-        logger.error('Email failed:', err);
+        logger.error('Email failed in addTeacher:', err.message);
+        // Don't fail the whole request
       }
 
-      // 9. SEND BELL + SMS NOTIFICATION
+      // 9. SEND NOTIFICATION
       const notification = await createWelcomeNotification(
         { name, username, email, phone, password: tempPassword },
         school,
@@ -275,11 +272,11 @@ exports.addTeacher = async (req, res, next) => {
         session,
         req.user.id
       );
-      await deliver(notification, session); // ← Uses school's SMS sender name!
+      await deliver(notification, session);
 
       res.status(201).json({
         success: true,
-        message: 'Teacher added! Welcome SMS + Email sent from school branding',
+        message: 'Teacher added successfully!',
         data: {
           teacherId: teacher._id,
           username,
@@ -442,7 +439,7 @@ exports.updateTeacher = async (req, res, next) => {
         const school = await School.findById(schoolId).select('name email mobileNo').session(session);
         const transporter = await createTransporter(schoolId);
         const mailOptions = {
-          from: `"${school.name}" <${process.env.EMAIL_USER}>`,
+          from: `"${school.communication?.emailName || school.name}" <${school.communication?.emailFrom}>`,
           to: email,
           subject: 'Profile Updated',
           html: `

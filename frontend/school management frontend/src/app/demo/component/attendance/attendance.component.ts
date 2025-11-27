@@ -63,6 +63,8 @@ export class AttendanceComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  
+
   validateSession() {
     if (!this.selectedSchoolId || !this.selectedAcademicYearId) {
       this.toastr.error('School ID or active academic year not found. Please log in again.', 'Error');
@@ -311,62 +313,62 @@ onImageError(event: any, student: any): void {
   }
 
   // attendance.component.ts → onSubmit() — REPLACE THIS METHOD
-async onSubmit() {
-  if (this.attendanceForm.invalid || !this.canMarkAttendance || this.students.length === 0) {
-    this.toastr.error('Please complete the form correctly.', 'Error');
-    return;
-  }
+  async onSubmit() {
+    if (this.attendanceForm.invalid || !this.canMarkAttendance || this.students.length === 0) {
+      this.toastr.error('Please complete the form correctly.', 'Error');
+      return;
+    }
 
-  this.loading = true;
+    this.loading = true;
 
-  // Step 1: Get current location
-  if (!navigator.geolocation) {
-    this.toastr.error('Geolocation is not supported by your browser.');
-    this.loading = false;
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      const payload = {
-        classId: this.attendanceForm.value.classId,
-        subjectId: this.attendanceForm.value.subjectId,
-        academicYearId: this.selectedAcademicYearId,
-        date: this.attendanceForm.value.date,
-        students: this.attendanceForm.value.attendanceRecords,
-        location: {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude
-        }
-      };
-
-      this.attendanceService.markAttendance(payload).subscribe({
-        next: (response) => {
-          this.toastr.success('Attendance marked successfully!', 'Success');
-          this.loadAttendanceHistory();
-          this.studentsWithAvatar = [];
-          this.attendanceForm.reset();
-          this.loading = false;
-        },
-        error: (err) => {
-          this.loading = false;
-          const msg = err.error?.message || 'Failed to mark attendance';
-          this.toastr.error(msg, 'Error');
-        }
-      });
-    },
-    (error) => {
+    // Step 1: Get current location
+    if (!navigator.geolocation) {
+      this.toastr.error('Geolocation is not supported by your browser.');
       this.loading = false;
-      let msg = 'Location access denied';
-      if (error.code === 1) msg = 'Please allow location access to mark attendance';
-      if (error.code === 2) msg = 'Location unavailable';
-      if (error.code === 3) msg = 'Location request timed out';
+      return;
+    }
 
-      this.toastr.error(msg + '. Attendance cannot be marked.', 'Location Required');
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-  );
-}
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const payload = {
+          classId: this.attendanceForm.value.classId,
+          subjectId: this.attendanceForm.value.subjectId,
+          academicYearId: this.selectedAcademicYearId,
+          date:new Date().toISOString().split('T')[0],
+          students: this.attendanceForm.value.attendanceRecords,
+          location: {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          }
+        };
+
+        this.attendanceService.markAttendance(payload).subscribe({
+          next: (response) => {
+            this.toastr.success('Attendance marked successfully!', 'Success');
+            this.loadAttendanceHistory();
+            this.studentsWithAvatar = [];
+            this.attendanceForm.reset();
+            this.loading = false;
+          },
+          error: (err) => {
+            this.loading = false;
+            const msg = err.error?.message || 'Failed to mark attendance';
+            this.toastr.error(msg, 'Error');
+          }
+        });
+      },
+      (error) => {
+        this.loading = false;
+        let msg = 'Location access denied';
+        if (error.code === 1) msg = 'Please allow location access to mark attendance';
+        if (error.code === 2) msg = 'Location unavailable';
+        if (error.code === 3) msg = 'Location request timed out';
+
+        this.toastr.error(msg + '. Attendance cannot be marked.', 'Location Required');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  }
 
   isToday(date: string): boolean {
     const recordDate = new Date(date);

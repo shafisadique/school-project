@@ -4,6 +4,8 @@ const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/student/studentController');
 const authMiddleware = require('../middleware/authMiddleware');
+const checkFeatureAccess = require('../middleware/checkFeatureAccess');
+const requirePortalAccess = checkFeatureAccess('student_portal');
 
 router.get('/list', authMiddleware, studentController.getStudents);
 
@@ -29,7 +31,7 @@ router.post('/add', authMiddleware, studentController.createStudent);
 router.post('/bulk-create', authMiddleware, studentController.bulkCreateStudents);
 router.put('/:id', authMiddleware, studentController.updateStudent);
 router.post('/promote', authMiddleware, studentController.promoteStudents);
-router.post('/create-portal', authMiddleware, studentController.createStudentPortal);
+router.post('/create-portal', authMiddleware,requirePortalAccess, studentController.createStudentPortal);
 router.post('/soft-delete', authMiddleware, studentController.softDeleteStudents);
 
 module.exports = router;

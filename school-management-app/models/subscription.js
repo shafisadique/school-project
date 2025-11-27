@@ -9,7 +9,7 @@ const subscriptionSchema = new mongoose.Schema({
   },
   planType: { 
     type: String, 
-    enum: ['trial', 'basic_monthly', 'basic_yearly', 'premium_monthly', 'premium_yearly'], 
+    enum: ['trial', 'basic_monthly', 'basic_yearly', 'premium_yearly','sms_basic_monthly','both_premium_monthly', ' sms_basic_yearly','whatsapp_basic_monthly','whatsapp_basic_yearly','both_basic_monthly', 'both_basic_yearly','Premium Yearly','both_premium_yearly'], 
     required: true 
   },
   status: { 

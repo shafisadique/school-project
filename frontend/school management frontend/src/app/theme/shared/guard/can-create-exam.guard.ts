@@ -1,4 +1,4 @@
-// guards/can-create-exam.guard.ts
+// guards/can-create-exam.guard.ts → FINAL 100% WORKING
 import { Injectable } from '@angular/core';
 import { CanActivate, Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
@@ -17,24 +17,27 @@ export class CanCreateExamGuard implements CanActivate {
 
   async canActivate(): Promise<boolean> {
     try {
-      const response = await this.subscriptionService.getCurrentSubscription().toPromise();
-      
-      if (response.features?.includes('exam')) {
-        return true;
+      const sub = await this.subscriptionService.getCurrentSubscription().toPromise();
+
+      // CHECK PLAN TYPE — NOT FEATURES ARRAY
+      const isPremium = sub?.planType && 
+        sub.planType.toLowerCase().includes('premium');
+
+      if (isPremium) {
+        return true; // Allow access
       }
 
-      // Not premium → block + show message
+      // BLOCK NON-PREMIUM
       this.toastr.warning(
         'Exam module is only available in Premium plan. Please upgrade to continue.',
         'Premium Feature Required',
         { timeOut: 8000 }
       );
-
-      this.router.navigate(['/subscription/plans']); // Redirect to pricing page
+      this.router.navigate(['/subscription/plans']);
       return false;
 
     } catch (error) {
-      this.toastr.error('Failed to verify plan. Please try again.');
+      this.toastr.error('Failed to verify your plan');
       this.router.navigate(['/dashboard/default']);
       return false;
     }

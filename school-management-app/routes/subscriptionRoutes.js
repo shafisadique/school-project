@@ -10,79 +10,183 @@ const rzp = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
-// Inside your router file, update subscriptionPlans
 const subscriptionPlans = {
   trial: {
     name: "Free Trial",
     duration: 14,
     price: 0,
-    originalPrice: 0, // ← ADD
-    smsMonthlyLimit: 5,
-    whatsappMonthlyLimit: 5,
-    features: ['login', 'attendance', 'fees', 'notifications'],
+    smsMonthlyLimit: 100,
+    whatsappMonthlyLimit: 50,
+    features: ['Dashboard', 'Student Management', 'Fee Collection', 'Attendance', '100 SMS + 50 WhatsApp'],
     recommended: false,
-    priority:1
+    priority: 1
   },
-  basic: {
-    monthly: {
-      name: "Basic Monthly",
-      price: 700,
-      originalPrice: 700, // ← ADD
-      duration: 30,
-      smsMonthlyLimit: 300,
-      whatsappMonthlyLimit: 300,
-      features: ['login', 'attendance', 'fees', 'notifications'],
-      savings: 0,
-      recommended: false,
-      priority:2
-    },
-    yearly: {
-      name: "Basic Yearly",
-      price: 6000,
-      originalPrice: 8400, // ← ADD
-      duration: 365,
-      smsMonthlyLimit: 300,
-      whatsappMonthlyLimit: 300,
-      features: ['login', 'attendance', 'fees', 'notifications'],
-      savings: 2400,
-      recommended: true,
-      priority:2
-    }
+
+  // SMS ONLY PLANS
+  sms_basic_monthly: {
+    name: "Basic Monthly (SMS Pack)",
+    price: 950,
+    duration: 30,
+    smsMonthlyLimit: 1000,
+    whatsappMonthlyLimit: 0,
+    features: ['All Basic Features', '1000 SMS/month', 'Student Management', 'Fee Collection', 'Attendance'],
+    savings: 0,
+    recommended: false,
+    priority: 2,
+    channel: 'sms'
   },
-  premium: {
-    monthly: {
-      name: "Premium Monthly",
-      price: 1200,
-      originalPrice: 1200, // ← ADD
-      duration: 30,
-      smsMonthlyLimit: 1000,
-      whatsappMonthlyLimit: 1000,
-      features: ['login', 'attendance', 'fees', 'notifications', 'exam', 'udise', 'results', 'reports'],
-      savings: 0,
-      recommended: false,
-      priority:3
-    },
-    yearly: {
-      name: "Premium Yearly",
-      price: 10000,
-      originalPrice: 14400, // ← ADD
-      duration: 365,
-      smsMonthlyLimit: 1000,
-      whatsappMonthlyLimit: 1000,
-      features: ['login', 'attendance', 'fees', 'notifications', 'exam', 'udise', 'results', 'reports', 'analytics'],
-      savings: 4400,
-      recommended: true,
-      priority:3
-    }
+  sms_basic_yearly: {
+    name: "Basic Yearly (SMS Pack)",
+    price: 9000,
+    originalPrice: 11400,
+    duration: 365,
+    smsMonthlyLimit: 12000,
+    whatsappMonthlyLimit: 0,
+    features: ['All Basic Features', '12000 SMS/year', 'Save ₹2400'],
+    savings: 2400,
+    recommended: true,
+    priority: 2,
+    channel: 'sms'
+  },
+
+  // WHATSAPP ONLY PLANS
+  whatsapp_basic_monthly: {
+    name: "Basic Monthly (WhatsApp Pack)",
+    price: 775,
+    duration: 30,
+    smsMonthlyLimit: 0,
+    whatsappMonthlyLimit: 500,
+    features: ['All Basic Features', '500 WhatsApp/month', 'Student Management', 'Fee Collection'],
+    savings: 0,
+    recommended: false,
+    priority: 2,
+    channel: 'whatsapp'
+  },
+  whatsapp_basic_yearly: {
+    name: "Basic Yearly (WhatsApp Pack)",
+    price: 6900,
+    duration: 365,
+    smsMonthlyLimit: 0,
+    whatsappMonthlyLimit: 6000,
+    features: ['All Basic Features', '6000 WhatsApp/year', 'Save ₹2400'],
+    savings: 2400,
+    recommended: true,
+    priority: 2,
+    channel: 'whatsapp'
+  },
+
+  // BOTH (FULL FEATURES)
+  both_basic_monthly: {
+    name: "Basic Monthly (SMS + WhatsApp)",
+    price: 1025,
+    duration: 30,
+    smsMonthlyLimit: 1000,
+    whatsappMonthlyLimit: 500,
+    features: ['1000 SMS + 500 WhatsApp', 'Student Management', 'Fee Collection', 'Attendance'],
+    savings: 0,
+    recommended: true,
+    priority: 2,
+    channel: 'both'
+  },
+
+  both_basic_yearly: {
+    name: "Basic Monthly (SMS + WhatsApp)",
+    price: 10000,
+    duration: 365,
+    smsMonthlyLimit: 12000,
+    whatsappMonthlyLimit: 15000,
+    features: ['1000 SMS + 500 WhatsApp', 'Student Management', 'Fee Collection', 'Attendance'],
+    savings: 0,
+    recommended: true,
+    priority: 2,
+    channel: 'both'
+  },
+  
+  both_premium_monthly: {
+    name: "Premium Monthly",
+    price: 1500,
+    duration: 30,
+    smsMonthlyLimit: 5000,
+    whatsappMonthlyLimit: 2000,
+    features: [
+      'Everything in Basic',
+      '5000 SMS + 2000 WhatsApp',
+      'Student Portal',
+      'Assignment Module',
+      'Online Result',
+      'Parent Login',
+      'Homework',
+      'Exam Management',
+      'Reports & Analytics'
+    ],
+    savings: 0,
+    recommended: true,
+    priority: 3,
+    channel: 'both'
+  },
+  both_premium_yearly: {
+    name: "Premium Yearly",
+    price: 12000,
+    originalPrice: 18000,
+    duration: 365,
+    smsMonthlyLimit: 60000,
+    whatsappMonthlyLimit: 24000,
+    features: [
+      'Everything in Premium Monthly',
+      'Save ₹6000',
+      'Priority Support',
+      'Custom Branding'
+    ],
+    savings: 6000,
+    recommended: true,
+    priority: 3,
+    channel: 'both'
   }
 };
 
 
+// GET /api/subscriptions/plans — FINAL WORKING CODE
+router.get('/plans', authMiddleware, async (req, res) => {
+  const school = await School.findById(req.user.schoolId);
+  if (!school) return res.status(404).json({ message: 'School not found' });
 
-// GET /api/subscriptions/plans - Get all available plans
-  router.get('/plans', authMiddleware, (req, res) => {
-    res.status(200).json(subscriptionPlans);
-  });
+  const channel = school.preferredChannel; // sms | whatsapp | both
+
+  let plans = {
+    trial: { ...subscriptionPlans.trial, value: 'trial' }
+  };
+
+  // HAMESHA BASIC DIKHAO (channel ke hisaab se)
+  if (channel === 'sms' || channel === 'both') {
+    plans.sms_basic_monthly = { ...subscriptionPlans.sms_basic_monthly, value: 'sms_basic_monthly' };
+    plans.sms_basic_yearly = { ...subscriptionPlans.sms_basic_yearly, value: 'sms_basic_yearly' };
+  }
+  if (channel === 'whatsapp' || channel === 'both') {
+    plans.whatsapp_basic_monthly = { ...subscriptionPlans.whatsapp_basic_monthly, value: 'whatsapp_basic_monthly' };
+    plans.whatsapp_basic_yearly = { ...subscriptionPlans.whatsapp_basic_yearly, value: 'whatsapp_basic_yearly' };
+  }
+
+  // PREMIUM HAMESHA DIKHAO — lekin channel ke hisaab se message change
+  const premiumMonthly = { ...subscriptionPlans.both_premium_monthly, value: 'both_premium_monthly' };
+  const premiumYearly = { ...subscriptionPlans.both_premium_yearly, value: 'both_premium_yearly' };
+
+  if (channel === 'sms') {
+    premiumMonthly.name = "Premium Monthly (+WhatsApp Add-on)";
+    premiumMonthly.price = 1500 + 75; // + WhatsApp charge
+    premiumMonthly.extraNote = "WhatsApp add-on: +₹75/month";
+  } else if (channel === 'whatsapp') {
+    premiumMonthly.name = "Premium Monthly (+SMS Add-on)";
+    premiumMonthly.price = 1500 + 250; // + SMS charge
+    premiumMonthly.extraNote = "SMS add-on: +₹250/month";
+  } else {
+    premiumMonthly.extraNote = "Includes both SMS + WhatsApp";
+  }
+
+  plans.both_premium_monthly = premiumMonthly;
+  plans.both_premium_yearly = premiumYearly;
+
+  res.json(plans);
+});
 
 async function checkAndResetUsage(subscription) {
   const now = new Date();
@@ -571,6 +675,7 @@ router.post('/apply-coupon', authMiddleware, async (req, res) => {
 });
 
 function getPlanDetails(planType) {
+  // Handle trial
   if (planType === 'trial') {
     return {
       ...subscriptionPlans.trial,
@@ -579,13 +684,23 @@ function getPlanDetails(planType) {
     };
   }
 
-  const [tier, duration] = planType.split('_');
-  if (subscriptionPlans[tier]?.[duration]) {
-    const plan = subscriptionPlans[tier][duration];
+  // Fix: Correct splitting for both_basic_monthly, sms_basic_yearly, etc.
+  const parts = planType.split('_'); // ['both', 'basic', 'monthly']
+  if (parts.length !== 3) {
+    console.error('Invalid planType format:', planType);
+    return null;
+  }
+
+  const [channel, tier, duration] = parts;
+
+  // Reconstruct key: both_basic_monthly, sms_basic_yearly, etc.
+  const key = `${channel}_${tier}_${duration}`;
+  
+  if (subscriptionPlans[key]) {
     return {
-      ...plan,
-      planType,
-      priority: tier === 'basic' ? 2 : 3
+      ...subscriptionPlans[key],
+      planType: key,
+      priority: channel === 'both' && tier === 'premium' ? 3 : 2
     };
   }
 

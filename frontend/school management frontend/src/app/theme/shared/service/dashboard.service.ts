@@ -39,6 +39,14 @@ export class DashboardService {
     formData.append('paymentProof', file);
     return this.http.post(`${this.baseUrl}/subscriptions/upload-proof`, formData, { withCredentials: true });
   }
+  
+  sendDefaulterSMS(payload: { message?: string }) {
+    return this.http.post(`${environment.apiUrl}/api/fees/send-defaulter-sms`, payload);
+  }
+
+    generateClassReceipts(data: any): Observable<Blob> {
+    return this.http.post(`${this.apiUrl}/generate-class-receipts`, data, { responseType: 'blob' });
+  }
 
 
   getStudentAttendance(params: { classId?: string; academicYearId?: string; period?: string; month?: string }): Observable<any> {
@@ -53,8 +61,9 @@ export class DashboardService {
   }
 
   getTeacherData(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/teacher-dashboard`, { withCredentials: true });
-  }
+  // This is correct for ADMIN teacher summary
+  return this.http.get(`${this.apiUrl}/teacher-dashboard`, { withCredentials: true });
+}
   getTeacherDashboard():Observable<TeacherDashboardData>{
     return this.http.get<TeacherDashboardData>(`${environment.apiUrl}/api/dashboard/teacher-dashboard`)
   }

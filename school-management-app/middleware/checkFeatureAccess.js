@@ -1,3 +1,4 @@
+// middleware/checkFeatureAccess.js
 const Subscription = require('../models/subscription');
 
 const checkFeatureAccess = (requiredFeature) => {
@@ -6,46 +7,70 @@ const checkFeatureAccess = (requiredFeature) => {
       const schoolId = req.user.schoolId;
       const now = new Date();
 
-      // Find the highest priority active/valid subscription
+      // Find highest priority ACTIVE subscription
       const subscription = await Subscription.findOne({
         schoolId,
         status: { $in: ['active', 'grace_period'] },
         expiresAt: { $gt: now }
-      }).sort({ priority: -1 }); // Highest priority first
+      }).sort({ priority: -1 });
 
-      // If no active subscription found
+      // No subscription at all
       if (!subscription) {
         return res.status(403).json({
-          message: 'No active subscription found'
+          success: false,
+          message: 'No active subscription found. Please upgrade your plan.',
+          upgradeRequired: true
         });
       }
 
-      // Check grace period expiry
+      // Grace period expired?
       if (subscription.status === 'grace_period' && subscription.gracePeriodEnds < now) {
         return res.status(403).json({
-          message: 'Your subscription has expired. Please renew to continue.'
+          success: false,
+          message: 'Your subscription has expired. Please renew to continue.',
+          upgradeRequired: true
         });
       }
 
-      // Check if the required feature is included
-      const hasFeature = subscription.features?.includes(requiredFeature);
+      // PREMIUM FEATURES (only allowed in premium plans)
+      const premiumFeatures = [
+        'student_portal',
+        'parent_portal',
+        'exam',
+        'result',
+        'assignment',
+        'online_result'
+      ];
 
-      if (!hasFeature) {
-        return res.status(403).json({
-          message: `This feature requires a Premium plan. Upgrade to access ${requiredFeature} module.`,
-          upgradeRequired: true,
-          currentPlan: subscription.planType,
-          requiredFeature
-        });
+      if (premiumFeatures.includes(requiredFeature)) {
+        // Check if plan is PREMIUM
+        const isPremium = subscription.planType.toLowerCase().includes('premium');
+
+        if (!isPremium) {
+          return res.status(403).json({
+            success: false,
+            message: 'This feature is only available in Premium plans',
+            upgradeRequired: true,
+            currentPlan: subscription.planType,
+            requiredPlan: 'Premium'
+          });
+        }
       }
 
-      // Optional: Attach subscription to req for later use
+      // Optional: Check features array (if you use it)
+      // const hasFeature = subscription.features?.includes(requiredFeature);
+      // if (!hasFeature) {
+      //   return res.status(403).json({ message: 'Feature not included in your plan' });
+      // }
+
       req.subscription = subscription;
-
       next();
     } catch (error) {
       console.error('Feature access check failed:', error);
-      return res.status(500).json({ message: 'Failed to verify plan access' });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to verify subscription'
+      });
     }
   };
 };

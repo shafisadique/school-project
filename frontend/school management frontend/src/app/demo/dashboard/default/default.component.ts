@@ -14,6 +14,10 @@ import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { environment } from 'src/environments/environment';
 import { AnalyticEcommerce, MonthlyTrend, FeeDashboardData, TopDefaulter, Transaction, Class, PaymentMethod, ClassBreakdown, AcademicYear, StudentAttendanceData, TeacherDashboardData, FeeSummary } from './dashboard.model';
 import { OrderByPipe } from "../../../theme/shared/interceptor/order.pipe";
+import { ToastrService } from 'ngx-toastr';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import { FeeService } from '../../component/advance-component/fee/fee.service';
 
 @Component({
   selector: 'app-default',
@@ -119,6 +123,7 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   private academicYearService = inject(AcademicYearService);
   private classSubjectService = inject(ClassSubjectService);
   public authService = inject(AuthService);
+  private feeService=inject(FeeService)
   public modalService = inject(NgbModal);
   subscriptionData: any = {};
   isExpiringSoon: boolean = false;
@@ -163,7 +168,7 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   isHoliday: boolean = false;
   teacherChartOptions: Partial<ApexOptions> = {};
   teacherChart = viewChild<ChartComponent>('teacherChart');
-
+  totalDefaultersCount: number = 0;
   summary: FeeSummary = { totalRemainingDue: 0, totalPaid: 0, overdueCount: 0, collectionRate: 0, invoiceCount: 0 };
   breakdownByClass: ClassBreakdown[] = [];
   paymentMethods: PaymentMethod[] = [];
@@ -189,7 +194,8 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   // New property to check if user is admin
   isAdmin: boolean = false;
 
-  constructor() {
+  constructor(private toastr:ToastrService) {
+    
     this.iconService.addIcon(...[RiseOutline, FallOutline, SettingOutline, GiftOutline, MessageOutline]);
   }
 
@@ -449,11 +455,22 @@ export class DefaultComponent implements OnInit, AfterViewInit {
         this.paymentMethods = data.paymentMethods || [];
         this.topDefaulters = data.topDefaulters || [];
         this.monthlyTrend = data.monthlyTrend || [];
+        this.totalDefaultersCount = data.totalDefaultersCount || data.topDefaulters.length;
         this.prepareCharts();
       },
       error: (error) => console.error('Error fetching fee dashboard:', error)
     });
   }
+  viewAllDefaulters() {
+  // Naya route kholo jahan pura defaulter list dikhega
+  // this.router.navigate(['/admin/fee/defaulters'], {
+  //   queryParams: {
+  //     month: this.selectedMonth || undefined,
+  //     classId: this.selectedClassId || undefined,
+  //     academicYearId: this.selectedAcademicYearId
+  //   }
+  // });
+}
 
   updateManagementChartData(present: number[], absent: number[], late: number[], categories: string[]) {
     const maxLength = categories.length;
@@ -705,16 +722,127 @@ export class DefaultComponent implements OnInit, AfterViewInit {
   }
 
   generateReceipts() {
-    console.log('Generate receipts for', this.selectedClassId, this.selectedMonth);
+  if (this.totalDefaultersCount === 0) {
+    this.toastr.warning('No defaulters found!');
+    return;
   }
 
-  sendSMSReminders() {
-    console.log('Send SMS reminders for defaulters');
+  const payload = {
+    schoolId: this.authService.getUserSchoolId(),
+    className: this.selectedClassId 
+      ? this.classes.find(c => c._id === this.selectedClassId)?.name 
+      : null,
+    month: this.selectedMonth,
+    academicYearId: this.selectedAcademicYearId
+  };
+
+  // Important: responseType: 'blob'
+  this.dashboardService.generateClassReceipts(payload).subscribe({
+    next: (blob: Blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Defaulter_Receipts_${new Date().toISOString().slice(0,10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      this.toastr.success('Defaulter receipts downloaded successfully!');
+    },
+    error: (error: any) => {
+      console.error('Receipt generation failed:', error);
+      this.toastr.error('Failed to generate receipts. Please try again.');
+    }
+  });
+}
+
+ // dashboard.component.ts
+sendSMSReminders() {
+  this.toastr.info('SMS Reminder feature is coming soon!', 'Feature Update', {
+    timeOut: 5000,
+    positionClass: 'toast-top-right'
+  });
+  return;
+  if (confirm('Send SMS to ' + this.totalDefaultersCount + ' defaulters?')) {
+    this.dashboardService.sendDefaulterSMS({
+      message: 'Dear Parent, Fee due alert...'
+    }).subscribe((res:any) => {
+      this.toastr.success(`${res.sent} SMS sent! ${res.remainingSMS} left`);
+    });
+  }
+}
+// Export Defaulters to Excel with full details
+exportDefaultersExcel() {
+  if (this.topDefaulters.length === 0) {
+    this.toastr.warning('No defaulters to export!');
+    return;
   }
 
-  exportData() {
-    console.log('Export data as CSV/PDF');
-  }
+  // Prepare clean data
+  const exportData = this.topDefaulters.map((d, index) => ({
+    'S.No': index + 1,
+    'Student Name': d.studentName || '-',
+    'Admission No': d.admissionNo || '-',
+    'Class': d.className || '-',
+    'Parent Phone': d.parentPhone || 'Not Available',
+    'Total Due (₹)': d.remainingDue || 0,
+    'Due Since': this.formatDueMonths(d.dueMonths) // Optional helper
+  }));
+
+  // Create worksheet
+  const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(exportData);
+
+  // Auto-size columns
+  const colWidths = exportData.reduce((acc: any[], row: any) => {
+    Object.keys(row).forEach((key, i) => {
+      const value = String(row[key]);
+      const length = value.length;
+      acc[i] = Math.max(acc[i] || 12, length + 4);
+    });
+    return acc;
+  }, []);
+  ws['!cols'] = colWidths.map(w => ({ width: w }));
+
+  // Create workbook
+  const wb: XLSX.WorkBook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Defaulters');
+
+  // Generate Excel file
+  const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const data = new Blob([excelBuffer], { type: 'application/octet-stream' });
+
+  // Download
+  const fileName = `Defaulters_Report_${new Date().toISOString().slice(0,10)}.xlsx`;
+  saveAs(data, fileName);
+
+  this.toastr.success(`${this.topDefaulters.length} defaulters exported to Excel!`, 'Success');
+}
+
+// Optional: Format due months nicely
+private formatDueMonths(months: string[] | undefined): string {
+  if (!months || months.length === 0) return 'This Month';
+  return months.join(', ');
+}
+
+// Helper function for Excel export
+// private exportToExcel(data: any[], filename: string) {
+//   const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+//   const wb: XLSX.WorkBook = XLSX.utils.book_new();
+//   XLSX.utils.book_append_sheet(wb, ws, 'Defaulters');
+  
+//   // Auto-size columns
+//   const colWidths = data.reduce((acc: any[], row: any) => {
+//     Object.keys(row).forEach((key, i) => {
+//       const length = String(row[key]).length;
+//       acc[i] = Math.max(acc[i] || 10, length + 2);
+//     });
+//     return acc;
+//   }, []);
+//   ws['!cols'] = colWidths.map(w => ({ width: w }));
+
+//   XLSX.writeFile(wb, `${filename}.xlsx`);
+// }
 
   createAcademicYear() {
     console.log('Navigate to create academic year page or trigger API call');

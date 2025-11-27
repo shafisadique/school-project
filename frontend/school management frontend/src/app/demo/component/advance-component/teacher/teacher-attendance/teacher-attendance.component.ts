@@ -132,38 +132,88 @@ export class TeacherAttendanceComponent implements OnInit {
   }
 
   // New method to get current location using Geolocation API
-  private getCurrentLocation(): Promise<{ lat: number; lng: number }> {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject('Geolocation is not supported by your browser.');
-      } else {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            });
-          },
-          (error) => {
-            let msg = 'Unable to retrieve your location.';
-            switch (error.code) {
-              case error.PERMISSION_DENIED:
-                msg = 'Location permission denied. Please enable location access in your browser settings.';
-                break;
-              case error.POSITION_UNAVAILABLE:
-                msg = 'Location information is unavailable.';
-                break;
-              case error.TIMEOUT:
-                msg = 'The request to get location timed out.';
-                break;
-            }
-            reject(msg);
-          }
-        );
-      }
-    });
-  }
+  // private getCurrentLocation(): Promise<{ lat: number; lng: number }> {
+  //   return new Promise((resolve, reject) => {
+  //     if (!navigator.geolocation) {
+  //       reject('Geolocation is not supported by your browser.');
+  //     } else {
+  //       navigator.geolocation.getCurrentPosition(
+  //         (position) => {
+  //           resolve({
+  //             lat: position.coords.latitude,
+  //             lng: position.coords.longitude
+  //           });
+  //         },
+  //         (error) => {
+  //           let msg = 'Unable to retrieve your location.';
+  //           switch (error.code) {
+  //             case error.PERMISSION_DENIED:
+  //               msg = 'Location permission denied. Please enable location access in your browser settings.';
+  //               break;
+  //             case error.POSITION_UNAVAILABLE:
+  //               msg = 'Location information is unavailable.';
+  //               break;
+  //             case error.TIMEOUT:
+  //               msg = 'The request to get location timed out.';
+  //               break;
+  //           }
+  //           reject(msg);
+  //         }
+  //       );
+  //     }
+  //   });
+  // }
 
+  private getCurrentLocation(): Promise<{ lat: number; lng: number }> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      console.log('Geolocation not supported → using school location');
+      this.useSchoolLocation(resolve);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        console.log('Real GPS:', lat, lng);
+
+        // If accuracy is bad (>500m), use school location
+        if (position.coords.accuracy > 500) {
+          console.log('Poor GPS accuracy:', position.coords.accuracy + 'm → using school location');
+          this.useSchoolLocation(resolve);
+        } else {
+          resolve({ lat, lng });
+        }
+      },
+      (error) => {
+        console.log('GPS failed:', error.message, '→ using school location');
+        this.useSchoolLocation(resolve);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 60000
+      }
+    );
+  });
+}
+
+// Helper: Get school location from backend (for multiple schools)
+private useSchoolLocation(resolve: (value: { lat: number; lng: number }) => void) {
+  this.schoolService.getMySchool().subscribe({
+    next: (school: any) => {
+      resolve({
+        lat: school.latitude,
+        lng: school.longitude
+      });
+    },
+    error: () => {
+      // Final fallback: your Katihar school
+      resolve({ lat: 25.534482, lng: 87.577649 });
+    }
+  });
+}
   async onSubmit(): Promise<void> {
     const activeAcademicYearId = this.authService.getActiveAcademicYearId();
     if (!activeAcademicYearId) {

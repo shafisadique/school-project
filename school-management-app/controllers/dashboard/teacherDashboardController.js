@@ -12,64 +12,67 @@ const Notification = require('../../models/notifiation'); // Fixed typo: 'notifi
 const getAllTeacherDashboard = async (user) => {
   try {
     const { schoolId, activeAcademicYear: academicYearId } = user;
+
     if (!mongoose.Types.ObjectId.isValid(schoolId) || !mongoose.Types.ObjectId.isValid(academicYearId)) {
       throw new APIError('Invalid school ID or academic year ID', 400);
     }
 
+    // Today's date range (midnight to midnight) in IST
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // Total active teachers
     const totalActiveTeachers = await Teacher.countDocuments({
       schoolId: new mongoose.Types.ObjectId(schoolId),
       academicYearId: new mongoose.Types.ObjectId(academicYearId),
       status: true
     });
 
-    return { totalActiveTeachers };
+    // Get all teacherIds who are active
+    const activeTeachers = await Teacher.find({
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      academicYearId: new mongoose.Types.ObjectId(academicYearId),
+      status: true
+    }).select('_id');
+
+    const activeTeacherIds = activeTeachers.map(t => t._id);
+
+    // Find teachers marked Present today
+    const presentToday = await TeacherAttendance.countDocuments({
+      teacherId: { $in: activeTeacherIds },
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      academicYearId: new mongoose.Types.ObjectId(academicYearId),
+      date: { $gte: today, $lt: tomorrow },
+      status: 'Present'
+    });
+
+    // Find teachers on Approved Leave today
+    const onLeaveToday = await TeacherAbsence.countDocuments({
+      teacherId: { $in: activeTeacherIds },
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      academicYearId: new mongoose.Types.ObjectId(academicYearId),
+      date: { $gte: today, $lt: tomorrow },
+      status: 'Approved'
+    });
+
+    // Absent = Total Active - (Present + On Leave)
+    const absentToday = totalActiveTeachers - (presentToday + onLeaveToday);
+
+    return {
+      totalActiveTeachers,
+      presentToday,
+      absentToday,
+      onLeaveToday
+    };
+
   } catch (error) {
     throw error;
   }
 };
 
-/**
- * @desc    Get teacher dashboard data
- * @route   GET /api/dashboard/teacher
- * @access  Private/Teacher
- */
-const getTeacherDashboard = async (req, res, next) => {
-  try {
-    const { schoolId, id: userId } = req.user;
 
-    const pendingAssignments = await Assignment.find({
-      schoolId,
-      teacherId: userId,
-      status: { $nin: ['graded', 'cancelled'] }
-    })
-      .populate('classId', 'name')
-      .populate('subjectId', 'name')
-      .lean()
-      .exec();
-
-    console.log('Pending Assignments Query Result for userId:', userId, pendingAssignments);
-
-    res.json({
-      success: true,
-      data: {
-        teacher: null,
-        personalAttendanceStatus: 'Present',
-        pendingAssignments,
-        recentStudentAttendance: [],
-        upcomingHolidays: [],
-        pendingLeaves: [],
-        notifications: [],
-        isHoliday: false
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 const TeacherDashboard = async (req, res, next) => {
   try {
@@ -177,6 +180,90 @@ const recentStudentAttendance = await studentAttendance.aggregate([
     };
 
     res.status(200).json({ success: true, data: dashboardData });
+  } catch (error) {
+    next(error);
+  }
+};
+const getTeacherDashboard = async (req, res, next) => {
+  try {
+    const { schoolId, activeAcademicYear: academicYearId } = req.user;
+
+    // Today at 00:00:00 IST
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Check if today is holiday
+    const holiday = await Holiday.findOne({
+      schoolId,
+      date: { $gte: today, $lt: tomorrow }
+    });
+
+    if (holiday) {
+      return res.json({
+        totalTeachers: 0,
+        presentToday: 0,
+        absentToday: 0,
+        onLeaveToday: 0,
+        isHoliday: true,
+        message: 'Today is a holiday'
+      });
+    }
+
+    // Get all active teachers
+    const teachers = await Teacher.find({
+      schoolId,
+      academicYearId,
+      status: true
+    }).select('_id');
+
+    const teacherIds = teachers.map(t => t._id);
+    const totalTeachers = teachers.length;
+
+    if (totalTeachers === 0) {
+      return res.json({
+        totalTeachers: 0,
+        presentToday: 0,
+        absentToday: 0,
+        onLeaveToday: 0,
+        isHoliday: false
+      });
+    }
+
+    // Count Present
+    const presentToday = await TeacherAttendance.countDocuments({
+      teacherId: { $in: teacherIds },
+      schoolId,
+      academicYearId,
+      date: { $gte: today, $lt: tomorrow },
+      status: 'Present'
+    });
+
+    // Count On Leave (Approved)
+    const onLeaveToday = await TeacherAbsence.countDocuments({
+      teacherId: { $in: teacherIds },
+      schoolId,
+      academicYearId,
+      date: { $gte: today, $lt: tomorrow },
+      status: 'Approved'
+    });
+
+    const absentToday = totalTeachers - presentToday - onLeaveToday;
+
+    res.json({
+      totalTeachers,
+      presentToday,
+      absentToday,
+      onLeaveToday,
+      isHoliday: false,
+      pendingLeaveRequests: await TeacherAbsence.countDocuments({
+        schoolId,
+        academicYearId,
+        status: 'Pending'
+      })
+    });
+
   } catch (error) {
     next(error);
   }

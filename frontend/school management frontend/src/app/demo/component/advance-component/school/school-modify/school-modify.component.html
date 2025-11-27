@@ -1,203 +1,185 @@
-<div class="container mt-4">
-  <div class="card shadow-lg p-4">
-    <h2 class="text-center mb-4">Update School Information</h2>
-
-    <!-- Coordinates Status Alert - SIMILAR TO REGISTRATION -->
-    <div class="alert" 
-         [ngClass]="{
-           'alert-warning': !areCoordinatesValid(),
-           'alert-success': areCoordinatesValid()
-         }">
-      <div class="d-flex align-items-center">
-        <i class="fas" 
-           [ngClass]="areCoordinatesValid() ? 'fa-check-circle' : 'fa-exclamation-triangle'"
-           [style.color]="areCoordinatesValid() ? '#28a745' : '#ffc107'"></i>
-        <div class="ms-2">
-          <strong>{{ areCoordinatesValid() ? 'Location Set' : 'Location Required' }}</strong>
-          <p class="mb-0">{{ getCoordinatesStatus() }}</p>
-          <small *ngIf="!areCoordinatesValid()" class="text-muted">
-            <i class="fas fa-info-circle"></i> 
-            Click on the map below to set your school location
-          </small>
-        </div>
-      </div>
+<div class="student-container">
+  <!-- Header -->
+  <div class="header-section">
+    <div class="header-card">
+      <h1 class="title">Update School Profile</h1>
+      <p class="subtitle">Manage your institution details, logo, and location</p>
     </div>
+  </div>
 
-    <form [formGroup]="schoolForm" (ngSubmit)="updateSchool()" novalidate>
-      <div class="row mb-3">
-        <div class="col-md-4">
-          <label class="form-label">School Name <span class="text-danger">*</span></label>
-          <input type="text" 
-                 class="form-control p-2 border rounded" 
-                 formControlName="name" 
-                 placeholder="Enter school name"
-                 [class.is-invalid]="f['name']?.invalid && f['name']?.touched">
-          <div *ngIf="f['name']?.invalid && f['name']?.touched" class="invalid-feedback">
-            School name is required (minimum 3 characters)
-          </div>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">Street Address <span class="text-danger">*</span></label>
-          <input type="text" 
-                 class="form-control p-2 border rounded" 
-                 formControlName="street" 
-                 placeholder="Enter street address"
-                 [class.is-invalid]="f['street']?.invalid && f['street']?.touched">
-          <div *ngIf="f['street']?.invalid && f['street']?.touched" class="invalid-feedback">
-            Street address is required (minimum 5 characters)
-          </div>
-        </div>
-        <div class="col-md-4">
-          <label class="form-label">City <span class="text-danger">*</span></label>
-          <input type="text" 
-                 class="form-control p-2 border rounded" 
-                 formControlName="city" 
-                 placeholder="Enter city name"
-                 [class.is-invalid]="f['city']?.invalid && f['city']?.touched">
-          <div *ngIf="f['city']?.invalid && f['city']?.touched" class="invalid-feedback">
-            City name is required (minimum 2 characters)
-          </div>
-        </div>
-      </div>
+  <!-- Main Card -->
+  <div class="controls-section">
+    <div class="controls-card">
+      <form [formGroup]="schoolForm" (ngSubmit)="updateSchool()" novalidate>
 
-      <div class="row mb-3">
-        <div class="col-md-4">
-          <label class="form-label">Contact Number <span class="text-danger">*</span></label>
-          <input type="tel" 
-                 class="form-control p-2 border rounded" 
-                 formControlName="contact" 
-                 placeholder="+1234567890"
-                 [class.is-invalid]="f['contact']?.invalid && f['contact']?.touched">
-          <div *ngIf="f['contact']?.invalid && f['contact']?.touched" class="invalid-feedback">
-            Valid phone number is required
+        <!-- Coordinates Status Alert -->
+        <div class="alert mb-4" 
+             [ngClass]="{'alert-success': areCoordinatesValid(), 'alert-warning': !areCoordinatesValid()}">
+          <div class="d-flex align-items-center">
+            <i class="fas fa-2x me-3" 
+               [ngClass]="areCoordinatesValid() ? 'fa-check-circle text-success' : 'fa-map-marker-alt text-warning'"></i>
+            <div>
+              <strong>{{ areCoordinatesValid() ? 'Location Set Successfully' : 'School Location Required' }}</strong>
+              <p class="mb-0">{{ getCoordinatesStatus() }}</p>
+              <small class="text-muted" *ngIf="!areCoordinatesValid()">
+                Click on the map below to set your exact school location
+              </small>
+            </div>
           </div>
         </div>
 
-        <div class="col-md-4">
-          <label class="form-label">Academic Year <span class="text-danger">*</span></label>
-          <select class="form-select p-2 border rounded" formControlName="academicYear">
-            <option value="">Select Academic Year</option>
-            <option *ngFor="let cls of academicYear" [value]="cls">{{ cls }}</option>
-          </select>
-          <div *ngIf="f['academicYear']?.invalid && f['academicYear']?.touched" class="invalid-feedback">
-            Academic year selection is required
-          </div>
-        </div>
-        <div class="col-md-4">
-          <!-- Empty for alignment -->
-        </div>
-      </div>
+        <!-- School Logo Section -->
+        <fieldset class="form-section mb-4">
+          <legend>School Logo</legend>
 
-      <!-- Google Map Section - EXACTLY SAME AS REGISTRATION -->
-      <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0">
-            <i class="fas fa-map-marker-alt me-2"></i>
-            Click on the map to set your school location
-          </h5>
-          <small class="text-white-50">
-            Click anywhere on the map to select your exact school location
-          </small>
-        </div>
-        <div class="card-body">
-          <div *ngIf="addressError" class="alert alert-danger mb-3">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            {{ addressError }}
+          <div class="row g-4 align-items-center">
+            <div class="col-12 col-md-6">
+              <label class="form-label">Upload New Logo</label>
+              <input type="file" 
+                     class="form-control form-control-sm" 
+                     accept="image/png,image/jpeg,image/jpg"
+                     (change)="onFileSelected($event)">
+              <div class="form-text text-muted small">Max 2MB • PNG, JPG, JPEG</div>
+              <div class="text-danger small mt-1" *ngIf="logoError">{{ logoError }}</div>
+            </div>
+
+            <div class="col-12 col-md-6 text-center">
+              <div class="avatar-large-preview mx-auto">
+                <img [src]="logoPreview" 
+                     alt="School Logo" 
+                     class="logo-preview-img"
+                     (error)="onLogoError($event)"
+                     crossorigin="anonymous">
+                <div class="initials-fallback">
+                  {{ getSchoolInitials() }}
+                </div>
+              </div>
+              <p class="mt-3 text-muted small">
+                {{ logoPreview.includes('edglobe') ? 'Default Logo • Upload your own' : 'Current School Logo' }}
+              </p>
+            </div>
           </div>
-          
-          <div style="height: 300px; width: 100%; border: 1px solid #ccc; border-radius: 4px;">
-            <google-map
-              height="300px"
-              width="100%"
-              [center]="center"
-              [zoom]="zoom"
-              (mapClick)="onMapClick($event)">
-              <!-- Marker for clicked position - SAME AS REGISTRATION -->
-              <map-marker 
-                *ngIf="markerPosition" 
-                [position]="markerPosition"
-                [title]="'School Location'">
-              </map-marker>
+
+          <div class="text-end mt-3">
+            <button type="button" 
+                    class="btn-material btn-primary" 
+                    (click)="uploadLogo()"
+                    [disabled]="!selectedFile || isUploadingLogo">
+              <span *ngIf="isUploadingLogo" class="spinner-border spinner-border-sm me-2"></span>
+              Upload Logo
+            </button>
+          </div>
+        </fieldset>
+
+        <!-- Basic Details -->
+        <fieldset class="form-section mb-4">
+          <legend>Basic Information</legend>
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label class="form-label">School Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" formControlName="name">
+              <div class="text-danger small" *ngIf="schoolForm.get('name')?.touched && schoolForm.get('name')?.errors?.['required']">
+                School name is required
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Contact Number <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" formControlName="contact">
+              <div class="text-danger small" *ngIf="schoolForm.get('contact')?.touched && schoolForm.get('contact')?.errors">
+                Valid phone number required
+              </div>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label">Academic Year <span class="text-danger">*</span></label>
+              <select class="form-select form-select-sm" formControlName="academicYear">
+                <option value="">Select Year</option>
+                <option *ngFor="let year of academicYear" [value]="year">{{ year }}</option>
+              </select>
+              <div class="text-danger small" *ngIf="schoolForm.get('academicYear')?.touched && schoolForm.get('academicYear')?.errors?.['required']">
+                Academic year is required
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Address -->
+        <fieldset class="form-section mb-4">
+          <legend>Address Details</legend>
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Street Address <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" formControlName="street">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">City <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" formControlName="city">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">State</label>
+              <input type="text" class="form-control form-control-sm" formControlName="state">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Postal Code</label>
+              <input type="text" class="form-control form-control-sm" formControlName="postalCode">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- SCHOOL TIMING - ADDED & AUTO-FILLED -->
+        <fieldset class="form-section mb-4">
+          <legend>School Timing</legend>
+          <div class="row g-3">
+            <div class="col-12 col-md-4">
+              <label class="form-label">Opening Time</label>
+              <input type="time" class="form-control form-control-sm" formControlName="openingTime">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Closing Time</label>
+              <input type="time" class="form-control form-control-sm" formControlName="closingTime">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Lunch Break</label>
+              <input type="text" class="form-control form-control-sm" formControlName="lunchBreak" 
+                     placeholder="e.g. 12:30 - 13:10">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Map -->
+        <div class="form-section mb-4">
+          <legend>Set School Location</legend>
+          <div class="map-container">
+            <google-map height="350px" width="100%" [center]="center" [zoom]="zoom" (mapClick)="onMapClick($event)">
+              <map-marker *ngIf="markerPosition" [position]="markerPosition"></map-marker>
             </google-map>
           </div>
-          
           <small class="text-muted d-block mt-2">
-            <i class="fas fa-info-circle me-2"></i>
-            Click anywhere on the map to set your exact location. Coordinates will update automatically.
+            Click on the map to set your exact school location
           </small>
         </div>
-      </div>
 
-      <!-- Coordinates Display - SAME AS REGISTRATION -->
-      <div class="row mb-3">
-        <div class="col-md-6">
-          <label class="form-label">Latitude (auto-filled)</label>
-          <input type="number" 
-                 formControlName="latitude" 
-                 placeholder="Latitude (auto-filled)" 
-                 class="form-control p-2 border rounded" 
-                 readonly>
+        <!-- Coordinates -->
+        <div class="row g-3 mb-4">
+          <div class="col-6">
+            <label class="form-label">Latitude</label>
+            <input type="text" class="form-control form-control-sm" formControlName="latitude" readonly>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Longitude</label>
+            <input type="text" class="form-control form-control-sm" formControlName="longitude" readonly>
+          </div>
         </div>
-        <div class="col-md-6">
-          <label class="form-label">Longitude (auto-filled)</label>
-          <input type="number" 
-                 formControlName="longitude" 
-                 placeholder="Longitude (auto-filled)" 
-                 class="form-control p-2 border rounded" 
-                 readonly>
+
+        <!-- Submit -->
+        <div class="text-end">
+          <button type="submit" 
+                  class="btn-material btn-success px-5"
+                  [disabled]="schoolForm.invalid || isSubmitting || !areCoordinatesValid()">
+            <span *ngIf="isSubmitting" class="spinner-border spinner-border-sm me-2"></span>
+            Update School
+          </button>
         </div>
-      </div>
-      
-      <div *ngIf="f['latitude']?.invalid || f['longitude']?.invalid" class="alert alert-danger mb-3">
-        <i class="fas fa-exclamation-triangle me-2"></i>
-        Valid location is required. Please click on the map to set your position.
-      </div>
-
-      <button 
-        type="submit" 
-        class="btn btn-primary w-100 mb-3"
-        [disabled]="schoolForm.invalid || isSubmitting">
-        <i class="fas fa-save me-2"></i>
-        <span *ngIf="!isSubmitting">Update School</span>
-        <span *ngIf="isSubmitting" class="spinner-border spinner-border-sm me-2" role="status"></span>
-        <span *ngIf="isSubmitting">Updating...</span>
-      </button>
-    </form>
-
-    <hr class="my-4">
-
-    <!-- Logo Upload Section -->
-    <div>
-      <h4 class="mb-3">School Logo</h4>
-
-      <div *ngIf="f['logo']?.value" class="text-center mb-3">
-        <img
-          [src]="f['logo']?.value"
-          alt="School Logo"
-          class="img-thumbnail border border-primary"
-          style="max-width: 150px; max-height: 150px; object-fit: cover;"
-          loading="lazy">
-        <p class="text-muted small mt-1">Current school logo</p>
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label">Upload New Logo (Optional):</label>
-        <input 
-          type="file" 
-          (change)="onFileSelected($event)" 
-          class="form-control p-2 border rounded" 
-          accept="image/jpeg,image/png,image/jpg"
-          [disabled]="!schoolId">
-        <div class="form-text">Max 2MB. Formats: JPEG, PNG, JPG</div>
-      </div>
-      
-      <button 
-        class="btn btn-info w-100" 
-        (click)="uploadLogo()" 
-        [disabled]="!selectedFile || !schoolId || isSubmitting">
-        <i class="fas fa-upload me-2"></i>
-        Upload Logo
-      </button>
+      </form>
     </div>
   </div>
 </div>

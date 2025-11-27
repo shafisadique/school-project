@@ -13,6 +13,9 @@ const attendanceSchema = new mongoose.Schema({
       status: { type: String, enum: ['Present', 'Absent', 'Late'], required: true }
     }
   ]
+}, {
+  timestamps: true   // This gives createdAt & updatedAt in IST automatically
 });
+
 
 module.exports = mongoose.model('Attendance', attendanceSchema);

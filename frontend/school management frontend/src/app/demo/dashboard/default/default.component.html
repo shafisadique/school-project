@@ -117,7 +117,7 @@
                 </div>
               </div>
               <div class="col-md-12">
-                <button class="btn btn-success shadow-lg" (click)="exportData()" style="border-radius: 5px;">Export Data</button>
+                <button class="btn btn-success shadow-lg" (click)="exportDefaultersExcel()" style="border-radius: 5px;">Export Data</button>
               </div>
             </div>
           </div>
@@ -281,45 +281,75 @@
       </div>
 
       <!-- Top Defaulters (Updated Design) -->
-      <div class="col-md-5 col-sm-12">
-        <div class="card custom-table-card shadow-sm">
-          <div class="card-header bg-gradient text-white p-3">
-            <h5 class="mb-0">Top Defaulters</h5>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-hover custom-table align-middle">
-              <thead class="table-light">
-                <tr>
-                  <th (click)="sortTable('studentName', 'topDefaulters')">Student Name</th>
-                  <th (click)="sortTable('admissionNo', 'topDefaulters')">Admission No.</th>
-                  <th (click)="sortTable('className', 'topDefaulters')">Class</th>
-                  <th (click)="sortTable('remainingDue', 'topDefaulters')">Remaining Due (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                <ng-container *ngIf="topDefaulters.length; else noDefaultersData">
-                  <tr *ngFor="let defaulter of topDefaulters | orderBy: sortColumn:sortDirection">
-                    <td>{{ defaulter.studentName || 'Unknown' }}</td>
-                    <td>{{ defaulter.admissionNo }}</td>
-                    <td>{{ defaulter.className || 'Unknown' }}</td>
-                    <td class="text-danger fw-semibold">₹{{ defaulter.remainingDue | number }}</td>
-                  </tr>
-                </ng-container>
-                <ng-template #noDefaultersData>
-                  <tr>
-                    <td colspan="4" class="text-center text-muted py-4">No defaulters found</td>
-                  </tr>
-                </ng-template>
-              </tbody>
-            </table>
-          </div>
-          <div class="action-buttons">
-            <button class="custom-button primary" (click)="generateReceipts()">Generate Receipts</button>
-            <button class="custom-button warning" (click)="sendSMSReminders()">Send SMS Reminders</button>
-            <button class="custom-button info" (click)="exportData()">View Detailed Report</button>
-          </div>
-        </div>
-      </div>
+      <!-- Top Defaulters - SIMPLE & FAST (No Virtual Scroll) -->
+<div class="col-md-5 col-sm-12">
+  <div class="card custom-table-card shadow-sm">
+    <div class="card-header bg-gradient text-white p-3 d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">
+        Top Defaulters 
+        <small class="text-light">
+          ({{ topDefaulters.length }} of {{ totalDefaultersCount || topDefaulters.length }})
+        </small>
+      </h5>
+      <button class="btn btn-sm btn-light" (click)="viewAllDefaulters()">
+        View All
+      </button>
+    </div>
+
+    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+      <table class="table table-hover mb-0">
+        <thead class="table-light sticky-top">
+          <tr>
+            <th>Name</th>
+            <th>Admission No.</th>
+            <th>Class</th>
+            <th>Due (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let d of topDefaulters">
+            <td>{{ d.studentName }}</td>
+            <td>{{ d.admissionNo }}</td>
+            <td>{{ d.className }}</td>
+            <td class="text-danger fw-bold">₹{{ d.remainingDue | number }}</td>
+          </tr>
+          <tr *ngIf="topDefaulters.length === 0">
+            <td colspan="4" class="text-center py-4 text-muted">No defaulters found</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="p-3 border-top bg-light d-flex flex-wrap gap-2 justify-content-center">
+  <button 
+    class="btn btn-sm btn-warning px-4" 
+    (click)="sendSMSReminders()"
+    [disabled]="totalDefaultersCount === 0">
+    <i class="fas fa-sms me-1"></i>
+    Send SMS Reminder
+    <span *ngIf="totalDefaultersCount > 0" class="badge bg-danger ms-1">
+      {{ totalDefaultersCount }}
+    </span>
+  </button>
+
+  <button 
+    class="btn btn-sm btn-success px-4" 
+    (click)="generateReceipts()"
+    [disabled]="totalDefaultersCount === 0">
+    <i class="fas fa-file-pdf me-1"></i>
+    Generate Receipts (ZIP)
+  </button>
+
+  <button 
+    class="btn btn-sm btn-info text-white px-4" 
+    (click)="exportDefaultersExcel()"
+    [disabled]="totalDefaultersCount === 0">
+    <i class="fas fa-file-excel me-1"></i>
+    Export Excel
+  </button>
+</div>
+  </div>
+</div>
     </div>
   </div>
 </div>

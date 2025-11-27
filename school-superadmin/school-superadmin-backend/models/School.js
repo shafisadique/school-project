@@ -77,7 +77,7 @@ const schoolSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-communication: {
+  communication: {
     smsSenderName: { type: String, default: 'EDGLOBE', maxlength: 11 }, // e.g., RAINBOWSCH
     emailFrom: { type: String, default: 'no-reply@edglobe.in' },       // principal@rainbow.com
     emailName: { type: String, default: 'EDGlobe School' },            // "Rainbow Public School"

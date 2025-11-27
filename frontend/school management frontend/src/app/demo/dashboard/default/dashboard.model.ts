@@ -60,6 +60,8 @@ export interface TopDefaulter {
   admissionNo?: string;
   className?: string;
   remainingDue?: number;
+  parentPhone:any;
+  dueMonths:any;
 }
 
 export interface MonthlyTrend {
@@ -102,6 +104,7 @@ export interface Transaction {
 
 export interface FeeDashboardData {
   summary: FeeSummary;
+  totalDefaultersCount:number;
   breakdownByClass: ClassBreakdown[];
   paymentMethods: PaymentMethod[];
   topDefaulters: TopDefaulter[];

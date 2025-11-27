@@ -2,10 +2,20 @@
   <div class="navbar-wrapper">
     <div class="m-header">
       <a href="javascript:" class="b-brand">
-        <img src="assets/edglobe.jpeg" class="logo logo-dark logo-lg" style="padding-top: 15px;">
-        <!-- <img src="assets/images/logo-dark.svg" alt="theme-logo" class="logo logo-dark logo-lg" /> -->
+        <!-- Use async pipe and add loading state -->
+        <ng-container *ngIf="schoolLogoUrl$ | async as logoUrl">
+         <img 
+          [src]="schoolLogoUrl$ | async" 
+          class="logo logo-dark logo-lg" 
+          style="padding-top: 15px; height: 100%; object-fit: contain; border-radius: 8px;"
+          alt="School Logo"
+          (error)="onLogoError($event)">
+        </ng-container>
       </a>
     </div>
-    <app-nav-content (NavCollapsedMob)="navCollapseMob()" class="scroll-div w-100 compact"></app-nav-content>
+    <app-nav-content 
+      (NavCollapsedMob)="navCollapseMob()" 
+      class="scroll-div w-100 compact">
+    </app-nav-content>
   </div>
 </nav>

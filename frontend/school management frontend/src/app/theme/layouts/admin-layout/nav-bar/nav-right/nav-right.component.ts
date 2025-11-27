@@ -133,34 +133,22 @@ cardNumber: string = '';
     this.fetchPlans();
   }
 
-  fetchPlans() {
-    this.dashboardService.getPlans().subscribe({
-      next: (data: any) => {
-        const normalizedPlans: any[] = [];
-        if (data.basic) {
-          Object.entries(data.basic).forEach(([key, plan]: [string, any]) => {
-            normalizedPlans.push({
-              ...plan,
-              value: `basic_${key}`,
-              discount: plan.savings || 0,
-            });
-          });
-        }
-        if (data.premium) {
-          Object.entries(data.premium).forEach(([key, plan]: [string, any]) => {
-            normalizedPlans.push({
-              ...plan,
-              value: `premium_${key}`,
-              discount: plan.savings || 0,
-            });
-          });
-        }
-        this.plans = normalizedPlans;
-      },
-      error: (error) => console.error('Error fetching plans:', error),
-    });
-  }
-
+ fetchPlans() {
+  this.dashboardService.getPlans().subscribe({
+    next: (data: any) => {
+      // data already tumhara structure hai — direct use karo!
+      this.plans = Object.keys(data).map(key => ({
+        value: key,
+        ...data[key]
+      }));
+      console.log('Plans loaded:', this.plans); // ← YE DIKHEGA AB!
+    },
+    error: (error) => {
+      console.error('Error fetching plans:', error);
+      this.toastr.error('Failed to load plans');
+    }
+  });
+}
   openUpgradeModal(template: TemplateRef<any>) {
     this.selectedPlan = null;
     this.selectedPaymentMethod = null;

@@ -188,6 +188,7 @@ const studentSchema = new mongoose.Schema({
   strictPopulate: false
 });
 
+require('../utils/istTimestamp')(studentSchema);
 // Add custom validation for parents
 studentSchema.pre('validate', function (next) {
   const parents = this.parents || {};
