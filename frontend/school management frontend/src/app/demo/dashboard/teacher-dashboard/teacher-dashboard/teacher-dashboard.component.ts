@@ -1,137 +1,222 @@
-import { Component, inject, viewChild, AfterViewInit, OnInit } from '@angular/core';
-import { ApexOptions, ChartComponent, NgApexchartsModule } from 'ng-apexcharts';
-import { IconService } from '@ant-design/icons-angular';
+import { Component, inject, ViewChild, AfterViewInit, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { ApexAxisChartSeries, ApexChart, ApexDataLabels, ApexFill, ApexGrid, ApexLegend, ApexMarkers, ApexNoData, ApexPlotOptions, ApexStroke, ApexTooltip, ApexXAxis, ApexYAxis, ChartComponent, NgApexchartsModule } from "ng-apexcharts";
 import { DashboardService } from 'src/app/theme/shared/service/dashboard.service';
-import { TeacherDashboardData, StudentAttendanceData } from './teacher.model'; // ✅ Your local model
-import { FallOutline, GiftOutline, MessageOutline, RiseOutline } from '@ant-design/icons-angular/icons';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ToastrService } from 'ngx-toastr';
+import { Subject, takeUntil } from 'rxjs';
+
+export type ChartOptions = {
+  series: ApexAxisChartSeries;
+  chart: ApexChart;
+  xaxis: ApexXAxis;
+  yaxis: ApexYAxis;
+  plotOptions: ApexPlotOptions;
+  dataLabels: ApexDataLabels;
+  colors: string[];
+  legend: ApexLegend;
+  tooltip: ApexTooltip;
+  grid: ApexGrid;
+};
 
 @Component({
   selector: 'app-teacher-dashboard',
   standalone: true,
-  imports: [CommonModule, NgApexchartsModule, FormsModule, DatePipe],
+  imports: [CommonModule, NgApexchartsModule, FormsModule],
   templateUrl: './teacher-dashboard.component.html',
   styleUrls: ['./teacher-dashboard.component.scss']
 })
-export class TeacherDashboardComponent implements OnInit, AfterViewInit {
-  private iconService = inject(IconService);
+export class TeacherDashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private dashboardService = inject(DashboardService);
+  private toastr = inject(ToastrService);
+  private cdr = inject(ChangeDetectorRef);
+  private destroy$ = new Subject<void>();
 
-  teacherDashboardData: TeacherDashboardData = {} as TeacherDashboardData;
-  studentAttendanceData: StudentAttendanceData = {} as StudentAttendanceData;
-  personalAttendanceStatus: string = 'Absent';
-  pendingAssignmentsCount: number = 0;
-  pendingLeavesCount: number = 0;
-  upcomingHolidaysCount: number = 0;
-  isHoliday: boolean = false;
+  teacherDashboardData: any = null;
+  personalAttendanceStatus = 'Absent';
+  pendingAssignmentsCount = 0;
+  pendingLeavesCount = 0;
+  upcomingHolidaysCount = 0;
 
-  attendanceChartOptions: Partial<ApexOptions> = {
-    chart: { type: 'pie', height: 220, toolbar: { show: false } },
-    labels: ['Present', 'Absent', 'On Leave'],
-    series: [5, 3, 2], // Dummy data to test
-    colors: ['#198754', '#dc3545', '#ffc107'],
-    legend: { position: 'bottom', fontSize: '12px', fontFamily: 'Poppins, sans-serif', labels: { colors: '#333' } },
-    responsive: [{ breakpoint: 480, options: { chart: { width: 150 }, legend: { position: 'bottom' } } }]
-  };
-  attendanceChart = viewChild<ChartComponent>('attendanceChart');
+  @ViewChild('attendanceChart') attendanceChart!: ChartComponent;
 
-  isViewInitialized: boolean = false;
-  sortColumn: string = '';
-  sortDirection: 'asc' | 'desc' = 'asc';
+  public chartOptions: any = {
+    series: [
+      { name: 'Present', data: [] },
+      { name: 'Absent', data: [] },
+      { name: 'Holiday/Sunday', data: [] }
+    ],
+    chart: {
+      type: 'bar',
+      height: 320,
+      stacked: true,
+      stackType: '100%',
+      toolbar: { show: false },
+      animations: { enabled: true },
+      parentHeightOffset: 0,
+      zoom: { enabled: false }
+    },
+    plotOptions: {
+      bar: {
+        horizontal: false,
+        columnWidth: '70%',    // ← Ye badhao → bars moti ho jayengi
+        borderRadius: 8,
+        dataLabels: { position: 'top' }
+      }
+    },
+    dataLabels: {
+      enabled: true,
+      formatter: (val: number, opts) => {
+        const seriesIndex = opts.seriesIndex;
+        const dataPointIndex = opts.dataPointIndex;
+        const w = opts.w;
 
-  constructor() {
-    this.iconService.addIcon(...[RiseOutline, FallOutline, GiftOutline, MessageOutline]);
-  }
-
-  ngOnInit() {
-    this.fetchTeacherDashboard();
-  }
-
-  ngAfterViewInit() {
-    this.isViewInitialized = true;
-    this.updateCharts();
-  }
-
-  fetchTeacherDashboard() {
-    this.dashboardService.getTeacherDashboard().subscribe({
-      next: (data: TeacherDashboardData) => {
-        console.log('Dashboard Data:', data);
-        this.teacherDashboardData = data || {} as TeacherDashboardData;
-        
-        // ✅ FIXED: Access data.data
-        this.personalAttendanceStatus = data.data.personalAttendanceStatus || 'Absent';
-        this.pendingAssignmentsCount = data.data.pendingAssignments?.length || 0;
-        this.pendingLeavesCount = data.data.pendingLeaves?.length || 0;
-        this.upcomingHolidaysCount = data.data.upcomingHolidays?.length || 0;
-        this.isHoliday = data.data.isHoliday || false;
-
-        // Update chart
-        let presentCount = 0;
-        let absentCount = 0;
-        let onLeaveCount = 0;
-        if (data.data.recentStudentAttendance?.length > 0) {
-          data.data.recentStudentAttendance.forEach((attendance: any) => {
-            if (attendance.status === 'Present') presentCount++;
-            else if (attendance.status === 'Absent') absentCount++;
-            else if (attendance.status === 'On Leave') onLeaveCount++;
-          });
+        // Only show label for Holiday/Sunday
+        if (seriesIndex === 2 && val === 1) {
+          const day = w.config.xaxis.categories[dataPointIndex];
+          const date = new Date();
+          date.setDate(parseInt(day));
+          const dayName = date.toLocaleString('en-US', { weekday: 'short' });
+          return dayName === 'Sun' ? 'SUN' : 'HOLI';
         }
-        const attendance:any = data.data.recentStudentAttendance || { presentCount: 0, absentCount: 0, lateCount: 0, totalStudents: 0 };
-        this.attendanceChartOptions = {
-          ...this.attendanceChartOptions,
-          series: [attendance.presentCount, attendance.absentCount, attendance.lateCount]
-        };
-        console.log(this.attendanceChartOptions)
-        this.updateCharts();
+        return val === 1 ? '●' : '';
       },
-      error: (error) => console.error('Error fetching teacher dashboard:', error)
-    });
-  }
-
-  updateCharts() {
-    if (this.isViewInitialized && this.attendanceChart() && this.attendanceChartOptions.series) {
-      this.attendanceChart()?.updateOptions(this.attendanceChartOptions, true, true); // Force re-render
-    } else {
-      console.log('Chart not initialized or series invalid:', { isViewInitialized: this.isViewInitialized, attendanceChart: this.attendanceChart(), series: this.attendanceChartOptions.series });
+      offsetY: -25,
+      style: { fontSize: '11px', fontWeight: 'bold', colors: ['#fff'] },
+      background: {
+        enabled: true,
+        foreColor: '#000',
+        padding: 4,
+        borderRadius: 4,
+        borderWidth: 0,
+        opacity: 0.8
+      }
+    },
+    colors: ['#28a745', '#dc3545', '#6c757d'], // Green, Red, Grey
+    xaxis: {
+      type: 'category',
+      categories: [],
+      labels: { style: { fontSize: '13px', fontWeight: 600 } },
+      title: { text: 'Day of Month', style: { fontWeight: 600 } }
+    },
+    yaxis: { show: false },
+    legend: { position: 'top', horizontalAlign: 'center' },
+    tooltip: { enabled: false },
+    grid: { show: false },
+    states: {
+      hover: { filter: { type: 'none' } },
+      active: { filter: { type: 'none' } }
     }
+  };
+
+  ngOnInit(): void {
+    this.loadDashboard();
   }
 
-  // ✅ NEW GETTER METHODS (Fixes NG5002 & TS2339)
-  getPendingAssignments() {
-    return this.teacherDashboardData.data.pendingAssignments || [];
+  ngAfterViewInit(): void {
+    this.cdr.detectChanges();
   }
 
-  getPendingLeaves() {
-    return this.teacherDashboardData.data.pendingLeaves || [];
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
-  getUpcomingHolidays() {
-    return this.teacherDashboardData.data.upcomingHolidays || [];
+  private loadDashboard(): void {
+    this.dashboardService.getTeacherDashboard()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res: any) => {
+          if (res?.success && res.data) {
+            const data = res.data;
+            this.teacherDashboardData = data;
+
+            this.personalAttendanceStatus = data.personalAttendanceStatus || 'Absent';
+            this.pendingAssignmentsCount = data.pendingAssignments?.length || 0;
+            this.pendingLeavesCount = data.pendingLeaves?.length || 0;
+            this.upcomingHolidaysCount = data.upcomingHolidays?.length || 0;
+
+            // PASS BOTH: today's status + full month records
+            this.buildTeacherAttendanceChart(
+              data.personalAttendanceStatus,
+              data.monthlyTeacherAttendance || {}
+            );
+          }
+        },
+        error: () => {
+          this.toastr.error('Failed to load dashboard', 'Error');
+          this.buildTeacherAttendanceChart('Absent', []);
+        }
+      });
   }
 
-  get hasNoPendingAssignments() {
-    return this.getPendingAssignments().length === 0;
-  }
+  private buildTeacherAttendanceChart(todayStatus: string, monthlyAttendance: any): void {
+    const present: number[] = [];
+    const absent: number[] = [];
+    const holiday: number[] = [];
+    const categories: string[] = [];
 
-  get hasNoPendingLeaves() {
-    return this.getPendingLeaves().length === 0;
-  }
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  get hasNoUpcomingHolidays() {
-    return this.getUpcomingHolidays().length === 0;
-  }
+    for (let day = 1; day <= daysInMonth; day++) {
+      categories.push(day.toString());
+      const status = monthlyAttendance[day]; // ← yahan string key hai: "22", "23"...
 
-  get hasNoAttendanceData() {
-    return !this.attendanceChartOptions.series?.length || this.attendanceChartOptions.series.every(s => s === 0);
-  }
-
-  sortTable(column: string) {
-    if (this.sortColumn === column) {
-      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-      this.sortColumn = column;
-      this.sortDirection = 'asc';
+      if (day === now.getDate()) {
+        if (todayStatus === 'Present') {
+          present.push(1); absent.push(0); holiday.push(0);
+        } else {
+          present.push(0); absent.push(1); holiday.push(0);
+        }
+      }
+      else if (status === 'Present') {
+        present.push(1); absent.push(0); holiday.push(0);
+      }
+      else if (status === 'Holiday') {
+        present.push(0); absent.push(0); holiday.push(1);
+      }
+      else if (status === 'Absent') {
+        present.push(0); absent.push(1); holiday.push(0);
+      }
+      else {
+        // Agar key hi nahi hai (jaise 1 se 21) → blank bar (no color)
+        present.push(0); absent.push(0); holiday.push(0);
+      }
     }
+
+    // UPDATE SERIES
+    this.chartOptions = {
+      ...this.chartOptions,
+      series: [
+        { name: 'Present', data: present },
+        { name: 'Absent', data: absent },
+        { name: 'Holiday/Sunday', data: holiday }
+      ],
+      xaxis: {
+        ...this.chartOptions.xaxis,
+        categories
+      }
+    };
+
+    this.renderChart();
   }
+
+  private renderChart(): void {
+    setTimeout(() => {
+      if (this.attendanceChart) {
+        this.attendanceChart.updateOptions(this.chartOptions, false, true);
+      }
+    }, 300);
+  }
+
+  // Getters
+  getPendingAssignments() { return this.teacherDashboardData?.pendingAssignments || []; }
+  getPendingLeaves() { return this.teacherDashboardData?.pendingLeaves || []; }
+  getUpcomingHolidays() { return this.teacherDashboardData?.upcomingHolidays || []; }
+  get hasNoPendingAssignments() { return this.pendingAssignmentsCount === 0; }
+  get hasNoPendingLeaves() { return this.pendingLeavesCount === 0; }
+  get hasNoUpcomingHolidays() { return this.upcomingHolidaysCount === 0; }
 }

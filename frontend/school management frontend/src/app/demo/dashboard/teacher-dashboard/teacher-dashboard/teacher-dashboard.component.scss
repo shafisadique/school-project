@@ -10,6 +10,15 @@
   border-radius: 0.5rem;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
+::ng-deep .apexcharts-canvas {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+::ng-deep .apexcharts-inner {
+  width: 1200px !important; /* Force wide chart */
+}
 
 .icon-circle {
   width: 3rem;

@@ -185,40 +185,61 @@ router.get('/parent', authMiddleware, async (req, res) => {
 });
 
 /* ==================================================================
-   4. ANY USER (Teacher/Parent): Get My Bell Notifications
+   4. UNIVERSAL BELL NOTIFICATIONS – WORKS FOR TEACHER, PARENT, ADMIN
    ================================================================== */
+
+// routes/notifications.js → REPLACE /me route with THIS
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    const userId = req.user._id;
+    console.log(req.user)
+    const userId = req.user.id; // This is already ObjectId from authMiddleware
     const role = req.user.role;
     const schoolId = req.user.schoolId;
+
+    // IMPORTANT: Convert to ObjectId only if needed (usually not — your auth already gives ObjectId)
+    const objectId = mongoose.Types.ObjectId.isValid(userId) 
+      ? new mongoose.Types.ObjectId(userId) 
+      : userId;
 
     const notifications = await Notification.find({
       schoolId,
       $or: [
-        { recipientId: userId },
+        { recipientId: objectId },                    // ← Works for your current DB
+        { recipientId: userId },                      // ← Backup (if string)
+        { targetUserIds: objectId },
         { targetUserIds: userId },
-        { targetRoles: role }
+        { targetRoles: role },
+        { targetRoles: { $in: [role] } }
       ]
     })
+      .select('title message type status createdAt senderId studentId data')
       .populate('senderId', 'name')
-      .populate('studentId', 'name')
+      .populate('studentId', 'name admissionNo')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
-    res.json({ notifications });
+    const unreadCount = notifications.filter(n => 
+      n.status === 'pending' || n.status === 'sent'
+    ).length;
+
+    res.json({
+      notifications,
+      unreadCount
+    });
+
   } catch (err) {
-    res.status(500).json({ error: 'Failed to load notifications' });
+    console.error('Bell notification error:', err);
+    res.status(500).json({ error: 'Failed' });
   }
 });
-
 /* ==================================================================
    5. Mark Notification as Read
    ================================================================== */
 router.patch('/:notificationId/read', authMiddleware, async (req, res) => {
   try {
     const { notificationId } = req.params;
-    const userId = req.user._id;
+    const userId = req.user.id;
 
     const notification = await Notification.findOneAndUpdate(
       { _id: notificationId, recipientId: userId },

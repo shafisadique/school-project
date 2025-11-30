@@ -1,4 +1,3 @@
-
 const mongoose = require('mongoose');
 
 const subscriptionSchema = new mongoose.Schema({
@@ -9,7 +8,17 @@ const subscriptionSchema = new mongoose.Schema({
   },
   planType: { 
     type: String, 
-    enum: ['trial', 'basic_monthly', 'basic_yearly', 'premium_yearly','sms_basic_monthly','both_premium_monthly', ' sms_basic_yearly','whatsapp_basic_monthly','whatsapp_basic_yearly','both_basic_monthly', 'both_basic_yearly','Premium Yearly','both_premium_yearly'], 
+    enum: [
+     'trial',
+    'sms_basic_monthly',
+    'sms_basic_yearly',
+    'whatsapp_basic_monthly',
+    'whatsapp_basic_yearly',
+    'both_basic_monthly',
+    'both_basic_yearly',
+    'both_premium_monthly',
+    'both_premium_yearly'
+    ], 
     required: true 
   },
   status: { 
@@ -57,10 +66,9 @@ const subscriptionSchema = new mongoose.Schema({
     type: Date, 
     default: Date.now 
   },
-  // In Subscription Schema
   priority: { 
     type: Number, 
-    enum: [1, 2, 3], // 1 = Trial, 2 = Basic, 3 = Premium
+    enum: [1, 2, 3], // 1 = Trial, 2 = Basic, 3 = Pro/Pro Plus
     required: true 
   },
   
@@ -91,11 +99,11 @@ const subscriptionSchema = new mongoose.Schema({
     smsMonthly: { type: Number, default: 0 },  // e.g., 1000 for basic
     whatsappMonthly: { type: Number, default: 0 }  // same or separate
   },
-  usageStats: {
-    smsUsedThisMonth: { type: Number, default: 0 },
-    whatsappUsedThisMonth: { type: Number, default: 0 },
-    lastResetDate: { type: Date, default: Date.now }  // When we last reset counts
-  },
+    usageStats: {
+      smsUsedThisMonth: { type: Number, default: 0 },
+      whatsappUsedThisMonth: { type: Number, default: 0 },
+      lastResetDate: { type: Date, default: Date.now }
+    },
 
   features: {
     type: [String],
@@ -103,11 +111,17 @@ const subscriptionSchema = new mongoose.Schema({
       const base = ['login', 'attendance', 'fees', 'notifications'];
       if (this.planType === 'trial') return base;
       if (this.planType.includes('basic')) return base;
-      if (this.planType.includes('premium')) {
+      if (this.planType.includes('pro')) {
         return [...base, 'exam', 'udise', 'results', 'reports', 'analytics'];
       }
       return base;
     }
+  },
+
+  // NEW SAFE FIELD (for temporary upgrades)
+  isTemporaryBoost: {
+    type: Boolean,
+    default: false
   }
 });
 

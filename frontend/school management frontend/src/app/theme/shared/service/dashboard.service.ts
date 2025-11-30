@@ -21,6 +21,10 @@ export class DashboardService {
   getDashboardStats(): Observable<any> {
   return this.http.get(`${this.apiUrl}/stats`, { withCredentials: true });
   }
+  
+  cancelUpgrade(data: { orderId: string }) {
+    return this.http.post(`${environment.apiUrl}/api/subscriptions/cancel-upgrade`, data);
+  }
 
   upgradeSubscription(data: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/upgrade`, data, { withCredentials: true });

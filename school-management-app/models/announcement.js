@@ -23,7 +23,8 @@ const announcementSchema = new mongoose.Schema({
   readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }] // Optional: Track reads
 }, { timestamps: true });
 
-announcementSchema.index({ schoolId: 1, roles: 1 }); // Perf: Filter by school + roles
-announcementSchema.index({ createdAt: -1 }); // Recent first
+announcementSchema.index({ schoolId: 1, isActive: 1 });
+announcementSchema.index({ schoolId: 1, roles: 1, isActive: 1 });
+announcementSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Announcement', announcementSchema);

@@ -32,49 +32,70 @@
     </div>
   </li>
 
-  <li class="dropdown pc-h-item" ngbDropdown *ngIf="role === 'parent'">
-    <a class="pc-head-link dropdown-toggle arrow-none me-0 bg-gray-200" data-bs-toggle="dropdown" ngbDropdownToggle>
-      <i antIcon type="bell" theme="outline"></i>
-      <span class="badge bg-primary pc-h-badge" *ngIf="notificationCount > 0">{{ notificationCount }}</span>
-    </a>
-    <div class="dropdown-menu dropdown-notification dropdown-menu-end pc-h-dropdown" ngbDropdownMenu>
-      <div class="dropdown-header d-flex align-items-center justify-content-between">
-        <h5 class="m-0">Notifications</h5>
-        <a [routerLink]="['/parent/progress-report']" class="link-primary">View Progress Reports</a>
-      </div>
-      <div class="dropdown-divider"></div>
-      <ng-scrollbar style="min-height: 300px" visibility="hover">
-        <div class="dropdown-header px-0 text-wrap header-notification-scroll" *ngIf="notifications.length > 0; else noNotifications">
-          <div class="list-group list-group-flush w-100">
-            <a class="list-group-item list-group-item-action" *ngFor="let notification of notifications" (click)="markNotificationAsRead(notification._id);">
-              <div class="d-flex">
-                <div class="flex-shrink-0">
-                  <div class="user-avatar bg-light-primary"><i class="d-flex" antIcon theme="outline" type="message"></i></div>
-                </div>
-                <div class="flex-grow-1 ms-3">
-                  <span class="float-end text-muted">{{ notification.createdAt | date:'shortTime' }}</span>
-                  <p class="text-body mb-0" [ngClass]="{ 'fw-bold': notification.status !== 'delivered' }">
-                    <b>{{ notification.studentId.name }}</b> - {{ notification.message }}
-                  </p>
-                  <span class="text-muted">By {{ notification.senderId.name }} on {{ notification.createdAt | date:'medium' }}</span>
-                </div>
-              </div>
-            </a>
-          </div>
-        </div>
-        <ng-template #noNotifications>
-          <div class="text-center p-3">No notifications available.</div>
-        </ng-template>
-      </ng-scrollbar>
-      <div class="dropdown-divider"></div>
-      <div class="text-center py-2">
-        <a [routerLink]="['/parent/progress-report']" class="link-primary">View all progress reports</a>
-      </div>
-    </div>
-  </li>
+  <li class="dropdown pc-h-item" ngbDropdown>
+  <a class="pc-head-link dropdown-toggle arrow-none position-relative" style="background-color: #e9ecef;" ngbDropdownToggle>
+    <i antIcon type="bell" theme="outline" class="f-20"></i>
+  <span 
+  class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+  *ngIf="notificationCount > 0">
+  <span class="visually-hidden">unread notifications</span>
+  {{ notificationCount > 99 ? '99+' : notificationCount }}
+</span>
+  </a>
 
+  <div class="dropdown-menu dropdown-menu-end dropdown-notification pc-h-dropdown" ngbDropdownMenu>
+    <div class="dropdown-header d-flex align-items-center justify-content-between bg-light">
+      <h5 class="mb-0">Notifications</h5>
+      <small class="text-muted">{{ notifications.length }} total</small>
+    </div>
+
+    <ng-scrollbar class="notification-scroll" style="height: 320px">
+      <div class="list-group list-group-flush">
+        <a 
+          href="javascript:" 
+          class="list-group-item list-group-item-action border-0 px-3 py-2"
+          *ngFor="let n of notifications"
+          (click)="markAsRead(n._id)"
+          [class.bg-light-primary]="n.status !== 'read' && n.status !== 'delivered'">
+
+          <div class="d-flex align-items-start">
+            <div class="flex-shrink-0 mt-1">
+              <div class="avatar-sm bg-soft-primary rounded-circle d-flex align-items-center justify-content-center">
+                <i antIcon theme="outline" [type]="
+                  n.type === 'announcement' ? 'sound' :
+                  n.type === 'assignment' ? 'file-text' :
+                  n.type === 'progress-report' ? 'trophy' : 'bell'
+                "></i>
+              </div>
+            </div>
+
+            <div class="flex-grow-1 ms-3 overflow-hidden">
+              <h6 class="mb-1 text-truncate" style="max-width: 220px;">
+                {{ n.title }}
+              </h6>
+              <p class="mb-1 text-muted small text-truncate" style="max-width: 220px;">
+                {{ n.message }}
+              </p>
+              <small class="text-muted">
+                {{ n.senderId?.name || 'System' }} • {{ n.createdAt | date:'short' }}
+              </small>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <div class="text-center py-3 text-muted small" *ngIf="notifications.length === 0">
+        No new notifications
+      </div>
+    </ng-scrollbar>
+
+    <div class="dropdown-footer text-center py-2 bg-light">
+      <a routerLink="/notifications/all" class="small link-primary">View All Notifications</a>
+    </div>
+  </div>
+</li>
   <li class="dropdown pc-h-item header-user-profile" ngbDropdown>
-    <a class="pc-head-link dropdown-toggle arrow-none me-0" ngbDropdownToggle>
+    <a class="pc-head-link dropdown-toggle arrow-none me-0" ngbDropdownToggle (click)="playNotificationSound()">
       <img src="assets/images/user/avatar-2.jpg" alt="user-image" class="user-avatar me-2" />
       <span class="f-w-600">{{ username }}</span>
     </a>

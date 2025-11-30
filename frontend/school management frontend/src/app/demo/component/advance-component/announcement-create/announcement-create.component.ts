@@ -134,13 +134,25 @@ export class AnnouncementCreateComponent {
     this.loading = true;
     const payload = {
       ...this.form.value,
-      schoolId: this.schoolId,
-      targetUsers: this.selectedUsers
+      body: this.form.value.body,
+      // schoolId: this.schoolId,
+      // targetUsers: this.selectedUsers
     };
+
+    if (this.activeToggle) {
+    payload.targetRoles = [this.activeToggle]; // "teacher", "student", "parent"
+  }
+
+  // YE PEHLE SE HAI — USER IDS BHEJEGA
+  if (this.selectedUsers.length > 0) {
+    payload.targetUsers = this.selectedUsers;
+  }
+
+  console.log('FINAL PAYLOAD →', payload);
     this.announcementService.create(payload).subscribe({
       next: () => {
         this.toastr.success(`Sent to ${this.selectedUsers.length} users!`);
-        this.router.navigate(['/dashboard/admin/announcements']);
+        this.router.navigate(['/announcement']);
       },
       error: (err) => this.toastr.error('Failed'),
       complete: () => this.loading = false

@@ -5,34 +5,34 @@ const cors = require('cors');
 const path = require('path');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const fs = require('fs');
 const multer = require('multer');
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3'); // Add GetObjectCommand
 const logger = require('./config/logger');
 const APIError = require('./utils/apiError');
+const http = require('http'); 
+const { Server } = require('socket.io');
 
 dotenv.config();
 
 const app = express();
 
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => logger.info('Connected to MongoDB'))
-  .catch(err => logger.error('MongoDB connection error:', err));
+// ==================== MONGOOSE ====================
+  mongoose.connect(process.env.MONGODB_URI)
+    .then(() => logger.info('Connected to MongoDB'))
+    .catch(err => logger.error('MongoDB connection error:', err));
 
-// R2 Configuration
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID,
-    secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY,
-  },
-});
+// ==================== R2 & MULTER ====================
+  const s3Client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID,
+      secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY,
+    },
+  });
 
-
-// Multer setup for file uploads
-const storage = multer.memoryStorage(); // Store file in memory for R2 upload
-const upload = multer({ storage: storage });
+  const storage = multer.memoryStorage();
+  const upload = multer({ storage });
 
 
 const authLimiter = rateLimit({
@@ -79,6 +79,52 @@ app.use('/api/auth', authLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// ==================== SOCKET.IO SETUP (PRODUCTION READY) ====================
+const server = http.createServer(app);  // ← Use http server
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  path: '/socket.io/',           // Standard path
+  pingTimeout: 60000,            // Prevent disconnects
+  pingInterval: 25000,
+  maxHttpBufferSize: 1e8         // 100MB
+});
+
+// Global access to io in routes
+app.set('io', io);
+
+// Active users map: socket.id → user object
+const activeUsers = new Map();
+
+io.on('connection', (socket) => {
+  logger.info(`Socket connected: ${socket.id}`);
+
+  socket.on('join', (user) => {
+    if (!user || !user.id || !user.schoolId) return;
+    
+    activeUsers.set(socket.id, {
+      userId: user.id,
+      schoolId: user.schoolId,
+      role: user.role
+    });
+
+    socket.join(user.schoolId);           // Join school room
+    socket.join(user.id);                 // Join personal room
+
+    logger.info(`User ${user.id} (${user.role}) joined school ${user.schoolId}`);
+  });
+
+  socket.on('disconnect', (reason) => {
+    const user = activeUsers.get(socket.id);
+    if (user) {
+      logger.info(`User ${user.userId} disconnected: ${reason}`);
+      activeUsers.delete(socket.id);
+    }
+  });
+});
 
 app.options('/api/proxy-image/:key(*)', (req, res) => {
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');  
@@ -87,9 +133,9 @@ app.options('/api/proxy-image/:key(*)', (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.sendStatus(200);
 });
-
+ 
 app.get('/api/proxy-image/:key(*)', async (req, res) => {
-  try {
+  try { 
     const key = decodeURIComponent(req.params.key || '').replace(/^\/+/, '');
     if (!key) return res.status(400).json({ message: 'Missing key' });
 
@@ -238,6 +284,10 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`Server running on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  logger.info(`Server + Socket.IO running on port ${PORT}`);
+  logger.info(`WebSocket: wss://yourschool.com/socket.io/`);
 });
+// app.listen(PORT, '0.0.0.0', () => {
+//   logger.info(`Server running on port ${PORT}`);
+// });

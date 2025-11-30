@@ -110,6 +110,9 @@ export interface StudentAttendanceData {
 }
 
 export interface TeacherDashboardData {
+  pendingAssignments: any[];
+  pendingLeaves: any[];
+  upcomingHolidays: any[];
   success: boolean;
   data: {
     teacher: Teacher;

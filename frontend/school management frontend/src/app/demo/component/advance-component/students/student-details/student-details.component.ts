@@ -136,9 +136,10 @@ export class StudentDetailsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // Public method to handle search input changes
-  onSearchInputChange(value: any): void {
-    this.searchSubject.next(value);
+  // Update method signature & logic
+  onSearchInputChange(event: Event): void {  // Accept Event, extract value
+    const target = event.target as HTMLInputElement;
+    this.searchSubject.next(target.value);  // Push string, not event
   }
 
   // Toggle student selection

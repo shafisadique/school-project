@@ -14,52 +14,108 @@ router.use((req, res, next) => {
 
 router.get('/dashboard', async (req, res) => {
   try {
-    const schools = await School.find();
-    const subs = await Subscription.find({ 
-      status: { $in: ['active', 'pending', 'grace_period', 'expired'] } 
+    const schools = await School.aggregate([
+      { $match: { status: true } },
+
+      // Sab subscriptions laao with priority sorting
+      {
+        $lookup: {
+          from: 'subscriptions',
+          let: { schoolId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$schoolId', '$$schoolId'] } } },
+            { $sort: { priority: -1, expiresAt: -1, createdAt: -1 } }, // Premium > Basic > Trial
+            {
+              $addFields: {
+                daysRemaining: {
+                  $max: [0, {
+                    $ceil: {
+                      $divide: [
+                        { $subtract: ['$expiresAt', new Date()] },
+                        1000 * 60 * 60 * 24
+                      ]
+                    }
+                  }]
+                }
+              }
+            }
+          ],
+          as: 'subscriptions'
+        }
+      },
+
+      // Active subscription (sabse upar wala)
+      {
+        $addFields: {
+          activeSub: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: '$subscriptions',
+                  cond: {
+                    $and: [
+                      { $eq: ['$$this.status', 'active'] },
+                      { $gt: ['$$this.expiresAt', new Date()] }
+                    ]
+                  }
+                }
+              },
+              0
+            ]
+          },
+          // Agar active nahi toh latest expired bhi dikha do
+          latestSub: { $arrayElemAt: ['$subscriptions', 0] }
+        }
+      },
+
+      {
+        $addFields: {
+          currentSub: { $ifNull: ['$activeSub', '$latestSub'] }
+        }
+      },
+
+      // Admin name
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: 'schoolId',
+          pipeline: [{ $match: { role: 'admin' } }, { $limit: 1 }],
+          as: 'adminUser'
+        }
+      },
+
+      {
+        $project: {
+          _id: 1,
+          schoolName: '$name',
+          adminName: { $ifNull: [{ $arrayElemAt: ['$adminUser.name', 0] }, 'Unknown'] },
+          planType: '$currentSub.planType',
+          status: '$currentSub.status',
+          expiresAt: '$currentSub.expiresAt',
+          daysRemaining: '$currentSub.daysRemaining',
+          isTrial: { $eq: ['$currentSub.planType', 'trial'] },
+          revenue: { $ifNull: ['$currentSub.finalAmount', 0] },
+          createdAt: 1
+        }
+      },
+
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    const totalRevenue = schools.reduce((sum, s) => sum + s.revenue, 0);
+
+    res.json({
+      schools,
+      totalSchools: schools.length,
+      activeTrials: schools.filter(s => s.isTrial && s.status === 'active').length,
+      activePaid: schools.filter(s => !s.isTrial && s.status === 'active').length,
+      totalRevenue
     });
 
-    const result = await Promise.all(schools.map(async (school) => {
-      // Manually fetch admin
-      let adminName = 'Unknown';
-      if (school.adminId) {
-        const admin = await User.findById(school.adminId).select('name');
-        adminName = admin?.name || 'Unknown';
-      }
-
-      const sub = subs.find(s => s.schoolId.toString() === school._id.toString()) || {
-        planType: 'none', status: 'none', isTrial: false, revenue: 0, daysRemaining: 0
-      };
-
-      const daysRemaining = sub.expiresAt 
-        ? Math.max(0, Math.ceil((new Date(sub.expiresAt) - new Date()) / (1000 * 60 * 60 * 24)))
-        : 0;
-
-      return {
-        _id: school._id,
-        schoolName: school.name,
-        adminName,
-        planType: sub.planType || 'none',
-        status: sub.status || 'none',
-        expiresAt: sub.expiresAt,
-        daysRemaining,
-        isTrial: sub.planType === 'trial',
-        revenue: sub.finalAmount || 0,
-        createdAt: school.createdAt
-      };
-    }));
-
-    const stats = {
-      totalSchools: schools.length,
-      activeTrials: result.filter(s => s.isTrial && s.status === 'active').length,
-      activePaid: result.filter(s => !s.isTrial && s.status === 'active').length,
-      totalRevenue: subs.reduce((sum, s) => sum + (s.finalAmount || 0), 0)
-    };
-
-    res.json({ schools: result, ...stats });
   } catch (err) {
     console.error('Superadmin dashboard error:', err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

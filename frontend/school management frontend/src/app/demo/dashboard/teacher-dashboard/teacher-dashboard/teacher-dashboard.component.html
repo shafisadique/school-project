@@ -2,7 +2,7 @@
   <!-- Header -->
   <div class="dashboard-header text-center mb-4">
     <h1 class="display-6 fw-bold text-primary">Teacher Dashboard</h1>
-    <p class="text-muted">Welcome, {{ teacherDashboardData?.data?.teacher?.name || 'Teacher' }}!</p>
+    <p class="text-muted">Welcome, {{ teacherDashboardData?.teacher?.name || 'Teacher' }}!</p>
   </div>
 
   <!-- Stats Cards -->
@@ -22,6 +22,7 @@
         </div>
       </div>
     </div>
+
     <div class="col-12 col-sm-6 col-md-3">
       <div class="card h-100 shadow-sm border-0 rounded-4 bg-gradient-light">
         <div class="card-body text-center">
@@ -33,6 +34,7 @@
         </div>
       </div>
     </div>
+
     <div class="col-12 col-sm-6 col-md-3">
       <div class="card h-100 shadow-sm border-0 rounded-4 bg-gradient-light">
         <div class="card-body text-center">
@@ -44,6 +46,7 @@
         </div>
       </div>
     </div>
+
     <div class="col-12 col-sm-6 col-md-3">
       <div class="card h-100 shadow-sm border-0 rounded-4 bg-gradient-light">
         <div class="card-body text-center">
@@ -59,40 +62,42 @@
 
   <!-- Accordion Sections -->
   <div class="accordion" id="dashboardAccordion">
-    <!-- My Attendance Overview -->
-    <div class="accordion-item">
-      <h2 class="accordion-header">
-        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#attendanceOverviewCollapse">
-          <i class="bi bi-bar-chart-fill me-2"></i> My Attendance Overview
-        </button>
-      </h2>
-      <div id="attendanceOverviewCollapse" class="accordion-collapse collapse" data-bs-parent="#dashboardAccordion">
-        <div class="accordion-body p-0">
-          <div class="card shadow-sm border-0 rounded-4">
-            <div class="card-body position-relative" style="min-height: 250px;">
-             <apx-chart
-  #attendanceChart
-  [series]="attendanceChartOptions.series"
-  [chart]="attendanceChartOptions.chart"
-  [labels]="attendanceChartOptions.labels"
-  [colors]="attendanceChartOptions.colors"
-  [legend]="attendanceChartOptions.legend"
-  [responsive]="attendanceChartOptions.responsive">
-</apx-chart>
-              <div *ngIf="hasNoAttendanceData" class="position-absolute top-50 start-50 translate-middle text-center text-muted">
-                No attendance data available for today
-              </div>
-            </div>
-          </div>
+
+    <!-- Attendance Chart -->
+<div class="accordion-item">
+  <h2 class="accordion-header">
+    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#attendanceOverviewCollapse">
+      My Attendance - Current Month
+    </button>
+  </h2>
+  <div id="attendanceOverviewCollapse" class="accordion-collapse collapse show" data-bs-parent="#dashboardAccordion">
+    <div class="accordion-body p-0">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <apx-chart
+            #attendanceChart
+            [series]="chartOptions.series"
+            [chart]="chartOptions.chart"
+            [xaxis]="chartOptions.xaxis"
+            [yaxis]="chartOptions.yaxis"
+            [plotOptions]="chartOptions.plotOptions"
+            [dataLabels]="chartOptions.dataLabels"
+            [colors]="chartOptions.colors"
+            [legend]="chartOptions.legend"
+            [tooltip]="chartOptions.tooltip"
+            [grid]="chartOptions.grid">
+          </apx-chart>
         </div>
       </div>
     </div>
+  </div>
+</div>
 
     <!-- Pending Assignments -->
     <div class="accordion-item">
       <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#assignmentsCollapse">
-          <i class="bi bi-pencil-square me-2"></i> Pending Assignments
+          Pending Assignments
         </button>
       </h2>
       <div id="assignmentsCollapse" class="accordion-collapse collapse" data-bs-parent="#dashboardAccordion">
@@ -102,22 +107,10 @@
               <table class="table table-hover table-borderless mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th scope="col" class="sortable" (click)="sortTable('title')">
-                      Title 
-                      <i class="bi" [ngClass]="{
-                        'bi-sort-alpha-down': sortColumn === 'title' && sortDirection === 'asc',
-                        'bi-sort-alpha-down-alt': sortColumn === 'title' && sortDirection === 'desc'
-                      }"></i>
-                    </th>
-                    <th scope="col" class="sortable" (click)="sortTable('dueDate')">
-                      Due Date 
-                      <i class="bi" [ngClass]="{
-                        'bi-sort-numeric-down': sortColumn === 'dueDate' && sortDirection === 'asc',
-                        'bi-sort-numeric-down-alt': sortColumn === 'dueDate' && sortDirection === 'desc'
-                      }"></i>
-                    </th>
-                    <th scope="col">Class</th>
-                    <th scope="col">Subject</th>
+                    <th>Title</th>
+                    <th>Due Date</th>
+                    <th>Class</th>
+                    <th>Subject</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -142,7 +135,7 @@
     <div class="accordion-item">
       <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#leavesCollapse">
-          <i class="bi bi-calendar-check me-2"></i> Pending Leave Requests
+          Pending Leave Requests
         </button>
       </h2>
       <div id="leavesCollapse" class="accordion-collapse collapse" data-bs-parent="#dashboardAccordion">
@@ -152,22 +145,10 @@
               <table class="table table-hover table-borderless mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th scope="col" class="sortable" (click)="sortTable('date')">
-                      Date 
-                      <i class="bi" [ngClass]="{
-                        'bi-sort-numeric-down': sortColumn === 'date' && sortDirection === 'asc',
-                        'bi-sort-numeric-down-alt': sortColumn === 'date' && sortDirection === 'desc'
-                      }"></i>
-                    </th>
-                    <th scope="col" class="sortable" (click)="sortTable('reason')">
-                      Reason 
-                      <i class="bi" [ngClass]="{
-                        'bi-sort-alpha-down': sortColumn === 'reason' && sortDirection === 'asc',
-                        'bi-sort-alpha-down-alt': sortColumn === 'reason' && sortDirection === 'desc'
-                      }"></i>
-                    </th>
-                    <th scope="col">Type</th>
-                    <th scope="col">Status</th>
+                    <th>Date</th>
+                    <th>Reason</th>
+                    <th>Type</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -192,7 +173,7 @@
     <div class="accordion-item">
       <h2 class="accordion-header">
         <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#holidaysCollapse">
-          <i class="bi bi-gift-fill me-2"></i> Upcoming Holidays
+          Upcoming Holidays
         </button>
       </h2>
       <div id="holidaysCollapse" class="accordion-collapse collapse" data-bs-parent="#dashboardAccordion">
@@ -202,21 +183,9 @@
               <table class="table table-hover table-borderless mb-0">
                 <thead class="table-light">
                   <tr>
-                    <th scope="col" class="sortable" (click)="sortTable('date')">
-                      Date 
-                      <i class="bi" [ngClass]="{
-                        'bi-sort-numeric-down': sortColumn === 'date' && sortDirection === 'asc',
-                        'bi-sort-numeric-down-alt': sortColumn === 'date' && sortDirection === 'desc'
-                      }"></i>
-                    </th>
-                    <th scope="col" class="sortable" (click)="sortTable('title')">
-                      Title 
-                      <i class="bi" [ngClass]="{
-                        'bi-sort-alpha-down': sortColumn === 'title' && sortDirection === 'asc',
-                        'bi-sort-alpha-down-alt': sortColumn === 'title' && sortDirection === 'desc'
-                      }"></i>
-                    </th>
-                    <th scope="col">Description</th>
+                    <th>Date</th>
+                    <th>Title</th>
+                    <th>Description</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -235,5 +204,6 @@
         </div>
       </div>
     </div>
+
   </div>
 </div>

@@ -26,7 +26,27 @@ exports.sendNotification = async (req, res) => {
       ...req.body
     });
     await notification.save();
-
+    const io = req.app.get('io');
+    if (io) {
+      io.to(notification.recipientId.toString()).emit('new-notification', {
+        _id: notification._id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        createdAt: notification.createdAt,
+        senderId: { name: req.user.name },
+        status: 'pending'
+      });
+      io.to(req.user.schoolId.toString()).emit('new-notification', {
+        _id: notification._id,
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        createdAt: notification.createdAt,
+        senderId: { name: req.user.name || 'Admin' },
+        status: 'pending'
+      });
+    }
     // Trigger deliveries based on type
     await notificationService.deliver(notification);
 

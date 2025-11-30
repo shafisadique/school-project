@@ -323,6 +323,7 @@ const registerSchool = async (req, res) => {
 };
 
 
+
 const getSchoolById = async (req, res) => {
   try {
     const school = await School.findById(req.params.id)
@@ -343,20 +344,92 @@ const getAllSchools = async (req, res) => {
       {
         $lookup: {
           from: 'subscriptions',
-          localField: '_id',
-          foreignField: 'schoolId',
-          as: 'subscription',
-          pipeline: [{ $sort: { createdAt: -1 } }, { $limit: 1 }]
+          let: { schoolId: '$_id' },
+          as: 'allSubscriptions',
+          pipeline: [
+            { $match: { $expr: { $eq: ['$schoolId', '$$schoolId'] } } },
+            { $sort: { priority: -1, expiresAt: -1 } }
+          ]
         }
       },
-      { $unwind: { path: '$subscription', preserveNullAndEmptyArrays: true } },
-      { $lookup: { from: 'academicyears', localField: 'activeAcademicYear', foreignField: '_id', as: 'academicYear' } },
-      { $unwind: { path: '$academicYear', preserveNullAndEmptyArrays: true } },
-      { $project: { smtpConfig: 0 } },
+      {
+        $addFields: {
+          activeSubscription: { $arrayElemAt: ['$allSubscriptions', 0] },
+          mainPlan: {
+            $arrayElemAt: [
+              {
+                $filter: {
+                  input: '$allSubscriptions',
+                  as: 'sub',
+                  cond: { $eq: ['$$sub.isTemporaryBoost', false] }
+                }
+              },
+              0
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          currentPlanType: {
+            $cond: {
+              if: { $and: [
+                { $gt: ['$activeSubscription.expiresAt', new Date()] },
+                { $eq: ['$activeSubscription.status', 'active'] }
+              ]},
+              then: '$activeSubscription.planType',
+              else: { $ifNull: ['$mainPlan.planType', 'none'] }
+            }
+          },
+          currentPlanName: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$currentPlanType', 'both_premium_monthly'] }, then: 'Premium Monthly' },
+                { case: { $eq: ['$currentPlanType', 'both_premium_yearly'] }, then: 'Premium Yearly' },
+                { case: { $eq: ['$currentPlanType', 'both_basic_yearly'] }, then: 'Basic Yearly (Both)' },
+                { case: { $eq: ['$currentPlanType', 'sms_basic_yearly'] }, then: 'Basic Yearly (SMS)' },
+                { case: { $eq: ['$currentPlanType', 'whatsapp_basic_yearly'] }, then: 'Basic Yearly (WhatsApp)' },
+                { case: { $eq: ['$currentPlanType', 'trial'] }, then: 'Trial' },
+              ],
+              default: 'No Plan'
+            }
+          },
+          planStatus: {
+            $cond: {
+              if: { $and: [
+                { $ne: ['$activeSubscription', null] },
+                { $gt: ['$activeSubscription.expiresAt', new Date()] }
+              ]},
+              then: 'Active',
+              else: 'Expired'
+            }
+          },
+          isBoostActive: {
+            $and: [
+              { $eq: ['$activeSubscription.isTemporaryBoost', true] },
+              { $gt: ['$activeSubscription.expiresAt', new Date()] }
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          code: 1,
+          currentPlanName: 1,
+          currentPlanType: 1,
+          planStatus: 1,
+          'activeSubscription.expiresAt': 1,
+          isBoostActive: 1,
+          createdAt: 1
+        }
+      },
       { $sort: { createdAt: -1 } }
     ]);
+
     res.json({ message: 'Listed', data: schools });
   } catch (err) {
+    console.error('Superadmin getAllSchools error:', err);
     res.status(500).json({ message: 'Error', error: err.message });
   }
 };

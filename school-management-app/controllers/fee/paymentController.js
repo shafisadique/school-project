@@ -485,6 +485,25 @@ exports.processPayment = async (req, res) => {
 
     await session.commitTransaction();
 
+    const studentForSMS = await Student.findById(studentId)
+    .select('name admissionNo parents fatherPhone motherPhone guardianPhone')
+    .lean();
+    const school = await School.findById(schoolId).select('name communication preferredChannel').lean();
+    console.log(school);
+    if (school.preferredChannel === 'sms' || school.preferredChannel === 'both') {
+      console.log('working' )
+      await sendPaymentConfirmation(
+        studentForSMS,
+        sanitizedData.amount,
+        sanitizedData.paymentMethod,
+        sanitizedData.date || new Date(),
+        school
+      );
+    }
+    if (school.preferredChannel === 'whatsapp' || school.preferredChannel === 'both') {
+      // Call WhatsApp API
+    }
+
     res.json({
       success: true,
       message: 'Payment processed across invoices',
@@ -500,6 +519,33 @@ exports.processPayment = async (req, res) => {
     res.status(400).json({ error: err.message });
   } finally {
     session.endSession();
+  }
+};
+
+// ADD THIS FUNCTION (or import from utils)
+const sendPaymentConfirmation = async (student, amount, method, date, school) => {
+  try {
+    const parentPhone = student.parents?.fatherPhone || student.parents?.motherPhone || student.guardianPhone;
+    if (!parentPhone) return;
+    console.log('is this working ');
+    const studentName = student.name;
+    const admissionNo = student.admissionNo;
+    const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+    const formattedDate = moment(date).format('DD-MMM-YYYY');
+
+    const message = `Dear Parent,\n\n` +
+      `Payment of ₹${amount} received for ${studentName} (Adm: ${admissionNo})\n` +
+      `Month: ${month}\n` +
+      `Method: ${method}\n` +
+      `Date: ${formattedDate}\n\n` +
+      `Thank you!\n${school.name}`;
+
+    // Use your existing SMSService (you already have it)
+    await SMSService.sendSMS(parentPhone, message, school.communication?.smsSenderName || 'SCHOOL');
+    
+  } catch (err) {
+    console.error('Failed to send payment SMS:', err);
+    // Don't fail payment if SMS fails
   }
 };
 

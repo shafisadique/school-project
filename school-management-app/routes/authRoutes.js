@@ -108,15 +108,26 @@ router.post('/announcements',
   authMiddleware,
   isAdmin,
   validateRequest([
-    body('title').notEmpty().trim().isLength({ max: 200 }).withMessage('Title required (max 200 chars)'),
-    body('body').notEmpty().trim().isLength({ max: 1000 }).withMessage('Body required (max 1000 chars)'),
-    body('targetRoles').optional().isArray().custom((roles, { req }) => {
-      if (req.body.targetUsers?.length > 0) return true;
-      if (!roles || roles.length === 0) throw new Error('Select at least one role or user');
-      const valid = ['admin', 'teacher', 'parent', 'student'];
-      return roles.every(r => valid.includes(r));
-    }),
-    body('targetUsers').optional().isArray()
+    body('title')
+      .notEmpty().withMessage('Title is required')
+      .trim()
+      .isLength({ max: 200 }).withMessage('Title too long'),
+
+    body('body')
+      .notEmpty().withMessage('Message is required')
+      .trim()
+      .isLength({ max: 2000 }).withMessage('Message too long'),
+
+    // YE LINE SABSE ZAROORI — AB ROLE YA USER MEIN SE EK ZAROORI HAI
+    body().custom((_, { req }) => {
+      const hasRoles = Array.isArray(req.body.targetRoles) && req.body.targetRoles.length > 0;
+      const hasUsers = Array.isArray(req.body.targetUsers) && req.body.targetUsers.length > 0;
+      
+      if (!hasRoles && !hasUsers) {
+        throw new Error('Please select at least one recipient (role or specific users)');
+      }
+      return true;
+    })
   ]),
   createAnnouncement
 );
