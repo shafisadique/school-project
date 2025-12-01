@@ -42,7 +42,7 @@ const authLimiter = rateLimit({
 });
 
 // const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4300',];
-const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://school-project-a65i.vercel.app'];
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://edglobe.vercel.app'];
 
 
 app.use(cors({
