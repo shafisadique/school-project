@@ -21,10 +21,114 @@ export class ClassSubjectComponent implements OnInit {
   loading: boolean = false;
 
   classList: string[] = [
-    'Pre-Nursery (or Playgroup)', 'Nursery', 'Lower Kindergarten (LKG)', 'Upper Kindergarten (UKG)', 'Class I', 'Class II',
-    'Class III', 'Class IV', 'Class V', 'Class VI', 'Class VII', 'Class VIII', 'Class IX', 'Class X'
+    'Playgroup', 'Pre-Nursery', 'Nursery', 'Lower KG (LKG)', 'Upper KG (UKG)',
+  'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5',
+  'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'
   ];
-  classSubjects: string[] = ['English', 'Hindi', 'Mathematics', 'Environmental Science', 'Urdu', 'General Knowledge', 'Arts', 'Science', 'Social Science', 'Music'];
+ classSubjects: string[] = [
+  // Core Academic Subjects
+  'English',
+  'English Reading',
+  'English Writing',
+  'English Rhymes',
+  'English Conversation',
+  'English Language & Literature',
+
+  'Hindi',
+  'Hindi Reading',
+  'Hindi Writing',
+  'Hindi Rhymes',
+  'Hindi Course-A',
+  'Hindi Course-B',
+
+  'Mathematics',
+  'Mathematics (Standard)',
+  'Mathematics (Basic)',
+  'Vedic Maths',
+
+  'Science',
+  'Science (Physics, Chemistry, Biology)',
+  'Environmental Studies (EVS)',
+
+  'Social Science (SST)',
+  'Social Science (History, Geography, Civics, Economics)',
+
+  // Third Language / Sanskrit / Regional
+  'Sanskrit',
+  'Urdu',
+  'Bengali',
+  'Tamil',
+  'Telugu',
+  'Kannada',
+  'Malayalam',
+  'Marathi',
+  'Gujarati',
+  'Punjabi',
+  'Odia',
+  'Assamese',
+  'Nepali',
+  'Arabic',
+  'Persian',
+
+  // Foreign Languages
+  'French',
+  'German',
+  'Spanish',
+
+  // Computer & IT Subjects
+  'Computer Science',
+  'Computer Applications',
+  'Computer Applications (165)',
+  'Information Technology (402)',
+  'Foundation of IT',
+  'Artificial Intelligence (417)',
+  'Coding',
+  'Robotics',
+
+  // Arts & Creativity
+  'Art & Craft',
+  'Drawing / Art & Craft',
+  'Colouring',
+  'Painting',
+  'Art Education',
+
+  // Music & Dance
+  'Music',
+  'Music (Vocal/Instrumental)',
+  'Music & Dance',
+  'Dance',
+
+  // Physical & Health Education
+  'Physical Education (PT)',
+  'Physical & Health Education',
+  'Yoga',
+  'Indoor Games',
+  'Outdoor Games',
+
+  // Moral & Value Education
+  'Moral Science / Value Education',
+  'Value Education',
+  'Life Skills',
+  'Health & Wellness',
+
+  // General Awareness
+  'General Knowledge (GK)',
+  'General Knowledge',
+  'Story Telling',
+
+  // Skill Development
+  'Handwriting Improvement',
+  'Public Speaking',
+  'Personality Development',
+  'Abacus',
+
+  // Others
+  'Home Science',
+  'Work Experience',
+  'SUPW (Socially Useful Productive Work)',
+  'Library'
+].filter((subject, index, array) => array.indexOf(subject) === index)  // Removes any accidental duplicates
+ .sort(); // Alphabetically sorted for clean UI
 
   constructor(
     private fb: FormBuilder,

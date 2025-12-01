@@ -3,10 +3,6 @@ const https = require('https');  // Native Node.js (no axios needed)
 
 const sendSMS = async (phone, message, senderName = null) => {
   return new Promise((resolve, reject) => {
-    console.log('Sending SMS to phone:', phone);
-    console.log('Template vars (name|amount|school):', message);
-    console.log('Sender:', senderName);
-
     try {
       // Parse template vars: "dkf;lqqqq|3400|Children's Public School"
       const [name, amount, school] = message.split('|');

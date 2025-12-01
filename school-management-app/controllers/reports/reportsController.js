@@ -46,27 +46,28 @@ exports.generateCustomReport = async (req, res, next) => {
 // 2. UDISE GOVERNMENT REPORTS (QUICK TEMPLATES)
 exports.generateUDISEReport = async (req, res, next) => {
   try {
-    const { template } = req.params; // 'enrollment', 'teachers', 'infrastructure'
-    const { schoolId } = req.user;
+    const { template } = req.params;
+    const user = req.user; // ← Pass full user, not just schoolId!
 
-    console.log('Generating UDISE report:', template);
+    if (!['enrollment', 'teachers', 'infrastructure'].includes(template)) {
+      throw new APIError('Invalid UDISE template', 400);
+    }
 
-    const reportData = await ReportService.generateUDISEReport(template, schoolId);
+    const reportData = await ReportService.generateUDISEReport(template, user);
 
     res.status(200).json({
       success: true,
-      message: `UDISE ${template} report generated`,
+      message: `UDISE ${template} report generated successfully`,
       data: {
-        template: template,
-        name: `UDISE ${template} Report`,
+        template,
+        name: `UDISE ${template.charAt(0).toUpperCase() + template.slice(1)} Report`,
         records: reportData,
-        totalRecords: reportData.length,
-        compliance: 'UDISE Standard Format',
+        totalRecords: Array.isArray(reportData) ? reportData.length : 1,
         generatedAt: new Date().toISOString()
       }
     });
   } catch (error) {
-    console.error('UDISE report error:', error);
+    console.error('UDISE Report Error:', error);
     next(error);
   }
 };

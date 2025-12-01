@@ -134,39 +134,31 @@ generateQuickReport(type: any) {
   this.generateCustomReport();
 }
   // Generate custom report
-  generateCustomReport() {
-    this.isLoading = true;
-    this.currentReport = null;
+ generateCustomReport() {
+  const config: any = {
+    reportType: this.customConfig.reportType,
+    columns: this.customConfig.columns,
+    reportName: this.customConfig.reportName,
+    filters: {}
+  };
 
-    // Get current school ID from auth
-    const schoolId = this.authService.getSchoolId();
-    if (!schoolId) {
-      this.toastr.error('School ID not found');
-      this.isLoading = false;
-      return;
-    }
-
-    const config: CustomReportConfig = {
-      ...this.customConfig,
-      schoolId: schoolId,
-      filters: {
-        ...this.customConfig.filters,
-        classId: this.selectedClassId || undefined,
-        academicYearId: this.selectedAcademicYear || undefined
-      }
-    };
-
-    this.reportService.generateCustomReport(config).subscribe({
-      next: (response) => {
-        this.currentReport = response;
-        this.toastr.success(`Generated ${response.data.totalRecords} records`);
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.isLoading = false;
-      }
-    });
+  if (this.selectedClassId) {
+    config.filters.classId = this.selectedClassId;
   }
+  if (this.selectedAcademicYear) {
+    config.filters.academicYearId = this.selectedAcademicYear;
+  }
+
+  this.reportService.generateCustomReport(config).subscribe({
+    next: (res) => {
+      this.currentReport = res;
+      this.toastr.success('Report generated!');
+    },
+    error: (err) => {
+      this.toastr.error(err.error.message || 'Failed to generate report');
+    }
+  });
+}
 
   // Generate UDISE report
   generateUDISEReport(template: string) {

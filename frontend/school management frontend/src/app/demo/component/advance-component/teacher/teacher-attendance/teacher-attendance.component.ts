@@ -164,39 +164,57 @@ export class TeacherAttendanceComponent implements OnInit {
   //   });
   // }
 
-  private getCurrentLocation(): Promise<{ lat: number; lng: number }> {
+private getCurrentLocation(): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      console.log('Geolocation not supported → using school location');
-      this.useSchoolLocation(resolve);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = position.coords.latitude;
-        const lng = position.coords.longitude;
-        console.log('Real GPS:', lat, lng);
-
-        // If accuracy is bad (>500m), use school location
-        if (position.coords.accuracy > 500) {
-          console.log('Poor GPS accuracy:', position.coords.accuracy + 'm → using school location');
-          this.useSchoolLocation(resolve);
+    // STEP 1: ALWAYS TRY TO GET CURRENT LOGIN SCHOOL'S LOCATION FIRST (MOST IMPORTANT)
+    this.schoolService.getMySchool().subscribe({
+      next: (school: any) => {
+        if (school && school.latitude && school.longitude) {
+          console.log('Using CURRENT SCHOOL location (multi-school safe):', school.name, school.latitude, school.longitude);
+          return resolve({ lat: school.latitude, lng: school.longitude });
         } else {
-          resolve({ lat, lng });
+          console.warn('School has no lat/lng saved → falling back to GPS');
+          this.tryGpsWithSchoolFallback(resolve, reject);
         }
       },
-      (error) => {
-        console.log('GPS failed:', error.message, '→ using school location');
-        this.useSchoolLocation(resolve);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 60000
+      error: (err) => {
+        console.warn('Failed to load school → trying GPS', err);
+        this.tryGpsWithSchoolFallback(resolve, reject);
       }
-    );
+    });
   });
+}
+
+// Helper: Try GPS only if school location not available
+private tryGpsWithSchoolFallback(
+  resolve: (value: { lat: number; lng: number }) => void,
+  reject: (reason?: any) => void
+) {
+  if (!navigator.geolocation) {
+    return reject('Geolocation not supported and school location missing');
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const accuracy = position.coords.accuracy;
+      if (accuracy <= 100) {
+        resolve({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
+      } else {
+        reject('Poor GPS accuracy. Please ensure school location is set in admin panel.');
+      }
+    },
+    (error) => {
+      reject('Location access denied or failed. School location must be configured.');
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 300000
+    }
+  );
 }
 
 // Helper: Get school location from backend (for multiple schools)

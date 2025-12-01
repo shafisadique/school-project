@@ -26,7 +26,6 @@ export class AuthService {
   login(email: string, password: string): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.baseUrl}/api/auth/login`, { email, password }).pipe(
       map((response) => {
-        console.log(response);
         if (response && response.token) {
           this.toastr.success('Login Success', 'Success');
           this.isLoggedIn.next(true);

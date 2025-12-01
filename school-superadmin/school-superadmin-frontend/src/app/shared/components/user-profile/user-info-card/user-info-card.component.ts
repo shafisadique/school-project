@@ -42,7 +42,6 @@ export class UserInfoCardComponent {
 
   handleSave() {
     // Handle save logic here
-    console.log('Saving changes...');
     this.modal.closeModal();
   }
 }

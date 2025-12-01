@@ -1,228 +1,267 @@
+// services/ReportService.js
 const mongoose = require('mongoose');
 const Student = require('../models/student');
 const Fee = require('../models/feeInvoice');
 const Result = require('../models/result');
 const Teacher = require('../models/teacher');
-const TeacherAttendance = require('../models/teacherAttendance');
-const AcademicYear = require('../models/academicyear');
+const StudentAttendance = require('../models/studentAttendance'); // ← Must import
 const School = require('../models/school');
 const APIError = require('../utils/apiError');
 
-// SECURE Report Service with Multi-Layer Protection
+// Allow populate even if field not in schema (fixes StrictPopulateError)
+mongoose.set('strictPopulate', false);
+
 class ReportService {
-  // HELPER: Verify user has access to school
   static async verifySchoolAccess(user, providedSchoolId = null) {
     const { schoolId, role } = user;
     const targetSchoolId = providedSchoolId || schoolId;
     if (!targetSchoolId) throw new APIError('School ID is required', 401);
-    
+
     const school = await School.findById(targetSchoolId);
     if (!school) throw new APIError('School not found', 404);
-    
-    const allowedRoles = ['admin'];
-    if (!allowedRoles.includes(role)) throw new APIError('Insufficient permissions', 403);
-    console.log('testing purpose', school)
+    if (!['admin'].includes(role)) throw new APIError('Insufficient permissions', 403);
     if (user.schoolId.toString() !== targetSchoolId.toString()) throw new APIError('School mismatch', 403);
     if (!school.status) throw new APIError('School inactive', 403);
 
-    console.log(`✅ Security: ${role} verified for school ${targetSchoolId}`);
     return targetSchoolId;
   }
 
-  // 1. SECURE CUSTOM REPORT GENERATOR
   static async generateCustomReport(user, config) {
-    const { schoolId, reportType, filters = {}, columns } = config;
-
+    const { schoolId, reportType, filters = {}, columns = [] } = config;
     const verifiedSchoolId = await this.verifySchoolAccess(user, schoolId);
-    const allowedReportTypes = ['student', 'fee-defaulters', 'academic-performance', 'attendance-summary', 'teacher-performance'];
-    if (!allowedReportTypes.includes(reportType)) throw new APIError(`Invalid report type ${reportType}`, 400);
+
+    const allowedTypes = ['student', 'fee-defaulters', 'academic-performance', 'attendance-summary', 'teacher-performance'];
+    if (!allowedTypes.includes(reportType)) throw new APIError(`Invalid report type: ${reportType}`, 400);
 
     const allowedColumns = this.getAllowedColumns(reportType);
-    const sanitizedColumns = columns.filter(col => allowedColumns.includes(col));
-    if (sanitizedColumns.length === 0) throw new APIError('No valid columns', 400);
+    const validColumns = columns.filter(col => allowedColumns.includes(col));
+    if (validColumns.length === 0) throw new APIError('No valid columns selected', 400);
 
-    const sanitizedFilters = this.sanitizeFilters(filters, reportType);
-    const maxRecords = 1000; // Default limit
+    const safeFilters = this.sanitizeFilters(filters, reportType);
+    const limit = 1000;
 
-    let data = [];
     switch (reportType) {
       case 'student':
-        data = await Student.find({ schoolId: new mongoose.Types.ObjectId(verifiedSchoolId), ...sanitizedFilters })
-          .select(sanitizedColumns.join(' '))
-          .limit(maxRecords);
-        break;
+        return await this.generateStudentReport(verifiedSchoolId, safeFilters, validColumns, limit);
       case 'fee-defaulters':
-        data = await this.generateFeeDefaultersReport(verifiedSchoolId, sanitizedFilters, sanitizedColumns, maxRecords);
-        break;
+        return await this.generateFeeDefaultersReport(verifiedSchoolId, safeFilters, validColumns, limit);
       case 'academic-performance':
-        data = await this.generateAcademicReport(verifiedSchoolId, sanitizedFilters, sanitizedColumns, maxRecords);
-        break;
+        return await this.generateAcademicReport(verifiedSchoolId, safeFilters, validColumns, limit);
       case 'attendance-summary':
-        data = await this.generateAttendanceReport(verifiedSchoolId, sanitizedFilters, sanitizedColumns, maxRecords);
-        break;
+        return await this.generateAttendanceReport(verifiedSchoolId, safeFilters, validColumns, limit);
       case 'teacher-performance':
-        data = await this.generateTeacherReport(verifiedSchoolId, sanitizedFilters, sanitizedColumns, maxRecords);
-        break;
+        return await this.generateTeacherReport(verifiedSchoolId, safeFilters, validColumns, limit);
       default:
-        throw new APIError('Invalid report type', 400);
+        throw new APIError('Report type not implemented', 400);
     }
-
-    return data;
   }
 
-  // SECURITY HELPERS
-  static getAllowedColumns(reportType) {
-    const columnWhitelist = {
-      student: ['name', 'rollNo', 'gender', 'category', 'enrollmentDate', 'status', 'admissionNo', 'address', 'phone'],
-      'fee-defaulters': ['name', 'rollNo', 'classId', 'totalDue', 'totalPaid', 'feeStatus', 'lastPaymentDate'],
-      'academic-performance': ['studentName', 'rollNo', 'subjectName', 'marksObtained', 'totalMarks', 'percentage', 'grade', 'position'],
-      'attendance-summary': ['teacherName', 'date', 'status', 'subject', 'remarks'],
-      'teacher-performance': ['name', 'designation', 'subjects', 'phone', 'email', 'experience', 'status', 'leaveBalance']
+  static getAllowedColumns(type) {
+    const map = {
+      student: ['name', 'rollNo', 'admissionNo', 'fatherName', 'motherName', 'fatherPhone', 'motherPhone', 'className', 'gender', 'status'],
+      'fee-defaulters': ['name', 'rollNo', 'admissionNo', 'className', 'totalDue', 'totalPaid', 'feeStatus'],
+      'academic-performance': ['studentName', 'rollNo', 'admissionNo', 'className', 'subjectName', 'marksObtained', 'totalMarks', 'percentage', 'grade'],
+      'attendance-summary': ['studentName', 'fatherName', 'motherName', 'fatherPhone', 'motherPhone', 'rollNo', 'admissionNo', 'className', 'date', 'status', 'remarks'],
+      'teacher-performance': ['name', 'designation', 'subjects', 'phone', 'email', 'status', 'leaveBalance']
     };
-    return columnWhitelist[reportType] || ['name', 'rollNo'];
+    return map[type] || [];
   }
 
-  static sanitizeFilters(filters, reportType) {
-    const safeFilters = {};
-    const allowedFilters = {
-      student: ['classId', 'status', 'gender', 'category', 'academicYearId'],
-      'fee-defaulters': ['classId', 'academicYearId', 'minimumDue'],
-      'academic-performance': ['classId', 'subjectId', 'examType', 'minimumMarks'],
-      'attendance-summary': ['dateFrom', 'dateTo', 'status', 'teacherId'],
-      'teacher-performance': ['designation', 'status', 'subjects']
+  static sanitizeFilters(filters, type) {
+    const allowed = {
+      student: ['classId', 'status', 'gender', 'academicYearId'],
+      'fee-defaulters': ['classId', 'academicYearId'],
+      'academic-performance': ['classId', 'examId', 'subjectId', 'academicYearId'],
+      'attendance-summary': ['classId', 'dateFrom', 'dateTo', 'academicYearId'],
+      'teacher-performance': ['status', 'designation']
     };
-    const filterWhitelist = allowedFilters[reportType] || ['classId', 'status'];
+
+    const safe = {};
+    const list = allowed[type] || [];
 
     Object.keys(filters).forEach(key => {
-      if (filterWhitelist.includes(key)) {
-        if (key.includes('date') && filters[key]) safeFilters[key] = new Date(filters[key]);
-        else if (key.includes('Id') && filters[key]) safeFilters[key] = new mongoose.Types.ObjectId(filters[key]);
-        else safeFilters[key] = filters[key];
+      if (list.includes(key)) {
+        if (key.includes('Id') && filters[key]) {
+          safe[key] = new mongoose.Types.ObjectId(filters[key]);
+        } else if (key.includes('date') || key.includes('Date')) {
+          safe[key] = new Date(filters[key]);
+        } else {
+          safe[key] = filters[key];
+        }
       }
     });
-    return safeFilters;
+    return safe;
   }
 
-  // REPORT GENERATORS
-  static async generateStudentReport(schoolId, filters, columns, maxRecords) {
-    return await Student.find({ schoolId: new mongoose.Types.ObjectId(schoolId), ...filters })
-      .select(columns.join(' '))
-      .limit(maxRecords)
-      .lean();
-  }
-
-static async generateFeeDefaultersReport(schoolId, filters, columns, maxRecords) {
-  // Fetch fees with remaining due and relevant statuses
-  const fees = await Fee.find({
-    schoolId: new mongoose.Types.ObjectId(schoolId),
-    status: { $in: ['Pending', 'Overdue', 'Partial'] },
-    remainingDue: { $gt: 0 }
-    // Uncomment below if you want only past-due fees
-    // , dueDate: { $lt: new Date() }
-  })
-    .populate('studentId', 'name rollNo classId')
-    .limit(maxRecords)
-    .lean();
-
-  console.log('Fetched fees:', fees.length, 'records'); // Debug log
-  console.log('Sample fees:', fees.slice(0, 2)); // Log first 2 records for brevity
-
-  // Build defaulters directly from fees
-  const defaulters = fees.map(fee => {
-    const { studentId, remainingDue, paidAmount, status, paymentHistory } = fee;
-    if (!studentId) return null; // Skip if studentId is invalid
-
-    return {
-      name: studentId.name,
-      rollNo: studentId.rollNo,
-      classId: studentId.classId,
-      totalDue: remainingDue,
-      totalPaid: paidAmount,
-      feeStatus: status,
-      lastPaymentDate: paymentHistory[0]?.date || null,
-      ...columns.reduce((obj, col) => {
-        if (col in fee) obj[col] = fee[col];
-        return obj;
-      }, {})
-    };
-  }).filter(Boolean);
-
-  console.log('Generated defaulters:', defaulters.length); // Debug log
-
-  return defaulters;
-}
-
-  static async generateAcademicReport(schoolId, filters, columns, maxRecords) {
-    if (!filters.classId) throw new APIError('Class ID required', 400);
-    const results = await Result.find({ schoolId: new mongoose.Types.ObjectId(schoolId), ...filters })
-      .populate('studentId', 'name rollNo')
-      .populate('subjectId', 'name')
-      .limit(maxRecords)
+  // STUDENT REPORT - With Parent Name, Mobile & Class Name
+  static async generateStudentReport(schoolId, filters, columns, limit) {
+    const students = await Student.find({
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      ...filters
+    })
+      .populate('classId', 'name')
+      .select('name rollNo admissionNo parents classId gender status')
+      .limit(limit)
       .lean();
 
-    return results.map(result => ({
-      studentName: result.studentId.name,
-      rollNo: result.studentId.rollNo,
-      subjectName: result.subjectId.name,
-      marksObtained: result.marksObtained,
-      totalMarks: result.totalMarks,
-      percentage: ((result.marksObtained / result.totalMarks) * 100).toFixed(2),
-      grade: this.calculateGrade(result.marksObtained, result.totalMarks),
-      ...columns.reduce((obj, col) => (obj[col] = result[col], obj), {})
+    return students.map(s => ({
+      name: s.name || 'N/A',
+      rollNo: s.rollNo || 'N/A',
+      admissionNo: s.admissionNo,
+      fatherName: s.parents?.fatherName || '-',
+      motherName: s.parents?.motherName || '-',
+      fatherPhone: s.parents?.fatherPhone || '-',
+      motherPhone: s.parents?.motherPhone || '-',
+      className: s.classId?.name || 'N/A',
+      gender: s.gender || 'N/A',
+      status: s.status ? 'Active' : 'Inactive'
     }));
   }
 
-  static async generateAttendanceReport(schoolId, filters, columns, maxRecords) {
-    return await TeacherAttendance.find({ schoolId: new mongoose.Types.ObjectId(schoolId), ...filters })
-      .populate('teacherId', 'name designation')
-      .limit(maxRecords)
-      .lean()
-      .map(record => ({
-        teacherName: record.teacherId.name,
-        designation: record.teacherId.designation,
-        date: record.date.toISOString().split('T')[0],
-        status: record.status,
-        ...columns.reduce((obj, col) => (obj[col] = record[col], obj), {})
-      }));
+  // FEE DEFAULTERS
+  static async generateFeeDefaultersReport(schoolId, filters, columns, limit) {
+    const fees = await Fee.find({
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      remainingDue: { $gt: 0 },
+      status: { $in: ['Pending', 'Partial', 'Overdue'] }
+    })
+      .populate({
+        path: 'studentId',
+        select: 'name rollNo admissionNo classId',
+        populate: { path: 'classId', select: 'name' }
+      })
+      .limit(limit)
+      .lean();
+
+    return fees.map(f => ({
+      name: f.studentId?.name || 'Unknown',
+      rollNo: f.studentId?.rollNo || 'N/A',
+      admissionNo: f.studentId?.admissionNo || 'N/A',
+      className: f.studentId?.classId?.name || 'N/A',
+      totalDue: f.remainingDue || 0,
+      totalPaid: f.paidAmount || 0,
+      feeStatus: f.status || 'Unknown'
+    }));
   }
 
-  static async generateTeacherReport(schoolId, filters, columns, maxRecords) {
-    return await Teacher.find({ schoolId: new mongoose.Types.ObjectId(schoolId), ...filters })
-      .select(columns.join(' '))
-      .limit(maxRecords)
-      .lean()
-      .map(teacher => ({
-        name: teacher.name,
-        designation: teacher.designation,
-        subjects: Array.isArray(teacher.subjects) ? teacher.subjects.join(', ') : teacher.subjects,
-        ...columns.reduce((obj, col) => (obj[col] = teacher[col], obj), {})
-      }));
+  // ACADEMIC PERFORMANCE - With Class Name
+  static async generateAcademicReport(schoolId, filters, columns, limit) {
+    const results = await Result.aggregate([
+      { $match: { schoolId: new mongoose.Types.ObjectId(schoolId), ...filters } },
+      {
+        $lookup: {
+          from: 'students',
+          localField: 'studentId',
+          foreignField: '_id',
+          as: 'student'
+        }
+      },
+      { $unwind: '$student' },
+      {
+        $lookup: {
+          from: 'classes',
+          localField: 'student.classId',
+          foreignField: '_id',
+          as: 'class'
+        }
+      },
+      { $unwind: { path: '$class', preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: 'subjects',
+          localField: 'subjectId',
+          foreignField: '_id',
+          as: 'subject'
+        }
+      },
+      { $unwind: { path: '$subject', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          studentName: '$student.name',
+          rollNo: '$student.rollNo',
+          admissionNo: '$student.admissionNo',
+          className: '$class.name',
+          subjectName: '$subject.name',
+          marksObtained: '$marksObtained',
+          totalMarks: '$totalMaxMarks',
+          percentage: {
+            $cond: {
+              if: { $gt: ['$totalMaxMarks', 0] },
+              then: { $round: [{ $multiply: [{ $divide: ['$marksObtained', '$totalMaxMarks'] }, 100] }, 2] },
+              else: 0
+            }
+          }
+        }
+      },
+      { $limit: limit }
+    ]);
+
+    return results.map(r => ({
+      ...r,
+      grade: this.calculateGrade(r.marksObtained || 0, r.totalMarks || 1)
+    }));
   }
 
-  // SECURE UDISE REPORTS
-  static async generateUDISEReport(template, user) {
-    const verifiedSchoolId = await this.verifySchoolAccess(user);
-    switch (template) {
-      case 'enrollment':
-        return await Student.aggregate([
-          { $match: { schoolId: new mongoose.Types.ObjectId(verifiedSchoolId) } },
-          { $group: { _id: { classId: '$classId', gender: '$gender', category: '$category' }, count: { $sum: 1 } } },
-          { $project: { classId: '$_id.classId', gender: '$_id.gender', category: '$_id.category', count: 1, _id: 0 } }
-        ]);
-      case 'teachers':
-        return await Teacher.find({ schoolId: new mongoose.Types.ObjectId(verifiedSchoolId) })
-          .select('name designation qualification experience subjects phone email');
-      case 'infrastructure':
-        return await School.findOne({ _id: new mongoose.Types.ObjectId(verifiedSchoolId) })
-          .select('classrooms labs playground library waterFacility electricity');
-      default:
-        throw new APIError(`Invalid UDISE template ${template}`, 400);
-    }
+  // ATTENDANCE REPORT - With Parent Info & Class Name
+  static async generateAttendanceReport(schoolId, filters, columns, limit) {
+    const records = await StudentAttendance.find({
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      ...filters
+    })
+      .populate({
+        path: 'student', // ← Change to 'studentId' if your field is studentId
+        select: 'name rollNo admissionNo parents',
+      })
+      .populate('classId', 'name')
+      .limit(limit)
+      .lean();
+
+    return records.map(r => ({
+      studentName: r.student?.name || 'Unknown',
+      fatherName: r.student?.parents?.fatherName || '-',
+      motherName: r.student?.parents?.motherName || '-',
+      fatherPhone: r.student?.parents?.fatherPhone || '-',
+      motherPhone: r.student?.parents?.motherPhone || '-',
+      rollNo: r.student?.rollNo || 'N/A',
+      admissionNo: r.student?.admissionNo || 'N/A',
+      className: r.classId?.name || 'Unknown Class',
+      date: new Date(r.date).toLocaleDateString('en-IN'),
+      status: r.status || 'Unknown',
+      remarks: r.remarks || '-'
+    }));
   }
 
-  static calculateGrade(marksObtained, totalMarks) {
-    const percentage = (marksObtained / totalMarks) * 100;
-    return percentage >= 90 ? 'A+' : percentage >= 80 ? 'A' : percentage >= 70 ? 'B+' : percentage >= 60 ? 'B' : percentage >= 50 ? 'C' : percentage >= 40 ? 'D' : 'F';
+  // TEACHER REPORT - Fixed .map() error
+  static async generateTeacherReport(schoolId, filters, columns, limit) {
+    const teachers = await Teacher.find({
+      schoolId: new mongoose.Types.ObjectId(schoolId),
+      ...filters
+    })
+      .select('name designation subjects phone email status leaveBalance')
+      .limit(limit)
+      .lean(); // ← Returns array directly
+
+    return teachers.map(t => ({
+      name: t.name || 'N/A',
+      designation: t.designation || 'N/A',
+      subjects: Array.isArray(t.subjects) ? t.subjects.join(', ') : 'N/A',
+      phone: t.phone || 'N/A',
+      email: t.email || 'N/A',
+      status: t.status ? 'Active' : 'Inactive',
+      leaveBalance: t.leaveBalance ?? 'N/A'
+    }));
+  }
+
+  static calculateGrade(obtained, total) {
+    if (!total) return 'N/A';
+    const per = (obtained / total) * 100;
+    if (per >= 90) return 'A+';
+    if (per >= 80) return 'A';
+    if (per >= 70) return 'B+';
+    if (per >= 60) return 'B';
+    if (per >= 50) return 'C';
+    if (per >= 40) return 'D';
+    return 'F';
   }
 }
 

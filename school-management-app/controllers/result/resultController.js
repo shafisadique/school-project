@@ -369,7 +369,6 @@ const getExamsForResultEntry = async (req, res, next) => {
 
     // Get unique class IDs from assignments
     const teacherClassIds = [...new Set(assignments.map(a => a.classId._id.toString()))];
-    console.log('Teacher Class IDs:', teacherClassIds);
 
     // Get exams for teacher's classes
     const exams = await Exam.find({
@@ -381,17 +380,12 @@ const getExamsForResultEntry = async (req, res, next) => {
       populate: { path: 'name' } // Ensure name populated
     }).populate('classId', 'name');
 
-    console.log('Raw Exams Found:', exams.length);
-
     // Filter each exam's examPapers to only teacher's assigned subjects for that class
     const filteredExams = exams.map(exam => {
       const examClassId = exam.classId._id.toString();
-      console.log(`Filtering exam for class ${examClassId} (${exam.classId.name}):`);
       // Get teacher's subjects for this specific class
       const classAssignments = assignments.filter(a => a.classId._id.toString() === examClassId);
       const teacherSubjectIds = classAssignments.map(a => a.subjectId._id.toString());
-      console.log('Subject IDs for this class:', teacherSubjectIds);
-
       const filteredPapers = exam.examPapers.filter(paper => 
         teacherSubjectIds.includes(paper.subjectId._id.toString())
       ).map(paper => ({
@@ -399,18 +393,14 @@ const getExamsForResultEntry = async (req, res, next) => {
         subjectId: paper.subjectId // Full populated object with name
       }));
 
-      console.log('Filtered Papers for this exam:', filteredPapers.map(p => p.subjectId.name));
-
       return {
         ...exam.toObject(),
         examPapers: filteredPapers // Only teacher's subjects for this class
       };
     }).filter(exam => exam.examPapers.length > 0); // Only exams with assigned subjects
 
-    console.log('Final Filtered Exams:', filteredExams.length);
     res.status(200).json({ exams: filteredExams });
   } catch (error) {
-    console.error('Error in getExamsForResultEntry:', error);
     next(new APIError(error.message, error.status || 500));
   }
 };
@@ -436,12 +426,10 @@ const getResultsByExam = async (req, res, next) => {
         .populate('studentId', 'name rollNo')
         .populate('subjects.subjectId', 'name')
         .populate('subjectId', 'name');
-      console.log('Admin results:', results);
     } else if (req.user.role === 'teacher') {
       // Find teacher document
       const teacher = await Teacher.findOne({ userId: req.user.id });
       if (!teacher) throw new APIError('Teacher profile not found', 404);
-      console.log('Found teacher:', teacher);
 
       // Get teacher's assigned subjects using ClassSubjectAssignment
       const teacherAssignments = await ClassSubjectAssignment.find({
@@ -449,26 +437,18 @@ const getResultsByExam = async (req, res, next) => {
         teacherId: teacher._id,
         academicYearId: req.user.activeAcademicYear,
       }).distinct('subjectId');
-      console.log('Teacher subjects (raw):', teacherAssignments.map(s => s.toString()));
 
       // Fetch results for the exam
       results = await Result.find({ examId: examId, schoolId: schoolId })
         .populate('studentId', 'name rollNo')
         .populate('subjects.subjectId', 'name')
         .populate('subjectId', 'name');
-      console.log('Raw results from DB:', results.map(r => ({
-        _id: r._id,
-        subjectId: r.subjectId ? r.subjectId._id.toString() : null,
-        subjects: r.subjects.map(s => s.subjectId ? s.subjectId._id.toString() : null)
-      })));
-
       // Filter results to include only teacher's assigned subjects
       results = results.map(result => {
         let filteredSubjects = [];
         // Handle partial results using subjectId
         if (result.subjectId && result.subjectId._id) {
           const subjectIdStr = result.subjectId._id.toString();
-          console.log(`Checking subjectId: ${subjectIdStr} against ${teacherAssignments.map(s => s.toString()).join(', ')}`);
           if (teacherAssignments.some(s => s.toString() === subjectIdStr)) {
             filteredSubjects.push({
               subjectId: result.subjectId,
@@ -493,12 +473,10 @@ const getResultsByExam = async (req, res, next) => {
           status: filteredSubjects.some(s => (s.marksObtained / s.maxMarks) * 100 < 40) ? 'Fail' : 'Pass'
         };
       }).filter(result => result !== null);
-      console.log('Filtered results:', results);
     }
 
     res.status(200).json(results || []);
   } catch (error) {
-    console.log('Error in getResultsByExam:', error.message);
     next(error);
   }
 };
