@@ -1,10 +1,9 @@
 {
   "version": 2,
   "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/app.js"
-    }
+    { "src": "/api/(.*)", "dest": "/app.js" },
+    { "src": "/socket.io/(.*)", "dest": "/app.js" }
+  
   ],
   "functions": {
     "app.js": {
