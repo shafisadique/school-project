@@ -42,7 +42,7 @@ const authLimiter = rateLimit({
 });
 
 // const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:4300',];
-const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://edglobe-from-novuspark-app.vercel.app','https://edglobe.vercel.app'];
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['https://edglobe-from-novuspark-app.vercel.app'];
 
 
 app.use(cors({
