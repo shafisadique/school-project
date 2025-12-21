@@ -1,40 +1,90 @@
-<div class="container-fluid p-4">
-  <h3 class="mb-4">My Class Timetable</h3>
-
-  <div class="mb-3">
-    <label class="form-label">Academic Year:</label>
-    <select class="form-control" [(ngModel)]="selectedYearId" (change)="onYearChange()">
-      <option *ngFor="let y of academicYears" [value]="y._id">{{ y.name }}</option>
-    </select>
+<div class="timetable-wrapper">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">My Class Timetable</h1>
+        <p class="page-subtitle">View your complete weekly schedule</p>
+      </div>
+      <div class="header-actions">
+        <select class="form-select modern-select" 
+                [(ngModel)]="selectedYearId" 
+                (change)="onYearChange()">
+          <option *ngFor="let year of academicYears" [value]="year._id">
+            {{ year.name }}
+          </option>
+        </select>
+        <div class="badge-modern bg-gradient-primary">
+          {{ timetable.length }} Periods
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div *ngIf="timetable.length === 0" class="alert alert-info">
-    No timetable available for your class.
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="loading-state">
+    <div class="spinner-large"></div>
+    <p>Loading your timetable...</p>
   </div>
 
-  <div *ngIf="timetable.length > 0" class="table-responsive">
-    <table class="table table-bordered table-hover">
-      <thead class="table-light">
-        <tr>
-          <th>Day</th>
-          <th *ngFor="let slot of timeSlots">
-            {{ slot.start }} - {{ slot.end }}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let day of days; let i = index">
-          <td><strong>{{ day }}</strong></td>
-          <td *ngFor="let cell of grid[i]">
-            <div *ngIf="cell; else empty">
-              <strong>{{ cell.subject }}</strong><br>
-              <small>{{ cell.teacher }}</small><br>
-              <em>Room: {{ cell.room }}</em>
-            </div>
-            <ng-template #empty><span class="text-muted">-</span></ng-template>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && timetable.length === 0" class="empty-state">
+    <i class="bi bi-calendar-x display-1 text-muted opacity-50"></i>
+    <h3>No Timetable Found</h3>
+    <p>Your class schedule has not been assigned for the selected year.</p>
+  </div>
+
+  <!-- Timetable Card -->
+  <div *ngIf="!isLoading && timetable.length > 0" class="timetable-card">
+    <div class="timetable-header">
+      <h4><i class="bi bi-clock-history me-2"></i>Weekly Schedule</h4>
+      <div class="legend">
+        <span class="legend-item"><span class="dot weekend"></span> Weekend</span>
+        <span class="legend-item"><span class="dot break"></span> Break / Free</span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="timetable-table">
+        <thead>
+          <tr>
+            <th class="day-header">Day</th>
+            <th *ngFor="let slot of timeSlots" class="slot-header">
+              <div class="time">{{ slot.start }}</div>
+              <small>to {{ slot.end }}</small>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let day of days; let dayIdx = index"
+              [class.weekend-row]="isWeekend(day)">
+            <td class="day-cell">
+              <div class="day-name">{{ day }}</div>
+              <div class="date-hint" *ngIf="isToday(day)">Today</div>
+            </td>
+            <td *ngFor="let cell of grid[dayIdx]" 
+                class="period-cell"
+                [class.break-cell]="!cell"
+                [class.has-class]="cell">
+              <ng-container *ngIf="cell; else breakSlot">
+                <div class="subject">{{ cell.subject }}</div>
+                <div class="teacher">{{ cell.teacher }}</div>
+                <div class="room-badge">{{ cell.room || '—' }}</div>
+              </ng-container>
+              <ng-template #breakSlot>
+                <span class="break-text">—</span>
+              </ng-template>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="timetable-footer">
+      <small>
+        <i class="bi bi-info-circle-fill me-1"></i>
+        Timetable auto-updates when teachers make changes
+      </small>
+    </div>
   </div>
 </div>

@@ -1,128 +1,151 @@
 <div class="timetable-container">
-  <!-- Header Section - Gradient Card with Title -->
-  <div class="header-section">
+  <!-- Header -->
+  <div class="header-section mb-4">
     <div class="header-card">
-      <h1 class="title">Timetable Management Dashboard</h1>
-      <p class="subtitle">Schedule classes, assign teachers, and manage rooms efficiently.</p>
+      <h1 class="title mb-2">Timetable Management Dashboard</h1>
+      <p class="subtitle mb-0">
+        Schedule classes, assign teachers, and manage rooms efficiently.
+        <br>
+        <small class="text-muted">
+          <strong>Class:</strong> {{ getSelectedClassName() || 'Select a class' }}
+        </small>
+      </p>
     </div>
   </div>
 
-  <!-- Controls Section - Card with Form -->
-  <div class="controls-section">
-    <div class="controls-card">
-      <!-- Timetable Entry Form -->
-      <div class="form-section">
-        <h6 class="form-title"><i class="fas fa-clock me-2"></i>New Timetable Entry</h6>
-        <form [formGroup]="timetableForm" (ngSubmit)="onSubmit()" class="entry-form">
-          <div class="row g-2">
-            <div class="col-md-3 col-sm-6">
-              <label class="form-label">Academic Year</label>
-              <select class="form-select" formControlName="academicYearId">
-                <option value="">Select Year</option>
-                <option *ngFor="let year of academicYears" [value]="year._id">{{ year.name }}</option>
-              </select>
-            </div>
-            <div class="col-md-3 col-sm-6">
-              <label class="form-label">Class</label>
-              <select class="form-select" formControlName="classId">
-                <option value="">Select Class</option>
-                <option *ngFor="let cls of getClasses()" [value]="cls._id">{{ cls.name }}</option>
-              </select>
-            </div>
-            <div class="col-md-3 col-sm-6">
-              <label class="form-label">Subject</label>
-              <select class="form-select" formControlName="subjectId">
-                <option value="">Select Subject</option>
-                <option *ngFor="let sub of getSubjects()" [value]="sub.subjectId">{{ sub.subjectName }}</option>
-              </select>
-            </div>
-            <div class="col-md-3 col-sm-6">
-              <label class="form-label">Teacher</label>
-              <select class="form-select" formControlName="teacherId">
-                <option value="">Select Teacher</option>
-                <option *ngFor="let teach of filteredTeachers" [value]="teach.teacherId">{{ teach.teacherName }}</option>
-              </select>
-            </div>
-            <div class="col-md-2 col-sm-6">
-              <label class="form-label">Day</label>
-              <select class="form-select" formControlName="day">
-                <option value="">Select Day</option>
-                <option *ngFor="let day of days" [value]="day">{{ day }}</option>
-              </select>
-            </div>
-            <div class="col-md-2 col-sm-6">
-              <label class="form-label">Start Time</label>
-              <input type="time" class="form-control" formControlName="startTime" />
-            </div>
-            <div class="col-md-2 col-sm-6">
-              <label class="form-label">End Time</label>
-              <input type="time" class="form-control" formControlName="endTime" />
-            </div>
-            <div class="col-md-3 col-sm-6">
-              <label class="form-label">Room</label>
-              <input type="text" class="form-control" formControlName="room" placeholder="e.g., Room 101" />
-            </div>
-            <div class="col-md-3 col-sm-6 d-flex align-items-end">
-              <button type="submit" class="btn-material btn-primary w-100" [disabled]="timetableForm.invalid">
-                <i class="fas fa-save"></i> Add Timetable
-              </button>
-            </div>
+  <!-- Add Period Form -->
+  <div class="controls-section mb-5">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h6 class="mb-4 text-primary fw-bold">Add New Period</h6>
+        <form [formGroup]="timetableForm" (ngSubmit)="onSubmit()" class="row g-3">
+          <div class="col-md-3 col-sm-6">
+            <label class="form-label small text-muted">Academic Year</label>
+            <select class="form-select form-select-sm" formControlName="academicYearId">
+              <option [ngValue]="null">Select Year</option>
+              <option *ngFor="let year of academicYears" [ngValue]="year._id">{{ year.name }}</option>
+            </select>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <label class="form-label small text-muted">Class</label>
+            <select class="form-select form-select-sm" formControlName="classId">
+              <option [ngValue]="null">Select Class</option>
+              <option *ngFor="let cls of getClasses()" [ngValue]="cls._id">{{ cls.name }}</option>
+            </select>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <label class="form-label small text-muted">Subject</label>
+            <select class="form-select form-select-sm" formControlName="subjectId">
+              <option [ngValue]="null">Select Subject</option>
+              <option *ngFor="let sub of getSubjects()" [ngValue]="sub.subjectId">{{ sub.subjectName }}</option>
+            </select>
+          </div>
+          <div class="col-md-3 col-sm-6">
+            <label class="form-label small text-muted">Teacher</label>
+            <select class="form-select form-select-sm" formControlName="teacherId">
+              <option [ngValue]="null">Select Teacher</option>
+              <option *ngFor="let teach of filteredTeachers" [ngValue]="teach.teacherId">{{ teach.teacherName }}</option>
+            </select>
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <label class="form-label small text-muted">Day</label>
+            <select class="form-select form-select-sm" formControlName="day">
+              <option [ngValue]="null">Select Day</option>
+              <option *ngFor="let day of days" [ngValue]="day">{{ day }}</option>
+            </select>
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <label class="form-label small text-muted">Start Time</label>
+            <input type="time" class="form-control form-control-sm" formControlName="startTime" />
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <label class="form-label small text-muted">End Time</label>
+            <input type="time" class="form-control form-control-sm" formControlName="endTime" />
+          </div>
+          <div class="col-md-2 col-sm-6">
+            <label class="form-label small text-muted">Room</label>
+            <input type="text" class="form-control form-control-sm" formControlName="room" placeholder="101" />
+          </div>
+          <div class="col-md-3 col-sm-6 d-flex align-items-end">
+            <button type="submit" class="btn btn-success w-100 fw-bold" [disabled]="timetableForm.invalid">
+              Add Period
+            </button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- Table/Grid Section - Enhanced Professional Table -->
-  <div class="table-section">
-    <div class="table-card">
-      <div *ngIf="!selectedClassId" class="no-data-alert">
-        <i class="fas fa-calendar-times fa-2x text-muted mb-3"></i>
-        <p class="text-muted">Please select a class to view the timetable.</p>
-        <small class="text-muted">Use the form above to add entries.</small>
+  <!-- Timetable Table -->
+  <div class="table-section" *ngIf="selectedClassId">
+    <div class="card border-0 shadow-lg">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table timetable-pro mb-0">
+            <thead class="bg-dark text-white">
+              <tr>
+                <th class="text-start ps-4 fw-bold">Day</th>
+                <th *ngFor="let slot of dynamicTimeSlots" class="text-center fw-bold">
+                  {{ slot.start }} - {{ slot.end }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let dayRow of timetableGrid; let index = index"
+                  [class.lunch-break-row]="days[index] === 'Lunch / Break'"
+                  class="align-middle">
+
+                <!-- Day Column -->
+                <td class="day-cell text-start fw-bold ps-4">
+                  <span *ngIf="days[index] === 'Lunch / Break'" class="lunch-day-label">
+                    Lunch Break
+                  </span>
+                  <span *ngIf="days[index] !== 'Lunch / Break'">{{ days[index] }}</span>
+                </td>
+
+                <!-- Time Slots -->
+                <td *ngFor="let cell of dayRow" class="period-cell position-relative">
+
+                  <!-- LUNCH BREAK ROW (Real Time from School) -->
+                  <div *ngIf="days[index] === 'Lunch / Break'" class="lunch-break-slot text-center py-4">
+                    <div class="lunch-title fw-bold text-success fs-3 mb-2">
+                      LUNCH
+                    </div>
+                    <div class="lunch-time fw-bold text-primary fs-4">
+                      {{ lunchStartTime }} - {{ lunchEndTime }}
+                    </div>
+                    <div class="text-success fw-bold mt-2">
+                      {{ lunchDuration }} • All Classes
+                    </div>
+                  </div>
+
+                  <!-- SUBJECT PERIOD -->
+                  <div *ngIf="days[index] !== 'Lunch / Break' && cell" class="period-content p-3">
+                    <div class="subject-title fw-bold text-primary mb-1" 
+                         [innerHTML]="formatSubject(cell.subject)"></div>
+                    <div class="teacher-name text-muted small">{{ cell.teacher }}</div>
+                    <div class="room-info text-muted small">Room: {{ cell.room }}</div>
+                    <button class="btn-delete btn btn-sm btn-danger mt-2" 
+                            (click)="deleteTimetable(cell.id)">
+                      Delete
+                    </button>
+                  </div>
+
+                  <!-- FREE PERIOD -->
+                  <div *ngIf="days[index] !== 'Lunch / Break' && !cell" class="free-period text-center text-muted">
+                    <small>Free Period</small>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="table-responsive" *ngIf="selectedClassId && timetableGrid.length > 0">
-        <table class="table table-striped table-hover table-sm professional-table" role="table" aria-label="Timetable Grid">
-          <thead class="table-dark">
-            <tr>
-              <th scope="col" class="day-col">Day</th>
-              <th scope="col" *ngFor="let slot of dynamicTimeSlots" class="time-slot-col">
-                {{ slot.start }} - {{ slot.end }}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let dayRow of timetableGrid; let rowIndex = index" class="align-middle">
-              <td class="day-cell fw-semibold">{{ days[rowIndex] }}</td>
-              <td *ngFor="let slot of dayRow; let colIndex = index" class="slot-cell align-middle text-center" [ngClass]="{'has-entry': slot, 'empty-slot': !slot}">
-                <div *ngIf="slot" class="slot-content">
-                  <div class="subject-badge badge badge-primary mb-1">{{ slot.subject }}</div>
-                  <div class="teacher-info small text-muted">{{ slot.teacher }}</div>
-                  <div class="room-info small text-muted">Room: {{ slot.room }}</div>
-                  <button 
-                    class="btn btn-outline-danger btn-sm mt-1" 
-                    (click)="deleteTimetable(slot.id)"
-                    [attr.aria-label]="'Delete ' + slot.subject + ' entry'"
-                    title="Delete">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
-                <div *ngIf="!slot" class="empty-slot-placeholder">
-                  <i class="fas fa-clock text-muted"></i>
-                  <small class="text-muted">Free</small>
-                </div>
-              </td>
-            </tr>
-            <tr *ngIf="timetableGrid.length === 0" class="no-data-row">
-              <td [attr.colspan]="dynamicTimeSlots.length + 1" class="text-center py-4">
-                <i class="fas fa-calendar fa-3x text-muted mb-3"></i>
-                <p class="text-muted mb-0">No timetable entries found.</p>
-                <small class="text-muted">Add your first entry using the form above.</small>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    </div>
+
+    <!-- No Data -->
+    <div *ngIf="!timetableGrid.length" class="text-center py-5">
+      <p class="text-muted fs-5">No periods added yet. Use the form above to create timetable.</p>
     </div>
   </div>
 </div>

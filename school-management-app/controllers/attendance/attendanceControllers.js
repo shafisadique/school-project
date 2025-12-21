@@ -135,7 +135,6 @@ const markAttendance = async (req, res, next) => {
   }
 };
 
-
 const editAttendance = async (req, res, next) => {
   try {
     const { attendanceId } = req.params;
@@ -302,4 +301,201 @@ const getAttendanceHistory = async (req, res, next) => {
   }
 };
 
-module.exports = { markAttendance, editAttendance, getAttendanceHistory };
+// Add this new controller function to your attendanceControllers.js file
+const getStudentMonthlyAttendance = async (req, res, next) => {
+  try {
+    const { studentId } = req.params;
+    const { academicYearId, year: yearParam, month: monthParam } = req.query;
+    const schoolId = req.user.schoolId;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // Validate required parameters
+    if (!studentId || !academicYearId) {
+      throw new APIError('Student ID and Academic Year ID are required', 400);
+    }
+
+    // Convert IDs to ObjectId
+    if (!mongoose.Types.ObjectId.isValid(studentId) || !mongoose.Types.ObjectId.isValid(academicYearId) || !mongoose.Types.ObjectId.isValid(schoolId)) {
+      throw new APIError('Invalid Student ID, Academic Year ID, or School ID', 400);
+    }
+    const objectIds = {
+      studentId: new mongoose.Types.ObjectId(studentId),
+      academicYearId: new mongoose.Types.ObjectId(academicYearId),
+      schoolId: new mongoose.Types.ObjectId(schoolId)
+    };
+
+    // Default to current month/year if not provided
+    const now = new Date();
+    const year = parseInt(yearParam) || now.getFullYear();
+    const month = parseInt(monthParam) || now.getMonth();  // 0-based
+
+    // Validate month/year
+    if (month < 0 || month > 11 || year < 1900 || year > 2100) {
+      throw new APIError('Invalid month or year', 400);
+    }
+
+    // Role-based access (e.g., teacher/admin can view any; student/parent only own)
+    let isAuthorized = false;
+    if (userRole === 'admin' || userRole === 'teacher') {
+      isAuthorized = true;  // Full access
+    } else if (userRole === 'student' || userRole === 'parent') {
+      // For student: must be their own ID (from user._id, assuming student userId links to profile)
+      // For parent: check if student is linked to parent's children (you'd need a Parent model with children array)
+      // Placeholder: assume student role checks userId === studentId; extend for parent
+      if (userRole === 'student' && userId === studentId) {
+        isAuthorized = true;
+      }
+      // TODO: For parent, query Parent.findOne({ userId }).children includes studentId
+    }
+    if (!isAuthorized) {
+      throw new APIError('Unauthorized to view this student\'s attendance', 403);
+    }
+
+    // Month range: Start of month to end of month (UTC midnight for consistency)
+    const monthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0));
+    const monthEnd = new Date(Date.UTC(year, month + 1, 1, 0, 0, 0));  // Exclusive
+
+    // Aggregation for daily attendance list (unwind students, match, project date & status)
+    const dailyAttendance = await Attendance.aggregate([
+      { $match: { 
+          schoolId: objectIds.schoolId,
+          academicYearId: objectIds.academicYearId,
+          date: { $gte: monthStart, $lt: monthEnd }
+        }
+      },
+      { $unwind: '$students' },
+      { $match: { 'students.studentId': objectIds.studentId } },
+      {
+        $project: {
+          date: { $dateToString: { format: '%Y-%m-%d', date: '$date' } },  // YYYY-MM-DD string
+          status: '$students.status',
+          _id: 0
+        }
+      },
+      { $sort: { date: 1 } }  // Chronological order
+    ]);
+
+    // Aggregation for summary counts
+    const summary = await Attendance.aggregate([
+      { $match: { 
+          schoolId: objectIds.schoolId,
+          academicYearId: objectIds.academicYearId,
+          date: { $gte: monthStart, $lt: monthEnd }
+        }
+      },
+      { $unwind: '$students' },
+      { $match: { 'students.studentId': objectIds.studentId } },
+      {
+        $group: {
+          _id: '$students.status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Process summary into object (default 0s)
+    const statusCounts = {
+      Present: 0,
+      Absent: 0,
+      Late: 0
+    };
+    summary.forEach(item => {
+      statusCounts[item._id] = item.count;
+    });
+
+    const totalWorkingDays = dailyAttendance.length;  // Assuming marked days = working days; extend with holidays if needed
+    const totalPresent = statusCounts.Present;
+    const totalAbsent = statusCounts.Absent;
+    const totalLate = statusCounts.Late;
+    const attendancePercentage = totalWorkingDays > 0 
+      ? Math.round((totalPresent / totalWorkingDays) * 100) 
+      : 0;
+
+    // Response
+    res.status(200).json({
+      success: true,
+      data: {
+        studentId,
+        academicYearId,
+        year,
+        month: month + 1,  // 1-based for display
+        monthlyReport: {
+          dailyAttendance,  // Array of { date: '2025-12-05', status: 'Present' }
+          summary: {
+            totalWorkingDays,
+            totalPresent,
+            totalAbsent,
+            totalLate,
+            attendancePercentage
+          }
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in getStudentMonthlyAttendance:', error);
+    next(error instanceof APIError ? error : new APIError('Internal server error', 500, error));
+  }
+};
+
+// controllers/attendance.controller.ts
+
+const getStudentAttendanceReport = async (req, res) => {
+  try {
+    const studentId = req.user.additionalInfo?.studentId?.toString();
+    const academicYearId = req.user.activeAcademicYear;
+
+    if (!studentId || !academicYearId) {
+      return res.status(400).json({ success: false, message: 'Missing student or year' });
+    }
+
+    const records = await Attendance.find({
+      schoolId: req.user.schoolId,
+      academicYearId,
+      'students.studentId': new mongoose.Types.ObjectId(studentId)
+    }).lean();
+
+    console.log(`Found ${records.length} records for student ${studentId}`);
+
+    const summary = { present: 0, absent: 0, late: 0, totalDays: 0 };
+    const dailyData = {};
+
+    records.forEach(record => {
+      const entry = record.students.find(s => 
+        s.studentId.toString() === studentId
+      );
+
+      if (entry) {
+        const status = entry.status;
+        const key = status.toLowerCase();
+        if (['present', 'absent', 'late'].includes(key)) {
+          summary[key]++;
+        }
+        summary.totalDays++;
+
+        dailyData[new Date(record.date).toISOString().split('T')[0]] = status;
+      }
+    });
+
+    const percentage = summary.totalDays > 0
+      ? Math.round((summary.present / summary.totalDays) * 100)
+      : 0;
+
+    return res.json({
+      success: true,
+      data: {
+        summary: { ...summary, percentage },
+        dailyData,
+        totalRecords: records.length
+      }
+    });
+
+  } catch (err) {
+    console.error('Error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+
+module.exports = { markAttendance, editAttendance, getAttendanceHistory,getStudentMonthlyAttendance,getStudentAttendanceReport };

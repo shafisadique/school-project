@@ -332,9 +332,9 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 // ==================== CORS & SECURITY ====================
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : ['https://edglobe-from-novuspark-app.vercel.app'];
+  const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : ['https://edglobe-from-novuspark-app.vercel.app','http://localhost:4300'];
 
 app.use(cors({
   origin: allowedOrigins,
@@ -396,10 +396,25 @@ io.on('connection', (socket) => {
 
   socket.on('join', (user) => {
     if (!user?.id || !user?.schoolId) return;
-    activeUsers.set(socket.id, { userId: user.id, schoolId: user.schoolId, role: user.role });
+    
+    activeUsers.set(socket.id, { 
+      userId: user.id, 
+      schoolId: user.schoolId, 
+      role: user.role 
+    });
+
     socket.join(user.schoolId);
     socket.join(user.id);
+
     logger.info(`User ${user.id} (${user.role}) joined school ${user.schoolId}`);
+  });
+
+  // THIS WAS MISSING — ADD THIS
+  socket.on('join-role', (role) => {
+    if (role && ['teacher', 'student', 'parent', 'admin'].includes(role)) {
+      socket.join(`role_${role}`);
+      logger.info(`User joined role room: role_${role}`);
+    }
   });
 
   socket.on('disconnect', () => {
@@ -507,6 +522,7 @@ app.use('/api/assignments', authMiddleware, assignmentRoutes);
 app.use('/api/reports', reportsRouters);
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/dashboard', require('./routes/teacher-dashboard/teacher-dashboardRoutes'));
+app.use('/api/student-dashboard', require('./routes/student-dashboard/studentDashboardRoutes'));
 
 // ==================== ERROR HANDLER ====================
 app.use((err, req, res, next) => {
@@ -524,4 +540,17 @@ app.get('/api/health', (req, res) => res.json({ status: 'OK', time: new Date() }
 
 // ==================== VERCEL EXPORT (MOST IMPORTANT) ====================
 // DO NOT use app.listen() or server.listen() → Vercel handles it
-module.exports = server;
+// module.exports = server;
+
+
+if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+  module.exports = server;
+} 
+// LOCAL: You need to start the server
+else {
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Local server running on http://localhost:${PORT}`);
+    console.log(`Allowed origins:`, allowedOrigins);
+  });
+}

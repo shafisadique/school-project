@@ -2,6 +2,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule, formatDate } from '@angular/common';  // Add formatDate here
 import { ResultService } from '../result.service';
+import { FormsModule } from '@angular/forms';
 
 interface SubjectResult {
   subjectId: { _id: string; name: string };
@@ -32,7 +33,7 @@ interface ApiResponse {
 @Component({
   selector: 'app-student-result',
   templateUrl: './student-result.component.html',
-  imports: [CommonModule],
+  imports: [CommonModule,FormsModule],
   styleUrls: ['./student-result.component.scss']
 })
 export class StudentResultComponent implements OnInit {

@@ -156,8 +156,12 @@ export class NavRightComponent implements OnInit, OnDestroy {
       role: this.role
     };
     this.socket.on('connect', () => {
-      console.log('Socket connected:', this.socket.id);
-      this.socket.emit('join', userData); // Rejoin on reconnect
+      this.socket.emit('join', {
+      userId: this.authService.getUserId(),
+      schoolId: this.authService.getSchoolId(),
+      role: this.role
+    });
+    this.socket.emit('join-role', this.role);
     });
 
     this.socket.on('new-notification', (notif: any) => {
@@ -172,6 +176,7 @@ export class NavRightComponent implements OnInit, OnDestroy {
       console.log('Socket disconnected');
     });
   }
+
   playNotificationSoundOnce() {
   if (this.hasPlayedSound) return;
 
@@ -183,6 +188,11 @@ export class NavRightComponent implements OnInit, OnDestroy {
   setTimeout(() => {
     this.hasPlayedSound = false;
   }, 3000);
+}
+directUpgrade(planValue: string) {
+  this.selectedPlan = planValue;
+  this.selectedPaymentMethod = 'razorpay';  // Auto select
+  this.upgradePlan();  // Direct payment
 }
 
   ngOnDestroy(): void {
@@ -210,36 +220,68 @@ export class NavRightComponent implements OnInit, OnDestroy {
 
 
   // UPDATED: Only play if NEW notifs (not on every load)
-  loadNotifications() {
-    const url = `${environment.apiUrl}/api/notifications/me`;
+  // loadNotifications() {
+  //   const url = `${environment.apiUrl}/api/notifications/me`;
 
-    this.http.get<any>(url).subscribe({
-      next: (res) => {
-        console.log(res)
-        this.notifications = (res.notifications || []).filter(n =>
-          ['announcement', 'assignment', 'progress-report', 'absence', 'fee-alert'].includes(n.type)
-        );
+  //   this.http.get<any>(url).subscribe({
+  //     next: (res) => {
+  //       console.log(res)
+  //       this.notifications = (res.notifications || []).filter(n =>
+  //         ['announcement', 'assignment', 'progress-report', 'absence', 'fee-alert'].includes(n.type)
+  //       );
 
-        this.notificationCount = res.unreadCount || this.notifications.filter(n =>
-          !['read', 'delivered'].includes(n.status)
-        ).length;
+  //       this.notificationCount = res.unreadCount || this.notifications.filter(n =>
+  //         !['read', 'delivered'].includes(n.status)
+  //       ).length;
 
-        // NEW: Play ONLY if count increased (new notifs) AND unlocked
-        if (this.notificationCount > this.oldNotificationCount && this.hasUserInteracted) {
-          console.log(`New notifs! Old: ${this.oldNotificationCount}, New: ${this.notificationCount}`);
-          setTimeout(() => this.playNotificationSound(), 200);  // Tiny delay for safety
-        }
-        this.oldNotificationCount = this.notificationCount;  // Update tracker
-      },
-      error: () => {
-        this.notifications = [];
-        this.notificationCount = 0;
-        this.oldNotificationCount = 0;
+  //       // NEW: Play ONLY if count increased (new notifs) AND unlocked
+  //       if (this.notificationCount > this.oldNotificationCount && this.hasUserInteracted) {
+  //         console.log(`New notifs! Old: ${this.oldNotificationCount}, New: ${this.notificationCount}`);
+  //         setTimeout(() => this.playNotificationSound(), 200);  // Tiny delay for safety
+  //       }
+  //       this.oldNotificationCount = this.notificationCount;  // Update tracker
+  //     },
+  //     error: () => {
+  //       this.notifications = [];
+  //       this.notificationCount = 0;
+  //       this.oldNotificationCount = 0;
+  //     }
+  //   });
+  // }
+
+loadNotifications() {
+  const url = `${environment.apiUrl}/api/notifications/me`;
+
+  this.http.get<any>(url).subscribe({
+    next: (res) => {
+      const notifications = res.notifications || [];
+
+      const currentUserId = this.authService.getUserId();
+
+      // DO NOT FILTER BY RECIPIENTID FIRST — IT KILLS EVERYTHING
+      this.notifications = notifications;  // SHOW ALL
+
+      // Just count unread
+      this.notificationCount = notifications.filter(n => 
+        n.status === 'pending' || n.status === 'sent'
+      ).length;
+
+      // Play sound for new ones
+      if (this.notificationCount > this.oldNotificationCount && this.hasUserInteracted) {
+        setTimeout(() => this.playNotificationSound(), 200);
       }
-    });
-  }
+      this.oldNotificationCount = this.notificationCount;
 
-  // ... ALL OTHER METHODS UNCHANGED (fetchPlans, openUpgradeModal, etc.) ...
+      console.log('Notifications loaded:', this.notifications.length); // Debug
+    },
+    error: (err) => {
+      console.error('Load notifications error:', err);
+      this.notifications = [];
+      this.notificationCount = 0;
+    }
+  });
+}
+
   fetchPlans() {
     this.dashboardService.getPlans().subscribe({
       next: (data: any) => {

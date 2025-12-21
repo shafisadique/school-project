@@ -1,9 +1,188 @@
-const mongoose = require('mongoose');
+// controllers/student/studentDashboardController.js
+
 const Student = require('../../models/student');
-const Attendance = require('../../models/studentAttendance');
-const Class = require('../../models/class');
-const APIError = require('../../utils/apiError');
+const Holiday = require('../../models/holiday');
+const FeeInvoice = require('../../models/feeInvoice');
+const Assignment = require('../../models/assignment');
+const Teacher = require('../../models/teacher');
+const Subject = require('../../models/subject');
+const Payment = require('../../models/payment');
+const attendance = require('../../models/studentAttendance')
+
+const mongoose = require('mongoose');
 const moment = require('moment-timezone');
+
+
+const getStudentDashboard = async (req, res) => {
+  try {
+    const studentId = req.user.additionalInfo?.studentId;
+    console.log(studentId)
+    if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
+      return res.status(400).json({ message: 'Invalid student access' });
+    }
+
+    const studentObjId = new mongoose.Types.ObjectId(studentId);
+    const schoolObjId = new mongoose.Types.ObjectId(req.user.schoolId);
+    const academicYearObjId = new mongoose.Types.ObjectId(req.user.activeAcademicYear);
+
+    const today = moment.tz('Asia/Kolkata');
+    const todayStart = today.clone().startOf('day').toDate();
+    const todayEnd = today.clone().endOf('day').toDate();
+
+    const [result] = await Student.aggregate([
+      { $match: { _id: studentObjId, schoolId: schoolObjId, academicYearId: academicYearObjId, status: true } },
+
+      { $lookup: { from: 'classes', localField: 'classId', foreignField: '_id', as: 'classInfo' } },
+      { $unwind: { path: '$classInfo', preserveNullAndEmptyArrays: true } },
+
+      // TODAY'S HOLIDAY
+      {
+        $lookup: {
+          from: 'holidays',
+          pipeline: [
+            { $match: { schoolId: schoolObjId, date: { $gte: todayStart, $lte: todayEnd } } },
+            { $limit: 1 },
+            { $project: { title: 1 } }
+          ],
+          as: 'todayHoliday'
+        }
+      },
+
+      // ALL HOLIDAYS
+      {
+        $lookup: {
+          from: 'holidays',
+          pipeline: [
+            { $match: { schoolId: schoolObjId } },
+            { $sort: { date: 1 } },
+            { $limit: 10 },
+            { $project: { title: 1, date: { $dateToString: { format: "%d %b %Y", date: "$date" } } } }
+          ],
+          as: 'allHolidays'
+        }
+      },
+
+      // FULL FEE INVOICES + PAYMENT HISTORY — ALL 12 MONTHS
+      {
+        $lookup: {
+          from: 'feeinvoices',
+          let: { studentId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$studentId', '$$studentId'] },
+                    { $eq: ['$academicYear', academicYearObjId] }
+                  ]
+                }
+              }
+            },
+            {
+              $lookup: {
+                from: 'payments',
+                localField: '_id',
+                foreignField: 'invoiceId',
+                as: 'payments'
+              }
+            },
+            {
+              $addFields: {
+                paidAmount: { $sum: '$payments.amount' },
+                remainingDue: { $subtract: ['$totalAmount', { $sum: '$payments.amount' }] },
+                paymentHistory: {
+                  $map: {
+                    input: '$payments',
+                    in: {
+                      amount: '$$this.amount',
+                      method: '$$this.paymentMethod',
+                      date: { $dateToString: { format: "%d %b %Y", date: "$$this.date" } }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              $project: {
+                month: 1,
+                totalAmount: 1,
+                paidAmount: 1,
+                remainingDue: 1,
+                status: 1,
+                dueDate: { $dateToString: { format: "%b %Y", date: "$dueDate" } },
+                paymentHistory: 1
+              }
+            },
+            { $sort: { dueDate: 1 } }
+          ],
+          as: 'feeInvoices'
+        }
+      },
+
+      // PENDING ASSIGNMENTS
+      {
+        $lookup: {
+          from: 'assignments',
+          let: { classId: '$classId', studentId: studentObjId },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ['$classId', '$$classId'] }, { $lte: ['$dueDate', new Date()] }] } } },
+            { $addFields: { isSubmitted: { $in: ['$$studentId', { $ifNull: ['$submittedBy', []] }] } } },
+            { $match: { isSubmitted: false } },
+            {
+              $lookup: { from: 'subjects', localField: 'subjectId', foreignField: '_id', as: 'subjectInfo' } },
+            { $unwind: { path: '$subjectInfo', preserveNullAndEmptyArrays: true } },
+            {
+              $project: {
+                subject: '$subjectInfo.name',
+                dueDate: { $dateToString: { format: "%d %b", date: "$dueDate" } }
+              }
+            }
+          ],
+          as: 'pendingAssignments'
+        }
+      },
+
+      // FINAL PROJECT — FULL SESSION
+      {
+        $project: {
+          name: 1,
+          admissionNo: 1,
+          rollNo: { $ifNull: ['$rollNo', 'Not Assigned'] },
+          className: '$classInfo.name',
+          section: 1,
+          profileImage: '$profileImage',
+          todayAttendance: {
+            $cond: [
+              { $gt: [{ $size: '$todayHoliday' }, 0] },
+              'Holiday',
+              'School Day'
+            ]
+          },
+
+          holidayName: { $arrayElemAt: ['$todayHoliday.title', 0] },
+          allHolidays: 1,
+          pendingAssignments: { $ifNull: ['$pendingAssignments', []] },
+
+          // FULL FEE SESSION — ALL 12 MONTHS
+          feeInvoices: { $ifNull: ['$feeInvoices', []] },
+          totalFee: { $sum: '$feeInvoices.totalAmount' },
+          totalPaid: { $sum: '$feeInvoices.paidAmount' },
+          totalDue: { $sum: '$feeInvoices.remainingDue' }
+        }
+      }
+    ]);
+
+    if (!result) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    res.json({ success: true, data: result });
+
+  } catch (error) {
+    console.error('Dashboard error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 async function getStudentDashboardData(user) {
   const { schoolId, activeAcademicYear: academicYearId } = user;
@@ -101,7 +280,7 @@ const getStudentAttendance = async (req, res, next) => {
     }
 
     // Aggregate attendance
-    const attendanceAgg = await Attendance.aggregate([
+    const attendanceAgg = await attendance.aggregate([
       { $match: attendanceMatch },
       { $unwind: '$students' },
       {
@@ -161,4 +340,4 @@ const getStudentAttendance = async (req, res, next) => {
   }
 };
 
-module.exports = { getStudentAttendance, getStudentDashboardData };
+module.exports = { getStudentDashboard,getStudentDashboardData,getStudentAttendance };

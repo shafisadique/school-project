@@ -9,116 +9,155 @@ const School = require('../../models/school');
 const { calculateDistance } = require('../../utils/locationUtils');
 const { log } = require('winston');
 
+
 exports.markAttendance = async (req, res, next) => {
   const session = await mongoose.startSession();
+
   try {
     await session.withTransaction(async () => {
-      const { teacherId, date, status, leaveType, remarks, academicYearId,lat, lng } = req.body;
-      const { schoolId, id: recordedBy } = req.user;
+      // NEVER trust teacherId from body when teacher marks own attendance
+      const { date, status, leaveType, remarks, lat, lng } = req.body;
+
+      const { 
+        id: recordedByUserId, 
+        schoolId, 
+        activeAcademicYear: academicYearId 
+      } = req.user;
+
+      // CRITICAL: Get REAL teacherId from logged-in user
+      let teacherId = req.user.teacherId; // Recommended: Add this in JWT during login
+
+      if (!teacherId) {
+        // Fallback: Find from Teacher collection
+        const teacherDoc = await Teacher.findOne({ userId: recordedByUserId }).session(session);
+        if (!teacherDoc) {
+          throw new APIError('Teacher profile not found. Please contact admin.', 404);
+        }
+        teacherId = teacherDoc._id;
+      }
+
+      // Required fields
       if (!academicYearId) {
         throw new APIError('Academic year ID is required', 400);
       }
       if (!lat || !lng) {
-        throw new APIError('Location coordinates are required', 400);
+        throw new APIError('Location coordinates (lat, lng) are required', 400);
+      }
+      if (!status || !['Present', 'Absent', 'On Leave'].includes(status)) {
+        throw new APIError('Valid status is required (Present/Absent/On Leave)', 400);
       }
 
-      const attendanceDate = new Date(date);
+      // Normalize date to midnight
+      let attendanceDate = date ? new Date(date) : new Date();
+      if (isNaN(attendanceDate.getTime())) {
+        throw new APIError('Invalid date format', 400);
+      }
       attendanceDate.setHours(0, 0, 0, 0);
 
-      // Get current date in IST
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const istOffset = 5.5 * 60 * 60 * 1000;
-      const todayIST = new Date(today.getTime() + istOffset);
+      // Prevent future dates
+      const todayIST = new Date();
       todayIST.setHours(0, 0, 0, 0);
+      const istOffset = 5.5 * 60 * 60 * 1000;
+      const todayInIST = new Date(todayIST.getTime() + istOffset);
+      todayInIST.setHours(0, 0, 0, 0);
 
-      // Validate date
-      if (attendanceDate > todayIST) {
-        throw new APIError('Cannot mark attendance for a future date', 400);
+      if (attendanceDate > todayInIST) {
+        throw new APIError('Cannot mark attendance for future dates', 400);
       }
 
-      if (!date || isNaN(attendanceDate.getTime())) {
-        attendanceDate = todayIST;
-      }
-
-      // Get school's weekly holiday day
+      // Fetch school
       const school = await School.findById(schoolId).session(session);
       if (!school) throw new APIError('School not found', 404);
-      
-      const weeklyHolidayDay = school.weeklyHolidayDay;
-      const attendanceDay = attendanceDate.toLocaleDateString('en-US', { weekday: 'long' });
 
-      if (attendanceDay === weeklyHolidayDay && status !== 'Holiday') {
-        throw new APIError(`Cannot mark attendance on ${weeklyHolidayDay} unless status is Holiday`, 400);
+      // Weekly holiday check
+      const dayName = attendanceDate.toLocaleDateString('en-US', { weekday: 'long' });
+      if (dayName === school.weeklyHolidayDay && status !== 'Holiday') {
+        throw new APIError(`Today is weekly holiday (${school.weeklyHolidayDay}). Cannot mark except Holiday.`, 400);
       }
 
-      // Check specific holiday
-      const holiday = await Holiday.findOne({ schoolId, date: attendanceDate }).session(session);
+      // Specific holiday check
+      const holiday = await Holiday.findOne({
+        schoolId,
+        date: { $gte: attendanceDate, $lt: new Date(attendanceDate.getTime() + 24*60*60*1000) }
+      }).session(session);
+
       if (holiday && status !== 'Holiday') {
-        throw new APIError('Cannot mark attendance on a holiday unless status is Holiday', 400);
+        throw new APIError(`Cannot mark attendance on holiday: ${holiday.title}`, 400);
       }
-      // GPS Validation: Check if within school premises
+
+      // GPS Distance Check
       const distance = calculateDistance(lat, lng, school.latitude, school.longitude);
       if (distance > school.radius) {
-        throw new APIError('Cannot mark attendance outside school premises', 403);
+        throw new APIError(`You are ${Math.round(distance)}m away. Must be within ${school.radius}m of school.`, 403);
       }
 
-      // Check existing attendance
-      const existingAttendance = await TeacherAttendance.findOne({ 
-        teacherId, 
-        date: attendanceDate 
+      // Check if already marked
+      const existing = await TeacherAttendance.findOne({
+        teacherId,
+        schoolId,
+        academicYearId,
+        date: attendanceDate
       }).session(session);
-      
-      if (existingAttendance) {
-        throw new APIError('Attendance already recorded for this date', 400);
+
+      if (existing) {
+        throw new APIError('Attendance already marked for this date', 400);
       }
 
-      // Handle absent/leave cases
+      // Handle Leave / Absent → Create TeacherAbsence record
       if (status === 'Absent' || status === 'On Leave') {
         const teacher = await Teacher.findById(teacherId).session(session);
         if (!teacher) throw new APIError('Teacher not found', 404);
 
-        if (status === 'On Leave' && leaveType && leaveType !== 'Unpaid') {
-          if (teacher.leaveBalance <= 0) {
-            throw new APIError('No leave balance available', 400);
+        let finalLeaveType = 'Unpaid';
+        let reason = remarks || 'No reason provided';
+
+        if (status === 'On Leave') {
+          finalLeaveType = leaveType || 'Casual';
+          reason = remarks || `${finalLeaveType} leave applied`;
+
+          // Deduct leave balance only for paid leaves
+          if (finalLeaveType !== 'Unpaid' && teacher.leaveBalance <= 0) {
+            throw new APIError('Insufficient leave balance', 400);
           }
-          teacher.leaveBalance -= 1;
-          await teacher.save({ session });
+          if (finalLeaveType !== 'Unpaid') {
+            teacher.leaveBalance -= 1;
+            await teacher.save({ session });
+          }
         }
 
-        await TeacherAbsence.create(
-          [{
-            teacherId,
-            schoolId,
-            academicYearId,
-            date: attendanceDate,
-            reason: remarks || (status === 'Absent' ? 'Unplanned absence' : `${leaveType} leave`),
-            status: status === 'On Leave' ? 'Pending' : 'Approved',
-            leaveType: status === 'On Leave' ? leaveType : 'Unpaid'
-          }],
-          { session }
-        );
-      }
-
-      // Create attendance record
-      const attendance = await TeacherAttendance.create(
-        [{
+        await TeacherAbsence.create([{
           teacherId,
           schoolId,
           academicYearId,
           date: attendanceDate,
-          status,
-          leaveType: status === 'On Leave' ? leaveType : null,
-          remarks,
-          recordedBy
-        }],
-        { session }
-      );
+          reason,
+          status: status === 'On Leave' ? 'Pending' : 'Approved',
+          leaveType: finalLeaveType,
+          appliedBy: recordedByUserId
+        }], { session });
+      }
 
-      res.status(201).json({
+      // Finally create attendance record
+      const attendance = await TeacherAttendance.create([{
+        teacherId,
+        schoolId,
+        academicYearId,
+        date: attendanceDate,
+        status,
+        leaveType: status === 'On Leave' ? leaveType : null,
+        remarks: remarks || null,
+        recordedBy: recordedByUserId,
+        location: { type: 'Point', coordinates: [lng, lat] } // Optional: store GPS
+      }], { session });
+
+      return res.status(201).json({
         success: true,
-        message: 'Attendance recorded successfully',
-        data: attendance[0]
+        message: 'Attendance marked successfully!',
+        data: {
+          attendance: attendance[0],
+          distance: Math.round(distance) + 'm',
+          markedAt: new Date().toLocaleTimeString('en-IN')
+        }
       });
     });
   } catch (error) {
@@ -128,6 +167,126 @@ exports.markAttendance = async (req, res, next) => {
   }
 };
 
+
+// exports.markAttendance = async (req, res, next) => {
+//   const session = await mongoose.startSession();
+//   try {
+//     await session.withTransaction(async () => {
+//       const { teacherId, date, status, leaveType, remarks, academicYearId,lat, lng } = req.body;
+//       const { schoolId, id: recordedBy } = req.user;
+//       if (!academicYearId) {
+//         throw new APIError('Academic year ID is required', 400);
+//       }
+//       if (!lat || !lng) {
+//         throw new APIError('Location coordinates are required', 400);
+//       }
+
+//       const attendanceDate = new Date(date);
+//       attendanceDate.setHours(0, 0, 0, 0);
+
+//       // Get current date in IST
+//       const today = new Date();
+//       today.setHours(0, 0, 0, 0);
+//       const istOffset = 5.5 * 60 * 60 * 1000;
+//       const todayIST = new Date(today.getTime() + istOffset);
+//       todayIST.setHours(0, 0, 0, 0);
+
+//       // Validate date
+//       if (attendanceDate > todayIST) {
+//         throw new APIError('Cannot mark attendance for a future date', 400);
+//       }
+
+//       if (!date || isNaN(attendanceDate.getTime())) {
+//         attendanceDate = todayIST;
+//       }
+
+//       // Get school's weekly holiday day
+//       const school = await School.findById(schoolId).session(session);
+//       if (!school) throw new APIError('School not found', 404);
+      
+//       const weeklyHolidayDay = school.weeklyHolidayDay;
+//       const attendanceDay = attendanceDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+//       if (attendanceDay === weeklyHolidayDay && status !== 'Holiday') {
+//         throw new APIError(`Cannot mark attendance on ${weeklyHolidayDay} unless status is Holiday`, 400);
+//       }
+
+//       // Check specific holiday
+//       const attendanceDateStr = moment(attendanceDate).format('DD MMM YYYY');
+//       const holiday = await Holiday.findOne({ schoolId, date: attendanceDateStr }).session(session);
+//       if (holiday && status !== 'Holiday') {
+//         throw new APIError('Cannot mark attendance on a holiday unless status is Holiday', 400);
+//       }
+//       // GPS Validation: Check if within school premises
+//       const distance = calculateDistance(lat, lng, school.latitude, school.longitude);
+//       if (distance > school.radius) {
+//         throw new APIError('Cannot mark attendance outside school premises', 403);
+//       }
+
+//       // Check existing attendance
+//       const existingAttendance = await TeacherAttendance.findOne({ 
+//         teacherId, 
+//         date: attendanceDate 
+//       }).session(session);
+      
+//       if (existingAttendance) {
+//         throw new APIError('Attendance already recorded for this date', 400);
+//       }
+
+//       // Handle absent/leave cases
+//       if (status === 'Absent' || status === 'On Leave') {
+//         const teacher = await Teacher.findById(teacherId).session(session);
+//         if (!teacher) throw new APIError('Teacher not found', 404);
+
+//         if (status === 'On Leave' && leaveType && leaveType !== 'Unpaid') {
+//           if (teacher.leaveBalance <= 0) {
+//             throw new APIError('No leave balance available', 400);
+//           }
+//           teacher.leaveBalance -= 1;
+//           await teacher.save({ session });
+//         }
+
+//         await TeacherAbsence.create(
+//           [{
+//             teacherId,
+//             schoolId,
+//             academicYearId,
+//             date: attendanceDate,
+//             reason: remarks || (status === 'Absent' ? 'Unplanned absence' : `${leaveType} leave`),
+//             status: status === 'On Leave' ? 'Pending' : 'Approved',
+//             leaveType: status === 'On Leave' ? leaveType : 'Unpaid'
+//           }],
+//           { session }
+//         );
+//       }
+
+//       // Create attendance record
+//       const attendance = await TeacherAttendance.create(
+//         [{
+//           teacherId,
+//           schoolId,
+//           academicYearId,
+//           date: attendanceDate,
+//           status,
+//           leaveType: status === 'On Leave' ? leaveType : null,
+//           remarks,
+//           recordedBy
+//         }],
+//         { session }
+//       );
+
+//       res.status(201).json({
+//         success: true,
+//         message: 'Attendance recorded successfully',
+//         data: attendance[0]
+//       });
+//     });
+//   } catch (error) {
+//     next(error);
+//   } finally {
+//     await session.endSession();
+//   }
+// };
 
 // exports.markAttendance = async (req, res, next) => {
 //   const session = await mongoose.startSession();

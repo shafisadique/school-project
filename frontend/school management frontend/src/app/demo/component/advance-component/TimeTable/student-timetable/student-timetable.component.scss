@@ -1,0 +1,252 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+$timetable-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+$card-shadow: 0 10px 30px rgba(0,0,0,0.12);
+$card-shadow-hover: 0 20px 50px rgba(0,0,0,0.2);
+
+.timetable-wrapper {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+  padding: 1.5rem;
+
+  .page-header {
+    margin-bottom: 2rem;
+    .header-content {
+      display: flex;
+      width: 100%;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      background: rgba(255,255,255,0.95);
+      padding: 1.8rem 2rem;
+      border-radius: 20px;
+      box-shadow: $card-shadow;
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.3);
+
+      .page-title {
+        font-size: 2rem;
+        font-weight: 700;
+        background: $timetable-gradient;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+      }
+      .page-subtitle {
+        color: #64748b;
+        margin: 0.5rem 0 0;
+        font-size: 1rem;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        .modern-select {
+          border-radius: 50px;
+          padding: 0.6rem 1.4rem;
+          font-weight: 500;
+          border: 2px solid #e2e8f0;
+          background: white;
+          min-width: 180px;
+          box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .badge-modern {
+          padding: 0.6rem 1.2rem;
+          border-radius: 50px;
+          font-weight: 600;
+          font-size: 0.9rem;
+          color: white;
+          background: $timetable-gradient;
+          box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+      }
+    }
+  }
+
+  .loading-state, .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    .spinner-large {
+      width: 4rem;
+      height: 4rem;
+      border: 5px solid #f3f4f6;
+      border-top: 5px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1rem;
+    }
+  }
+
+  .timetable-card {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: $card-shadow;
+    border: 1px solid #e2e8f0;
+
+    .timetable-header {
+      padding: 1.5rem 2rem;
+      background: linear-gradient(135deg, #2c3e50, #34495e);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      h4 { margin: 0; font-weight: 600; color: white;}
+
+      .legend {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.9rem;
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            &.weekend { background: #fbbf24; }
+            &.break { background: #e5e7eb; }
+          }
+        }
+      }
+    }
+
+    .timetable-table {
+      margin: 0;
+      thead th {
+        background: linear-gradient(135deg, #1e293b, #334155);
+        color: white;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+
+        &.day-header {
+          background: #1e293b;
+          position: sticky;
+          left: 0;
+          z-index: 10;
+          width: 130px;
+        }
+      }
+
+      .day-cell {
+        background: #f8fafc;
+        font-weight: 700;
+        color: #1e293b;
+        text-align: center;
+        position: sticky;
+        left: 0;
+        z-index: 9;
+
+        .date-hint {
+          font-size: 0.7rem;
+          color: #10b981;
+          font-weight: 600;
+          margin-top: 4px;
+        }
+      }
+
+      .period-cell {
+        min-height: 110px;
+        vertical-align: middle;
+        text-align: center;
+        padding: 1rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+
+        &.break-cell {
+          background: repeating-linear-gradient(
+            45deg,
+            #f8fafc,
+            #f8fafc 10px,
+            #f1f5f9 10px,
+            #f1f5f9 20px
+          );
+        }
+
+        &.has-class:hover {
+          background: #eef2ff;
+          transform: scale(1.05);
+          box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+          z-index: 5;
+        }
+
+        .subject {
+          font-weight: 700;
+          color: #1e293b;
+          font-size: 0.95rem;
+        }
+        .teacher {
+          font-size: 0.8rem;
+          color: #64748b;
+          margin: 4px 0;
+        }
+        .room-badge {
+          display: inline-block;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: white;
+          padding: 4px 10px;
+          border-radius: 50px;
+          font-size: 0.75rem;
+          font-weight: 600;
+        }
+        .break-text {
+          color: #94a3b8;
+          font-size: 1.5rem;
+        }
+      }
+
+      .weekend-row {
+        background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%) !important;
+        opacity: 0.95;
+      }
+    }
+
+    .timetable-footer {
+      padding: 1rem 2rem;
+      background: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+    .page-header .header-content {
+      flex-direction: column;
+      text-align: center;
+      .header-actions { margin-top: 1rem; }
+    }
+    .timetable-table thead { display: none; }
+    .timetable-table tbody tr {
+      display: block;
+      margin-bottom: 1rem;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    }
+    .day-cell, .period-cell {
+      display: block;
+      text-align: center;
+      padding: 1rem;
+    }
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

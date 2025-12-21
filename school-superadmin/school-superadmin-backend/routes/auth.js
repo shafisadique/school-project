@@ -90,7 +90,6 @@ router.post('/send-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone number must be in E.164 format (e.g., +919876543210)' });
     }
 
-    console.log('Sending OTP to normalized phone number:', normalizedPhoneNumber);
 
     const verification = await twilioClient.verify.v2
       .services(process.env.TWILIO_VERIFY_SERVICE_SID)

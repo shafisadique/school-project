@@ -102,4 +102,11 @@ viewDetails(id: string): void {
     this.error = null;
     this.loadAssignments(true);
   }
+  // Add this helper for badge class
+getBadgeClass(a: AssignmentItem): string {
+  if (a.isOverdue) return 'bg-red-100 text-red-800 border border-red-300';
+  if (a.hasSubmitted && a.grade != null) return 'bg-green-100 text-green-800 border border-green-300';
+  if (a.hasSubmitted) return 'bg-blue-100 text-blue-800 border border-blue-300';
+  return 'bg-gray-100 text-gray-800 border border-gray-300';
+}
 }

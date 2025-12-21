@@ -68,10 +68,10 @@ export class SigninFormComponent {
       next: (response) => {
         const role = this.authService.getUserRole();
         if (role === 'superadmin') {
-          this.router.navigate(['/auth/register']);
+          this.router.navigate(['/dashboard']);
         } else {
           // Fallback for non-superadmin (though superadmin-only app)
-          this.router.navigate(['/']);
+          this.router.navigate(['//auth/register']);
         }
         this.toastrService.success('Login Success', 'Welcome!');
         this.isLoading = false;

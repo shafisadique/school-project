@@ -2,11 +2,11 @@
 import { Component, OnInit, inject, output } from '@angular/core';
 import { CommonModule, Location, LocationStrategy } from '@angular/common';
 import { RouterModule } from '@angular/router';
-
+import { FileDoneOutline } from '@ant-design/icons-angular/icons';
 // project import
 import { NavigationItem, NavigationItems } from '../navigation';
 import { environment } from 'src/environments/environment';
-
+import { TrophyOutline } from '@ant-design/icons-angular/icons';
 import { NavGroupComponent } from './nav-group/nav-group.component';
 
 // icon
@@ -57,11 +57,13 @@ export class NavContentComponent implements OnInit {
         CreditCardOutline,
         FontSizeOutline,
         LoginOutline,
+        TrophyOutline,
         ProfileOutline,
         BgColorsOutline,
         AntDesignOutline,
         ChromeOutline,
-        QuestionOutline
+        QuestionOutline,
+        FileDoneOutline
       ]
     );
     this.navigations = NavigationItems;
@@ -111,37 +113,37 @@ export class NavContentComponent implements OnInit {
   const role = this.authService.getUserRole();
   
   switch (role) {
-    case 'superadmin':
-      this.navigations = [
-        {
-          id: 'dashboard',
-          title: 'Dashboard',
-          type: 'group',
-          icon: 'dashboard',
-          children: [
-            { id: 'default-dash', title: 'Default', type: 'item', url: '/dashboard/default', icon: 'dashboard' }
-          ]
-        },
-        {
-          id: 'subscription',
-          title: 'Subscription Management',
-          type: 'group',
-          icon: 'credit-card',
-          children: [
-            { id: 'manage-subscription', title: 'Manage Subscriptions', type: 'item', url: '/subscription-management', icon: 'credit-card' }
-          ]
-        },
-        {
-          id: 'approve',
-          title: 'Approve',
-          type: 'group',
-          icon: 'check',
-          children: [
-            { id: 'approve-requests', title: 'Approve Requests', type: 'item', url: '/approve', icon: 'check' }
-          ]
-        }
-      ];
-      break;
+    // case 'superadmin':
+    //   this.navigations = [
+    //     {
+    //       id: 'dashboard',
+    //       title: 'Dashboard',
+    //       type: 'group',
+    //       icon: 'dashboard',
+    //       children: [
+    //         { id: 'default-dash', title: 'Default', type: 'item', url: '/dashboard/default', icon: 'dashboard' }
+    //       ]
+    //     },
+    //     {
+    //       id: 'subscription',
+    //       title: 'Subscription Management',
+    //       type: 'group',
+    //       icon: 'credit-card',
+    //       children: [
+    //         { id: 'manage-subscription', title: 'Manage Subscriptions', type: 'item', url: '/subscription-management', icon: 'credit-card' }
+    //       ]
+    //     },
+    //     {
+    //       id: 'approve',
+    //       title: 'Approve',
+    //       type: 'group',
+    //       icon: 'check',
+    //       children: [
+    //         { id: 'approve-requests', title: 'Approve Requests', type: 'item', url: '/approve', icon: 'check' }
+    //       ]
+    //     }
+    //   ];
+    //   break;
 
     case 'admin':
       this.navigations = NavigationItems; // or define specific admin navigation
@@ -266,18 +268,18 @@ export class NavContentComponent implements OnInit {
           type: 'group',
           icon: 'dashboard',
           children: [
-            { id: 'student-dash', title: 'Dashboard', type: 'item', url: '/student/dashboard', icon: 'dashboard' }
+            { id: 'student-dash', title: 'Dashboard', type: 'item', url: '/student-dashboard', icon: 'dashboard' }
           ]
         },
         {
           id: 'academics',
           title: 'Academics',
           type: 'group',
-          icon: 'book',
+          icon: 'tasks',
           children: [
             { id: 'timetable', title: 'Timetable', type: 'item', url: '/time-table/my-timetable', icon: 'calendar' },
-            { id: 'assignments', title: 'Assignments', type: 'item', url: '/student-assignments-list', icon: 'file-text' },
-            { id: 'results', title: 'Results', type: 'item', url: '/student/results', icon: 'bar-chart' }
+            { id: 'assignments', title: 'Assignments', type: 'item', url: '/student-assignments-list', icon: 'file-done' },
+            { id: 'results', title: 'Results', type: 'item', url: '/student-result', icon: 'trophy' }
           ]
         },
         {
@@ -286,7 +288,7 @@ export class NavContentComponent implements OnInit {
           type: 'group',
           icon: 'calendar',
           children: [
-            { id: 'my-attendance', title: 'My Attendance', type: 'item', url: '/student/attendance', icon: 'user' }
+            { id: 'my-attendance', title: 'My Attendance', type: 'item', url: '/student-attenance', icon: 'user' }
           ]
         }
       ];

@@ -72,7 +72,12 @@
     color: #28a745;
     margin-bottom: 10px;
   }
-
+.price h2 {
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: #1a1a1a;
+  margin: 0;
+}
   .subtitle {
     color: #6c757d;
     margin-bottom: 15px;
@@ -547,5 +552,221 @@
   .payment-options {
     flex-direction: column;
     align-items: center;
+  }
+}
+.premium-gradient {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+}
+
+.pricing-card {
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  border: 1px solid #eee;
+  overflow: hidden;
+
+  &:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(102,126,234,0.2);
+  }
+
+  &.popular-card {
+    transform: scale(1.05);
+    border: 3px solid #ff6b6b;
+  }
+
+  &.best-value-card {
+    transform: scale(1.08);
+    border: 4px solid #667eea;
+  }
+}
+
+.ribbon {
+  position: absolute;
+  top: 15px;
+  padding: 8px 0;
+  width: 150px;
+  text-align: center;
+  font-weight: bold;
+  color: white;
+  font-size: 0.85rem;
+  z-index: 10;
+}
+
+.ribbon-top-right {
+  right: -40px;
+  background: #ff4757;
+  transform: rotate(45deg);
+}
+
+.ribbon-best {
+  right: -50px;
+  background: #667eea;
+  transform: rotate(45deg);
+}
+
+.ribbon-current {
+  left: -40px;
+  background: #2ed573;
+  transform: rotate(-45deg);
+}
+
+.price-display h2 {
+  font-size: 3rem;
+  font-weight: 900;
+  color: #1a1a1a;
+}
+
+.save-badge {
+  background: #ff4757;
+  color: white;
+  padding: 8px 20px;
+  border-radius: 50px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  display: inline-block;
+  margin: 15px 0;
+}
+
+.btn-plan {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.1rem;
+  font-weight: bold;
+
+  &:hover {
+    background: linear-gradient(135deg, #764ba2, #667eea);
+  }
+
+  &:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+  }
+}
+
+
+.premium-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  padding: 1.5rem !important;
+  border-radius: 20px 20px 0 0 !important;
+}
+
+.pricing-card-master {
+  background: white;
+  border-radius: 32px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.12);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden;
+  border: 4px solid transparent;
+  position: relative;
+
+  &:hover {
+    transform: translateY(-20px) scale(1.02);
+    box-shadow: 0 35px 80px rgba(102,126,234,0.3);
+  }
+
+  &.popular {
+    border-color: #ff4757;
+  }
+
+  &.best-value {
+    border-color: #667eea;
+    transform: scale(1.07);
+  }
+
+  &.current-plan-card {
+    border-color: #2ed573;
+    opacity: 0.98;
+  }
+}
+
+.card-content {
+  padding: 3rem 2rem;
+  min-height: 380px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.price h2 {
+  font-size: 3.8rem;
+  font-weight: 900;
+  color: #1a1a1a;
+  margin: 0;
+  line-height: 1;
+}
+
+.save-badge {
+  background: linear-gradient(135deg, #ff4757, #ff3742);
+  color: white;
+  padding: 12px 28px;
+  border-radius: 50px;
+  font-weight: bold;
+  font-size: 1rem;
+  display: inline-block;
+  margin: 20px 0;
+  box-shadow: 0 8px 20px rgba(255,71,87,0.4);
+}
+
+/* Ribbons - Exact Like Your Screenshot */
+.ribbon {
+  position: absolute;
+  top: 28px;
+  padding: 12px 0;
+  width: 200px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1rem;
+  color: white;
+  z-index: 10;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ribbon-popular {
+  right: -58px;
+  background: linear-gradient(135deg, #ff4757, #ff3742);
+  transform: rotate(45deg);
+  box-shadow: 0 8px 20px rgba(255,71,87,0.5);
+}
+
+.ribbon-best {
+  right: -70px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  transform: rotate(45deg);
+  box-shadow: 0 8px 20px rgba(102,126,234,0.5);
+}
+
+.ribbon-current {
+  left: -58px;
+  background: linear-gradient(135deg, #2ed573, #20bf6b);
+  transform: rotate(-45deg);
+  box-shadow: 0 8px 20px rgba(46,213,115,0.5);
+}
+
+.btn-choose {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  font-size: 1.2rem;
+  padding: 16px 20px !important;
+  border-radius: 50px !important;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 30px rgba(102,126,234,0.4);
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #764ba2, #667eea);
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px rgba(102,126,234,0.5);
+  }
+
+  &:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+    box-shadow: none;
   }
 }

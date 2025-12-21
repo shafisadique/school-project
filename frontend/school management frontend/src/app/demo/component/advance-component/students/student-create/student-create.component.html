@@ -29,7 +29,7 @@
 
                 <div class="col-12 col-md-4">
                   <label class="form-label">Phone</label>
-                  <input type="text" class="form-control form-control-sm" formControlName="phone" placeholder="10 digits">
+                  <input type="number" class="form-control form-control-sm" formControlName="phone" placeholder="10 digits">
                   <div class="text-danger small mt-1" *ngIf="submitted && f['phone'].errors?.['pattern']">
                     10 digits only
                   </div>
@@ -94,7 +94,7 @@
                   </select>
                 </div>
 
-                <div class="col-12 col-md-4" *ngIf="form.get('usesTransport')?.value">
+                <div class="col-12 col-md-4" *ngIf="showRouteField">
                   <label class="form-label">Route <span class="text-danger">*</span></label>
                   <select class="form-select form-select-sm" formControlName="routeId">
                     <option value="">Select Route</option>

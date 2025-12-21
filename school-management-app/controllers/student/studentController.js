@@ -99,7 +99,7 @@ const decryptPassword = (encryptedText) => {
   }
 };
 
-// ---------- Helper: generate admissionNo ----------
+// ---------- Helper: generate admissionNo (SAFE VERSION) ----------
 const generateAdmissionNo = async (schoolId, academicYearId) => {
   try {
     // Fetch the school to verify existence
@@ -114,26 +114,44 @@ const generateAdmissionNo = async (schoolId, academicYearId) => {
       throw new Error('Academic year must be set up');
     }
 
-    // Fetch the school code from AuditLog (create_school action for this school)
+    // Fetch the school code from AuditLog
     const auditEntry = await AuditLog.findOne({
       action: 'create_school',
-      'details.schoolId': new mongoose.Types.ObjectId(schoolId)  // Convert to ObjectId
+      'details.schoolId': new mongoose.Types.ObjectId(schoolId)
     }).sort({ createdAt: -1 });
-    console.log(auditEntry,schoolId)
+
     if (!auditEntry || !auditEntry.details?.code) {
       throw new Error('School code not found in audit log. Ensure school was created via registered process.');
     }
 
-    const schoolCode = auditEntry.details.code;  // e.g., "NEWI70"
+    const schoolCode = auditEntry.details.code;  // e.g., "CHIP21", "RAIP41"
 
-    // Get current count of students for this school and academic year (simple non-atomic seq)
-    const studentCount = await Student.countDocuments({ schoolId, academicYearId, status: true });
-    const sequentialNumber = studentCount + 1;
-    const formattedSequentialNumber = sequentialNumber.toString().padStart(3, '0');
-    
-    const admissionNo = `${schoolCode}-${formattedSequentialNumber}`;  // e.g., "NEWI70-001"
+    // Start from the current count + 1
+    let studentCount = await Student.countDocuments({ 
+      schoolId, 
+      academicYearId, 
+      status: true 
+    });
 
-    console.log('Generated admissionNo:', admissionNo, 'for school:', schoolId);
+    let sequentialNumber = studentCount + 1;
+    let admissionNo;
+
+    // Loop until we find a unique admissionNo
+    while (true) {
+      const formattedSequentialNumber = sequentialNumber.toString().padStart(3, '0');
+      admissionNo = `${schoolCode}-${formattedSequentialNumber}`;
+
+      const exists = await Student.findOne({ admissionNo });
+      if (!exists) {
+        break; // Found a free admissionNo
+      }
+
+      // If exists, try next number
+      sequentialNumber++;
+      console.log(`Admission No ${admissionNo} already exists, trying next...`);
+    }
+
+    console.log('Generated unique admissionNo:', admissionNo);
     return admissionNo;
   } catch (error) {
     throw new Error(`Error generating admission number: ${error.message}`);
@@ -1214,6 +1232,21 @@ const createStudentPortal = async (req, res) => {
 
     const { studentId, role } = req.body; // role: 'student' or 'parent'
     const schoolId = req.user.schoolId;
+    // === PREMIUM PLAN CHECK ===
+    const activeSubscription = await subscription.findOne({
+      schoolId,
+      planType: { $in: ['both_premium_monthly', 'both_premium_yearly'] },
+      status: { $in: ['active', 'grace_period'] },
+      expiresAt: { $gt: new Date() }
+    }).sort({ priority: -1 });
+
+    if (!activeSubscription) {
+      return res.status(403).json({
+        success: false,
+        message: 'Student/Parent Portal is only available in Premium plans. Please upgrade your subscription.',
+        upgradeRequired: true
+      });
+    }
 
     // Verify student exists and belongs to the admin's school
     const student = await Student.findOne({ _id: studentId, schoolId });

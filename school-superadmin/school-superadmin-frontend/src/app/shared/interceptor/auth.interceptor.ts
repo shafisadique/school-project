@@ -1,9 +1,4 @@
-import {
-  HttpRequest,
-  HttpHandlerFn,
-  HttpEvent,
-  HttpErrorResponse
-} from '@angular/common/http';
+import {  HttpInterceptorFn} from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { inject } from '@angular/core';
@@ -11,59 +6,41 @@ import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
 import { AuthService } from '../services/auth.service';
 
-export function authInterceptor(
-  req: HttpRequest<any>,
-  next: HttpHandlerFn
-): Observable<HttpEvent<any>> {
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
   const router = inject(Router);
   const toastr = inject(ToastrService);
 
   const token = authService.getUserToken();
 
-  // ⛔ Skip token for login/register requests
+  // Skip adding token for login
   if (req.url.includes('/login') || req.url.includes('/register')) {
-    return next(req).pipe(
-      catchError((error: HttpErrorResponse) => {
-        // Show backend login/register errors only
-        let message = 'An error occurred';
-        if (error.error?.message) {
-          message = error.error.message;
-        }
-        toastr.error(message);
-        return throwError(() => error);
-      })
-    );
+    return next(req);
   }
 
-  // ✅ Attach token for all other APIs
-  let authReq = req;
+  // Add token + GOD headers
+  let headers: any = {};
+
   if (token) {
-    authReq = req.clone({
-      setHeaders: { Authorization: `Bearer ${token}` }
-    });
+    headers['Authorization'] = `Bearer ${token}`;
   }
+
+  // Always send these two (your nuclear lock)
+  const masterKey = localStorage.getItem('__GOD_MASTER_KEY');
+  const deviceFp = localStorage.getItem('__GOD_DEVICE_FP');
+  if (masterKey) headers['X-Master-Key'] = masterKey;
+  if (deviceFp) headers['X-Device-Fp'] = deviceFp;
+
+  const authReq = req.clone({ setHeaders: headers });
 
   return next(authReq).pipe(
-    catchError((error: HttpErrorResponse) => {
-      let message = 'An error occurred';
-
+    catchError((error: any) => {
       if (error.status === 401) {
-        if (error.error?.message?.includes('Session expired')) {
-          message = 'Your session has expired. Please log in again.';
-          authService.logOut();
-          router.navigate(['/auth/login']);
-        } else if (error.error?.message?.includes('Invalid token')) {
-          message = 'Invalid session. Please log in again.';
-          authService.logOut();
-          router.navigate(['/login']);
-        }
-      } else if (error.error?.message) {
-        message = error.error.message;
+        toastr.error('Session expired or invalid');
+        authService.logOut();
+        router.navigate(['/signin']);
       }
-
-      toastr.error(message);
       return throwError(() => error);
     })
   );
-}
+};

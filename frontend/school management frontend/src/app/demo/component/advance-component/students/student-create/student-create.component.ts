@@ -32,7 +32,7 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
   imagePreview: string | null = null;
   fileError = '';
   serverError = '';
-
+  showRouteField = false;
   private destroy$ = new Subject<void>();
   private schoolId = localStorage.getItem('schoolId')!;
 
@@ -86,12 +86,25 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
   private watchTransport(): void {
     this.form.get('usesTransport')?.valueChanges
       .pipe(takeUntil(this.destroy$))
-      .subscribe(val => {
+      .subscribe((val: boolean) => {
         const routeCtrl = this.form.get('routeId');
-        if (val) routeCtrl?.setValidators(Validators.required);
-        else routeCtrl?.clearValidators();
+
+        if (val === true) {
+          // Show route field and make it required
+          this.showRouteField = true;
+          routeCtrl?.setValidators(Validators.required);
+        } else {
+          // Hide route field, clear value and validators
+          this.showRouteField = false;
+          routeCtrl?.setValue('');
+          routeCtrl?.clearValidators();
+        }
+
         routeCtrl?.updateValueAndValidity();
       });
+
+    // Set initial state (important!)
+    this.showRouteField = this.form.get('usesTransport')?.value === true;
   }
 
   // --- Data Load ---

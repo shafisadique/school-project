@@ -189,32 +189,76 @@ router.get('/parent', authMiddleware, async (req, res) => {
    ================================================================== */
 
 // routes/notifications.js → REPLACE /me route with THIS
+// router.get('/me', authMiddleware, async (req, res) => {
+//   try {
+//     console.log(req.user)
+//     const userId = req.user.id; // This is already ObjectId from authMiddleware
+//     const role = req.user.role;
+//     const schoolId = req.user.schoolId;
+
+//     // IMPORTANT: Convert to ObjectId only if needed (usually not — your auth already gives ObjectId)
+//     const objectId = mongoose.Types.ObjectId.isValid(userId) 
+//       ? new mongoose.Types.ObjectId(userId) 
+//       : userId;
+
+//     const notifications = await Notification.find({
+//       schoolId,
+//       $or: [
+//         { recipientId: objectId },                    // ← Works for your current DB
+//         { recipientId: userId },                      // ← Backup (if string)
+//         { targetUserIds: objectId },
+//         { targetUserIds: userId },
+//         { targetRoles: role },
+//         { targetRoles: { $in: [role] } }
+//       ]
+//     })
+//       .select('title message type status createdAt senderId studentId data')
+//       .populate('senderId', 'name')
+//       .populate('studentId', 'name admissionNo')
+//       .sort({ createdAt: -1 })
+//       .limit(50)
+//       .lean();
+
+//     const unreadCount = notifications.filter(n => 
+//       n.status === 'pending' || n.status === 'sent'
+//     ).length;
+
+//     res.json({
+//       notifications,
+//       unreadCount
+//     });
+
+//   } catch (err) {
+//     console.error('Bell notification error:', err);
+//     res.status(500).json({ error: 'Failed' });
+//   }
+// });
+
 router.get('/me', authMiddleware, async (req, res) => {
   try {
-    console.log(req.user)
-    const userId = req.user.id; // This is already ObjectId from authMiddleware
+    const userId = req.user.id;
     const role = req.user.role;
     const schoolId = req.user.schoolId;
 
-    // IMPORTANT: Convert to ObjectId only if needed (usually not — your auth already gives ObjectId)
-    const objectId = mongoose.Types.ObjectId.isValid(userId) 
+    // Convert to ObjectId if needed
+    const userObjectId = mongoose.Types.ObjectId.isValid(userId) 
       ? new mongoose.Types.ObjectId(userId) 
       : userId;
 
     const notifications = await Notification.find({
       schoolId,
       $or: [
-        { recipientId: objectId },                    // ← Works for your current DB
-        { recipientId: userId },                      // ← Backup (if string)
-        { targetUserIds: objectId },
+        { recipientId: userObjectId },                    // Direct message
+        { recipientId: userId },
+        { targetRoles: role },                            // ← THIS WAS MISSING
+        { targetRoles: { $in: [role] } },                 // ← THIS WAS MISSING
+        { targetUserIds: userObjectId },
         { targetUserIds: userId },
-        { targetRoles: role },
-        { targetRoles: { $in: [role] } }
+        { senderId: userObjectId }                        // Admin sees own announcements
       ]
     })
-      .select('title message type status createdAt senderId studentId data')
+      .select('title message type status createdAt senderId')
       .populate('senderId', 'name')
-      .populate('studentId', 'name admissionNo')
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -229,10 +273,29 @@ router.get('/me', authMiddleware, async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Bell notification error:', err);
+    console.error('Bell API error:', err);
+    res.status(500).json({ error: 'Failed to load notifications' });
+  }
+});
+
+// MARK AS READ
+router.patch('/:id/read', authMiddleware, async (req, res) => {
+  try {
+    const result = await Notification.updateOne(
+      { _id: req.params.id, recipientId: req.user.id },
+      { status: 'read', readAt: new Date() }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: 'Not found or unauthorized' });
+    }
+
+    res.json({ message: 'Marked as read' });
+  } catch (err) {
     res.status(500).json({ error: 'Failed' });
   }
 });
+
 /* ==================================================================
    5. Mark Notification as Read
    ================================================================== */

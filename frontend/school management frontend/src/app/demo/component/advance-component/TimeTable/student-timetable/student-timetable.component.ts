@@ -1,55 +1,62 @@
-import { Component, OnInit } from '@angular/core';
-import { ToastrService } from 'ngx-toastr';
-import { TimetableService } from '../timetable.service';
-import { FormsModule } from '@angular/forms';
+// student-timetable.component.ts
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { Subscription, finalize } from 'rxjs';
+import { TimetableService } from '../timetable.service';
+import { ToastrService } from 'ngx-toastr';
 
-// Define interfaces for strong typing
-export interface Subject {
-  _id: string;
-  name: string;
+interface TimeSlot {
+  start: string;
+  end: string;
 }
 
-export interface Teacher {
-  _id: string;
-  name: string;
+interface Period {
+  subject: string;
+  teacher: string;
+  room: string;
 }
 
-export interface TimetableEntry {
-  _id: string;
-  schoolId: string;
-  classId: string;
-  subjectId: Subject;
-  teacherId: Teacher;
-  academicYearId: string;
+interface TimetableEntry {
   day: string;
   startTime: string;
   endTime: string;
-  room: string;
-  __v?: number;
+  subjectId?: { name: string };
+  teacherId?: { name: string };
+  room?: string;
 }
 
-export interface TimeSlot {
-  start: string;
-  end: string;
+interface AcademicYear {
+  _id: string;
+  name: string;
 }
 
 @Component({
   selector: 'app-student-timetable',
   standalone: true,
-  imports: [FormsModule, CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './student-timetable.component.html',
   styleUrls: ['./student-timetable.component.scss']
 })
-export class StudentTimetableComponent implements OnInit {
-
+export class StudentTimetableComponent implements OnInit, OnDestroy {
+  // Data
   timetable: TimetableEntry[] = [];
-  grid: ({ subject: string; teacher: string; room: string } | null)[][] = [];
+  grid: (Period | null)[][] = [];
   timeSlots: TimeSlot[] = [];
-  days: string[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  academicYears: { _id: string; name?: string }[] = [];
+  
+  // Constants
+  readonly days: string[] = [
+    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+  ];
+
+  // State
+  academicYears: AcademicYear[] = [];
   selectedYearId = '';
   schoolId = localStorage.getItem('schoolId') || '';
+  isLoading = false;
+
+  // Subscriptions
+  private subscriptions = new Subscription();
 
   constructor(
     private timetableService: TimetableService,
@@ -60,61 +67,119 @@ export class StudentTimetableComponent implements OnInit {
     this.loadAcademicYears();
   }
 
-  loadAcademicYears(): void {
-    this.timetableService.getAcademicYears(this.schoolId).subscribe({
-      next: (years: { _id: string; name?: string }[]) => {
-        this.academicYears = years;
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
+  }
 
-        this.timetableService.getActiveAcademicYear(this.schoolId).subscribe({
-          next: (active: { _id?: string }) => {
-            if (active?._id) {
-              this.selectedYearId = active._id;
-              this.loadTimetable();
-            }
+  /* ====================== DATA LOADING ====================== */
+  private loadAcademicYears(): void {
+    this.isLoading = true;
+
+    const sub = this.timetableService.getAcademicYears(this.schoolId)
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: (years) => {
+          this.academicYears = years;
+          this.selectActiveAcademicYear();
+        },
+        error: () => this.toastr.error('Failed to load academic years')
+      });
+
+    this.subscriptions.add(sub);
+  }
+
+  private selectActiveAcademicYear(): void {
+    const sub = this.timetableService.getActiveAcademicYear(this.schoolId)
+      .subscribe({
+        next: (active: any) => {
+          const activeId = active?._id;
+          const exists = this.academicYears.some(y => y._id === activeId);
+
+          if (exists) {
+            this.selectedYearId = activeId;
+          } else if (this.academicYears.length > 0) {
+            this.selectedYearId = this.academicYears[0]._id;
           }
-        });
-      },
-      error: () => this.toastr.error('Failed to load academic years')
-    });
+
+          if (this.selectedYearId) {
+            this.loadTimetable();
+          }
+        },
+        error: () => {
+          if (this.academicYears.length > 0) {
+            this.selectedYearId = this.academicYears[0]._id;
+            this.loadTimetable();
+          }
+        }
+      });
+
+    this.subscriptions.add(sub);
   }
 
   loadTimetable(): void {
-    this.timetableService.getStudentTimetable(this.selectedYearId).subscribe({
-      next: (data: TimetableEntry[]) => {
-        this.timetable = data;
-        this.buildGrid();
-      },
-      error: () => this.toastr.error('Failed to load timetable')
-    });
+    if (!this.selectedYearId) return;
+
+    this.isLoading = true;
+
+    const sub = this.timetableService.getStudentTimetable(this.selectedYearId)
+      .pipe(finalize(() => this.isLoading = false))
+      .subscribe({
+        next: (data: TimetableEntry[]) => {
+          this.timetable = data || [];
+          this.buildGrid();
+        },
+        error: () => this.toastr.error('Failed to load timetable')
+      });
+
+    this.subscriptions.add(sub);
   }
 
-  buildGrid(): void {
-    const slots = new Set<string>();
-    this.timetable.forEach(t => slots.add(`${t.startTime}-${t.endTime}`));
+  onYearChange(): void {
+    this.loadTimetable();
+  }
 
-    this.timeSlots = Array.from(slots)
-      .map(s => {
-        const [start, end] = s.split('-');
+  /* ====================== GRID BUILDING ====================== */
+  private buildGrid(): void {
+    // Extract unique time slots
+    const slotSet = new Set<string>();
+    this.timetable.forEach(entry => {
+      slotSet.add(`${entry.startTime}-${entry.endTime}`);
+    });
+
+    this.timeSlots = Array.from(slotSet)
+      .map(slot => {
+        const [start, end] = slot.split('-');
         return { start, end };
       })
       .sort((a, b) => a.start.localeCompare(b.start));
 
+    // Initialize empty grid
     this.grid = this.days.map(() => Array(this.timeSlots.length).fill(null));
 
-    this.timetable.forEach(t => {
-      const dayIdx = this.days.indexOf(t.day);
-      const slotIdx = this.timeSlots.findIndex(s => s.start === t.startTime && s.end === t.endTime);
-      if (dayIdx !== -1 && slotIdx !== -1) {
-        this.grid[dayIdx][slotIdx] = {
-          subject: t.subjectId.name,
-          teacher: t.teacherId.name,
-          room: t.room
+    // Fill the grid
+    this.timetable.forEach(entry => {
+      const dayIndex = this.days.indexOf(entry.day);
+      const slotIndex = this.timeSlots.findIndex(
+        s => s.start === entry.startTime && s.end === entry.endTime
+      );
+
+      if (dayIndex !== -1 && slotIndex !== -1) {
+        this.grid[dayIndex][slotIndex] = {
+          subject: entry.subjectId?.name || 'Unknown Subject',
+          teacher: entry.teacherId?.name || 'TBD',
+          room: entry.room || ''
         };
       }
     });
   }
 
-  onYearChange(): void {
-    this.loadTimetable();
+  /* ====================== HELPERS ====================== */
+  isWeekend(day: string): boolean {
+    return day === 'Saturday' || day === 'Sunday';
+  }
+
+  isToday(day: string): boolean {
+    const today = new Date().toLocaleString('en-us', { weekday: 'long' });
+    return day === today;
   }
 }

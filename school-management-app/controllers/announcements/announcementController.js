@@ -129,6 +129,7 @@ const createAnnouncement = async (req, res) => {
             schoolId,
             senderId,
             recipientId: userId,           // ← Use recipientId, not targetRoles array
+            targetRoles: targetRoles,
             title,
             message: body,
             type: 'announcement',
@@ -164,18 +165,31 @@ const createAnnouncement = async (req, res) => {
     // }
     const io = req.app.get('io');
     if (io && notifications.length > 0) {
-      const payload = {
-        _id: new Date().getTime(), // temporary ID (or use first notification _id)
-        title: title,
-        message: body,
-        type: 'announcement',
-        createdAt: new Date(),
-        senderId: { name: req.user.name || 'Admin' },
-        status: 'pending'
-      };
-
+      console.log('checking continuassly',notifications);
+      notifications.forEach(notif =>{
+        console.log('this is notif',notif)
+        const payload = {
+          _id: notif._id, // temporary ID (or use first notification _id)
+          title: notif.title,
+          message: notif.message,
+          type: 'announcement',
+          createdAt: notif.createdAt||new Date(),
+          senderId: { name: req.user.name || 'Admin' },
+          status: 'pending'
+        };
+        if (notif.recipientId) {
+          io.to(notif.recipientId.toString()).emit('new-notification', payload);
+        }
+  
+        // Send to role-based users
+        if (notif.targetRoles && notif.targetRoles.length > 0) {
+          notif.targetRoles.forEach(role => {
+            io.to(`role_${role}`).emit('new-notification', payload);
+          });
+        }
+      })
       // Send to entire school (fastest & best for announcements)
-      io.to(schoolId.toString()).emit('new-notification', payload);
+      // io.to(schoolId.toString()).emit('new-notification', payload);
     }
 
     res.status(201).json({

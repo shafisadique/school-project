@@ -206,7 +206,7 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
           this.isSubmitting.set(false);
         }, 2000);
       },
-      error: (err) => {
+      error: (err:any) => {
         this.toastr.error(err.error?.message || 'Registration failed', 'Error');
         this.isSubmitting.set(false);
       }

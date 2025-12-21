@@ -167,10 +167,9 @@ export class TeacherAttendanceComponent implements OnInit {
 private getCurrentLocation(): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve, reject) => {
     // STEP 1: ALWAYS TRY TO GET CURRENT LOGIN SCHOOL'S LOCATION FIRST (MOST IMPORTANT)
-    this.schoolService.getMySchool().subscribe({
+    this.schoolService.getMySchoolForTeacher().subscribe({
       next: (school: any) => {
         if (school && school.latitude && school.longitude) {
-          console.log('Using CURRENT SCHOOL location (multi-school safe):', school.name, school.latitude, school.longitude);
           return resolve({ lat: school.latitude, lng: school.longitude });
         } else {
           console.warn('School has no lat/lng saved → falling back to GPS');
@@ -218,20 +217,7 @@ private tryGpsWithSchoolFallback(
 }
 
 // Helper: Get school location from backend (for multiple schools)
-private useSchoolLocation(resolve: (value: { lat: number; lng: number }) => void) {
-  this.schoolService.getMySchool().subscribe({
-    next: (school: any) => {
-      resolve({
-        lat: school.latitude,
-        lng: school.longitude
-      });
-    },
-    error: () => {
-      // Final fallback: your Katihar school
-      resolve({ lat: 25.534482, lng: 87.577649 });
-    }
-  });
-}
+
   async onSubmit(): Promise<void> {
     const activeAcademicYearId = this.authService.getActiveAcademicYearId();
     if (!activeAcademicYearId) {

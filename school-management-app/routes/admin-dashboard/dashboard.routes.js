@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { isAdmin, roleMiddleware } = require('../../middleware/roleMiddleware');
 const authMiddleware = require('../../middleware/authMiddleware');
-const { getStudentAttendance, getStudentDashboard, getStudentDashboardData } = require('../../controllers/dashboard/studentDashboardController');
+const { getStudentAttendance, getStudentDashboardData } = require('../../controllers/dashboard/studentDashboardController');
 const { getTeacherDashboard, getAllTeacherDashboard } = require('../../controllers/dashboard/teacherDashboardController');
 const { getFeeDashboard, getAllFeeDashboard } = require('../../controllers/dashboard/feeDashboardController');
 router.use(authMiddleware)

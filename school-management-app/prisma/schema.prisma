@@ -1,0 +1,470 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// SuperUser
+model SuperUser {
+  id                  String    @id @default(uuid())
+  name                String    @default("Super Admin")
+  username            String    @unique
+  email               String    @unique
+  password            String
+  role                String    @default("superadmin")
+  resetToken          String?
+  resetTokenExpires   DateTime?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+// User
+model User {
+  id                  String    @id @default(uuid())
+  name                String
+  username            String    @unique
+  email               String    @unique
+  password            String
+  role                String
+  schoolId            String?
+  school              School?   @relation("SchoolUsers", fields: [schoolId], references: [id])
+  pushSubscriptions   Json?     // Removed @default("[]")
+  phoneNumber         String?
+  whatsappNumber      String?
+  whatsappOptIn       Boolean   @default(false)
+  resetToken          String?
+  resetTokenExpires   DateTime?
+  status              Boolean   @default(true)
+  additionalInfo      Json?     // Removed @default("{}")
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  teachers            Teacher[]
+  loginLogs           LoginLog[]
+
+  @@index([schoolId, role])
+}
+
+// School
+model School {
+  id                   String    @id @default(uuid())
+  name                 String    @unique
+  address              Json?
+  mobileNo             String
+  email                String    @unique
+  code                 String    @unique
+  latitude             Float
+  longitude            Float
+
+  radius               Int       @default(100)
+  preferredChannel     String    @default("sms")
+  weeklyHolidayDay     String    @default("Sunday")
+  smsPackActive        Boolean   @default(false)
+  status               Boolean   @default(true)
+  logo                 String    @default("")
+  activeAcademicYear   String?  // ADDED: References AcademicYear.id (nullable)
+
+  users                User[]    @relation("SchoolUsers")
+  academicYears        AcademicYear[]
+  subscriptions        Subscription[]
+  classes              Class[]
+  subjects             Subject[]
+  timetables           Timetable[]
+  students             Student[]
+  attendances          Attendance[]
+  teacherAttendances   TeacherAttendance[]
+  teacherAbsences      TeacherAbsence[]
+  routes               Route[]
+  holidays             Holiday[]
+  classSubjectAssignments ClassSubjectAssignment[]
+  announcements        Announcement[]
+  assignments          Assignment[]
+  exams                Exam[]
+  teachers             Teacher[]
+
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+// AcademicYear
+model AcademicYear {
+  id        String   @id @default(uuid())
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([schoolId, name])
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  canceled
+  pending
+  grace_period
+}
+
+enum PlanType {
+  trial
+  sms_basic_monthly
+  sms_basic_yearly
+  whatsapp_basic_monthly
+  whatsapp_basic_yearly
+  both_basic_monthly
+  both_basic_yearly
+  both_premium_monthly
+  both_premium_yearly
+}
+
+model Subscription {
+  id               String   @id @default(uuid())
+
+  schoolId         String
+  school           School   @relation(fields: [schoolId], references: [id])
+
+  planType         PlanType
+  status           SubscriptionStatus @default(active)
+
+  startsAt         DateTime @default(now())
+  expiresAt        DateTime
+  gracePeriodEnds  DateTime?
+
+  isTemporaryBoost Boolean  @default(false)
+
+  razorpayOrderId  String?
+  autoRenew        Boolean  @default(false)
+  paymentMethod    String?
+  paymentProof     String?
+  transactionId    String?
+  testMode         Boolean  @default(false)
+
+  durationDays     Int
+  originalAmount   Int
+  discountAmount   Int      @default(0)
+  finalAmount      Int
+
+  priority         Int      @default(1) // 1=trial, 2=basic, 3=premium
+
+  messageLimits    Json?
+  usageStats       Json?
+  features         Json     // Removed @default("[]")
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([schoolId, status])
+  @@index([expiresAt])
+}
+
+// Teacher
+model Teacher {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  name           String
+  email          String   @unique
+  phone          String
+  designation    String
+  subjects       Json     // Removed @default("[]")
+  gender         String
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  status         Boolean  @default(true)
+
+  timetables     Timetable[]
+  attendances    Attendance[]
+  assignments    Assignment[]
+  classSubjectAssignments ClassSubjectAssignment[]
+  teacherAttendances TeacherAttendance[]
+  teacherAbsences    TeacherAbsence[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// Class
+model Class {
+  id                          String   @id @default(uuid())
+  name                        String
+  sections                    Json     // Removed @default("[]")
+  schoolId                    String
+  school                      School   @relation(fields: [schoolId], references: [id])
+  attendanceTeacher           String?
+  substituteAttendanceTeachers Json    // Removed @default("[]")
+  createdBy                   String?  // ADDED: For controllers
+
+  timetables                  Timetable[]
+  students                    Student[]
+  attendances                 Attendance[]
+  assignments                 Assignment[]
+  exams                       Exam[]
+  classSubjectAssignments     ClassSubjectAssignment[]
+
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([createdBy])  // Optional: For queries
+}
+
+// Subject
+model Subject {
+  id        String   @id @default(uuid())
+  name      String
+  schoolId  String
+  school    School   @relation(fields: [schoolId], references: [id])
+  createdBy String?  // ADDED: For controllers
+
+  timetables                  Timetable[]
+  attendances                 Attendance[]
+  assignments                 Assignment[]
+  classSubjectAssignments     ClassSubjectAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdBy])  // Optional
+}
+
+// Timetable
+model Timetable {
+  id             String   @id @default(uuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  subjectId      String
+  subject        Subject  @relation(fields: [subjectId], references: [id])
+  teacherId      String
+  teacher        Teacher  @relation(fields: [teacherId], references: [id])
+  day            String
+  startTime      String
+  endTime        String
+  room           String
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// Student
+model Student {
+  id             String   @id @default(uuid())
+  admissionNo    String   @unique
+  name           String
+  section        Json     // Removed @default("[]")
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  gender         String
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// Attendance
+model Attendance {
+  id             String   @id @default(uuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  subjectId      String
+  subject        Subject  @relation(fields: [subjectId], references: [id])
+  teacherId      String
+  teacher        Teacher  @relation(fields: [teacherId], references: [id])
+  date           DateTime
+  students       Json
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// TeacherAttendance
+model TeacherAttendance {
+  id             String   @id @default(uuid())
+  teacherId      String
+  teacher        Teacher  @relation(fields: [teacherId], references: [id])
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  date           DateTime
+  status         String
+  leaveType      String?
+  remarks        String?
+  recordedBy     String
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([teacherId, date])
+}
+
+// TeacherAbsence
+model TeacherAbsence {
+  id                   String   @id @default(uuid())
+  teacherId            String
+  teacher              Teacher  @relation(fields: [teacherId], references: [id])
+  schoolId             String
+  school               School   @relation(fields: [schoolId], references: [id])
+  date                 DateTime
+  reason               String
+  substituteTeacherId  String?
+  status               String   @default("Pending")
+  leaveType            String?
+  isTeacherApplied     Boolean  @default(true)
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([schoolId, teacherId, date])
+}
+
+// Route
+model Route {
+  id           String   @id @default(uuid())
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+  name         String
+  pickupPoints Json     // Removed @default("[]")
+  distance     Float
+  feeAmount    Float
+  frequency    String
+  createdBy    String
+  status       Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([schoolId, name])
+}
+
+// Holiday
+model Holiday {
+  id          String   @id @default(uuid())
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  title       String
+  date        DateTime
+  description String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ClassSubjectAssignment
+model ClassSubjectAssignment {
+  id             String   @id @default(uuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  subjectId      String
+  subject        Subject  @relation(fields: [subjectId], references: [id])
+  teacherId      String
+  teacher        Teacher  @relation(fields: [teacherId], references: [id])
+  academicYearId String
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([schoolId, classId, subjectId, academicYearId])
+}
+
+// Announcement
+model Announcement {
+  id           String   @id @default(uuid())
+  title        String
+  body         String
+  roles        Json     // Removed @default("[]")
+  schoolId     String
+  school       School   @relation(fields: [schoolId], references: [id])
+  createdBy    String
+  isActive     Boolean  @default(true)
+  readBy       Json     // Removed @default("[]")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Assignment
+model Assignment {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  dueDate     DateTime
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  classId     String
+  class       Class    @relation(fields: [classId], references: [id])
+  assignedTo  Json     // Removed @default("[]")
+  attachments Json     // Removed @default("[]")
+  subjectId   String
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id])
+  submissions Json?
+  createdBy   String
+  status      String   @default("pending")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Exam
+model Exam {
+  id             String   @id @default(uuid())
+  schoolId       String
+  school         School   @relation(fields: [schoolId], references: [id])
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  academicYearId String
+  examTitle      String
+  examCenter     String
+  startDate      DateTime
+  endDate        DateTime
+  examStatus     String   @default("Scheduled")
+  examPapers     Json    // No default
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// LoginLog
+model LoginLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  email     String
+  role      String
+  schoolId  String?
+  ip        String?
+  city      String?
+  country   String?
+  device    String?
+  browser   String?
+  os        String?
+  status    String
+  reason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// AuditLog
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  details   Json?
+
+  createdAt DateTime @default(now())
+}

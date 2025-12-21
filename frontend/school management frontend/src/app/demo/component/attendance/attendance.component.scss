@@ -294,11 +294,7 @@ $border-color: #e2e8f0;
     pointer-events: none;
   }
 }
-/* Reuse your existing custom modal styles */
-.custom-modal-container, .custom-modal, .custom-modal-header, .custom-modal-title,
-.custom-modal-close, .custom-modal-body, .custom-modal-footer, .btn-close-modal {
-  /* Copy from your student details modal SCSS — already perfect */
-}
+
 
 .professional-table {
   thead th {
