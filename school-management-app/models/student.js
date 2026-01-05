@@ -178,7 +178,39 @@ const studentSchema = new mongoose.Schema({
     academicYearName: { type: String, required: true },
     promotedAt: { type: Date, default: Date.now },
     promotionStatus: { type: String, enum: ['promoted', 'failed'], default: 'promoted' }
-  }]
+  }],
+    // ==== APAAR ID INTEGRATION (UDISE+ 2025-26 Compliance) ====
+  apaarId: {
+    type: String,
+    trim: true,
+    default: null,
+    sparse: true, // Allows multiple nulls, but unique when value exists
+    validate: {
+      validator: function(v) {
+        if (!v) return true; // Allow empty
+        return /^[0-9]{12}$/.test(v); // Exactly 12 digits
+      },
+      message: 'APAAR ID must be exactly 12 digits'
+    }
+  },
+  apaarStatus: {
+    type: String,
+    enum: [
+      'generated',        // Has valid APAAR ID
+      'pending',          // Consent given, awaiting generation
+      'not_generated',    // Default - not yet applied
+      'refused',          // Parent refused consent
+      'mismatch_error',   // Aadhaar name/DOB mismatch
+      'consent_pending'   // Consent form not submitted
+    ],
+    default: 'not_generated'
+  },
+  apaarNotes: {
+    type: String,
+    trim: true,
+    maxlength: 300,
+    default: ''
+  },
 }, 
 
 { 

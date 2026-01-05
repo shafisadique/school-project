@@ -10,16 +10,16 @@ import { SuperadminMetricsComponent } from '../../../shared/components/ecommerce
 import { DashboardService } from '../../../shared/services/dashboard.service';
 import { AuthService } from '../../../shared/services/auth.service';
 import { ToastrService } from 'ngx-toastr';
-
+import { HttpClient } from '@angular/common/http';
 @Component({
   selector: 'app-ecommerce',
   imports: [
-    EcommerceMetricsComponent,
-    MonthlySalesChartComponent,
-    MonthlyTargetComponent,
-    StatisticsChartComponent,
-    DemographicCardComponent,
-    RecentOrdersComponent,
+    // EcommerceMetricsComponent,
+    // MonthlySalesChartComponent,
+    // MonthlyTargetComponent,
+    // StatisticsChartComponent,
+    // DemographicCardComponent,
+    // RecentOrdersComponent,
     SuperadminMetricsComponent, RecentSchoolsComponent
   ],
   templateUrl: './ecommerce.component.html',
@@ -37,8 +37,10 @@ export class EcommerceComponent {
   totalRevenue = 0;
   loading = true;
 
+  constructor(private http: HttpClient) {}
   ngOnInit() {
     this.loadSuperadminData();
+   
   }
 
   loadSuperadminData() {

@@ -170,13 +170,40 @@ const createStudent = async (req, res, next) => {
     const schoolId = req.user.schoolId;
     if (!userId || !schoolId) throw new APIError('Unauthenticated', 401);
 
-    // ---- parse FormData (multer already gave us req.body & req.file) ----
+    // ---- parse FormData ----
     const body = { ...req.body };
 
-    // Convert stringified fields
-    if (body.section) body.section = Array.isArray(body.section) ? body.section : [body.section];
-    if (body.parents) body.parents = JSON.parse(body.parents);
-    // Phone: Optional, but 10 digits if provided
+    // Safe section handling
+    if (body.section) {
+      body.section = typeof body.section === 'string' 
+        ? [body.section] 
+        : Array.isArray(body.section) ? body.section : [];
+    }
+
+    // Safe parents parsing
+    if (body.parents) {
+      try {
+        body.parents = typeof body.parents === 'string' ? JSON.parse(body.parents) : body.parents;
+      } catch (e) {
+        return next(new APIError('Invalid parents data format', 400));
+      }
+
+      // Parent validations
+      if (body.parents.fatherName?.trim() && !body.parents.fatherPhone?.trim()) {
+        return next(new APIError("Father's phone number is required", 400));
+      }
+      if (body.parents.motherName?.trim() && !body.parents.motherPhone?.trim()) {
+        return next(new APIError("Mother's phone number is required", 400));
+      }
+      if (body.parents.fatherPhone && !/^\d{10}$/.test(body.parents.fatherPhone.trim())) {
+        return next(new APIError("Father's phone number must be 10 digits", 400));
+      }
+      if (body.parents.motherPhone && !/^\d{10}$/.test(body.parents.motherPhone.trim())) {
+        return next(new APIError("Mother's phone number must be 10 digits", 400));
+      }
+    }
+
+    // Phone cleaning (optional field)
     if (body.phone) {
       const cleanedPhone = body.phone.toString().replace(/\D/g, '').slice(-10);
       if (cleanedPhone.length !== 10) {
@@ -185,28 +212,13 @@ const createStudent = async (req, res, next) => {
       body.phone = cleanedPhone;
     }
 
-    // Parents
-    if (body.parents) {
-      if (body.parents.fatherName && !body.parents.fatherPhone) {
-        return next(new APIError("Father's phone number is required", 400));
-      }
-      if (body.parents.motherName && !body.parents.motherPhone) {
-        return next(new APIError("Mother's phone number is required", 400));
-      }
-      if (body.parents.fatherPhone && !/^\d{10}$/.test(body.parents.fatherPhone)) {
-        return next(new APIError("Father's phone number must be 10 digits", 400));
-      }
-      if (body.parents.motherPhone && !/^\d{10}$/.test(body.parents.motherPhone)) {
-        return next(new APIError("Mother's phone number must be 10 digits", 400));
-      }
-    }
-    body.usesTransport = body.usesTransport === 'true';
-    body.usesHostel = body.usesHostel === 'true';
+    body.usesTransport = body.usesTransport === 'true' || body.usesTransport === true;
+    body.usesHostel = body.usesHostel === 'true' || body.usesHostel === true;
 
-    // ---- required file ----
+    // ---- Profile picture required ----
     if (!req.file) throw new APIError('Profile picture is required', 400);
 
-    // ---- upload to R2 ----
+    // ---- Upload to R2 ----
     const ext = req.file.originalname.split('.').pop().toLowerCase();
     const key = `students/${Date.now()}-${userId}.${ext}`;
     await s3Client.send(
@@ -218,7 +230,7 @@ const createStudent = async (req, res, next) => {
       })
     );
 
-    // ---- active academic year ----
+    // ---- Active academic year ----
     const activeYearResp = await fetch(
       `${req.protocol}://${req.get('host')}/api/academicyear/active/${schoolId}`,
       { headers: { Authorization: req.headers.authorization } }
@@ -227,15 +239,55 @@ const createStudent = async (req, res, next) => {
     if (!activeYear?._id) throw new APIError('No active academic year', 400);
     body.academicYearId = activeYear._id;
 
-    // ---- generate admissionNo ----
+    // ---- Generate admissionNo ----
     body.admissionNo = await generateAdmissionNo(schoolId, body.academicYearId);
 
-    // ---- final object for Mongoose (only fields that exist in schema) ----
+        // ==== APAAR HANDLING (Fully Safe) ====
+    let apaarId = null;
+    let apaarStatus = 'not_generated';
+    let apaarNotes = '';
+
+    // Safely get apaarId
+    if (body.apaarId && typeof body.apaarId === 'string') {
+      apaarId = body.apaarId.trim();
+      if (!/^\d{12}$/.test(apaarId)) {
+        return next(new APIError('APAAR ID must be exactly 12 digits', 400));
+      }
+    }
+
+    // Safely get apaarStatus
+    if (body.apaarStatus && typeof body.apaarStatus === 'string') {
+      apaarStatus = body.apaarStatus.trim();
+      // Validate enum (optional but good)
+      const validStatuses = [
+        'generated', 'pending', 'not_generated',
+        'refused', 'mismatch_error', 'consent_pending'
+      ];
+      if (!validStatuses.includes(apaarStatus)) {
+        apaarStatus = 'not_generated'; // fallback
+      }
+    }
+
+    // Safely get apaarNotes
+    if (body.apaarNotes && typeof body.apaarNotes === 'string') {
+      apaarNotes = body.apaarNotes.trim();
+    }
+
+    // Smart auto-logic
+    if (apaarId && apaarId.length === 12) {
+      apaarStatus = 'generated';
+      if (!apaarNotes) apaarNotes = 'Generated successfully';
+    } else if (apaarStatus === 'generated' && !apaarId) {
+      console.warn(`Warning: Student ${body.name} marked as APAAR generated but no ID provided`);
+      apaarStatus = 'pending'; // Auto-correct inconsistency
+    }
+
+    // ---- Final student data ----
     const studentData = {
       admissionNo: body.admissionNo,
       name: body.name?.trim(),
       email: body.email?.trim() || '',
-      phone: body.phone?.trim() || '',
+      phone: body.phone || '',
       dateOfBirth: body.dateOfBirth,
       city: body.city?.trim(),
       state: body.state?.trim(),
@@ -247,6 +299,9 @@ const createStudent = async (req, res, next) => {
       schoolId,
       academicYearId: body.academicYearId,
       profileImage: key,
+      apaarId,
+      apaarStatus,
+      apaarNotes,
       routeId: body.usesTransport ? body.routeId : null,
       feePreferences: new Map([
         ['usesTransport', body.usesTransport],
@@ -262,12 +317,12 @@ const createStudent = async (req, res, next) => {
       status: true,
     };
 
-    // ---- Mongoose will run ALL schema validators (including pre-validate) ----
+    // ---- Save with full validation ----
     const student = new Student(studentData);
-    await student.validate();               // throws if invalid
+    await student.validate();
     await student.save({ session });
 
-    // ───────────────────── SEND WELCOME TO PARENT ─────────────────────
+    // ───────────────────── SEND WELCOME MESSAGE ─────────────────────
     try {
       const [school, subscription] = await Promise.all([
         School.findById(schoolId).select('name preferredChannel'),
@@ -278,12 +333,9 @@ const createStudent = async (req, res, next) => {
         }).sort({ priority: -1 })
       ]);
 
-      if (!school || !subscription) {
-        console.log('No school or subscription → skip welcome');
-      } else {
-        // Reset monthly usage if new month
+      if (school && subscription) {
         const now = new Date();
-        const lastReset = subscription.usageStats.lastResetDate;
+        const lastReset = subscription.usageStats.lastResetDate || now;
         const isNewMonth = lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear();
 
         if (isNewMonth) {
@@ -293,18 +345,15 @@ const createStudent = async (req, res, next) => {
         }
 
         const parentPhone = student.parents.fatherPhone || student.parents.motherPhone;
-        if (!parentPhone) {
-          console.log('No parent phone → skip welcome');
-        } else {
+        if (parentPhone) {
           const cleanPhone = parentPhone.replace(/\D/g, '').slice(-10);
           const fullPhone = `+91${cleanPhone}`;
 
           const className = await Class.findById(student.classId).select('name').lean();
-          const message = `Welcome to ${school.name}! Your child ${student.name} is enrolled in ${className.name}, Section ${student.section.join(', ')}. Admission No: ${student.admissionNo}.`;
+          const message = `Welcome to ${school.name}! Your child ${student.name} is enrolled in ${className?.name || 'Class'}, Section ${student.section.join(', ')}. Admission No: ${student.admissionNo}.`;
 
           let smsSent = false, waSent = false;
 
-          // SEND SMS
           if ((school.preferredChannel === 'sms' || school.preferredChannel === 'both') &&
               subscription.usageStats.smsUsedThisMonth < subscription.messageLimits.smsMonthly) {
             await sendSMS(fullPhone, { type: 'welcome-student', message }, school.name);
@@ -312,7 +361,6 @@ const createStudent = async (req, res, next) => {
             smsSent = true;
           }
 
-          // SEND WHATSAPP
           if ((school.preferredChannel === 'whatsapp' || school.preferredChannel === 'both') &&
               subscription.usageStats.whatsappUsedThisMonth < subscription.messageLimits.whatsappMonthly) {
             await sendWhatsApp(fullPhone, { type: 'welcome-student', message }, school.name);
@@ -321,17 +369,21 @@ const createStudent = async (req, res, next) => {
           }
 
           await subscription.save();
-
-          console.log(`Welcome → SMS: ${smsSent}, WhatsApp: ${waSent}`);
+          console.log(`Welcome message → SMS: ${smsSent}, WhatsApp: ${waSent}`);
         }
       }
     } catch (err) {
-      console.error('Welcome failed:', err.message);
-      // Don't fail student creation
+      console.error('Welcome message failed:', err.message);
+      // Do not fail student creation
     }
 
     await session.commitTransaction();
-    res.status(201).json({ message: 'Student created successfully', student });
+    res.status(201).json({ 
+      success: true,
+      message: 'Student created successfully', 
+      data: student 
+    });
+
   } catch (err) {
     await session.abortTransaction();
     next(err);
@@ -585,68 +637,113 @@ const getStudent = async (req, res, next) => {
   }
 };
 
-// ── UPDATE STUDENT ──
 const updateStudent = async (req, res, next) => {
   try {
     const studentId = req.params.id;
-    const updateData = req.body;
+    const body = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(studentId)) {
       throw new APIError('Invalid student ID format', 400);
     }
 
-    const student = await Student.findOne({ _id: studentId, schoolId: req.user.schoolId });
+    const student = await Student.findOne({ 
+      _id: studentId, 
+      schoolId: req.user.schoolId 
+    });
     if (!student) {
-      throw new APIError('Student not found or you are not authorized to update this student', 404);
+      throw new APIError('Student not found or unauthorized', 404);
     }
 
-    // Validate and handle routeId
-    if (updateData.usesTransport !== undefined && updateData.usesTransport === 'true') {
-      if (!updateData.routeId) {
-        throw new APIError('A route is required when transportation is enabled', 400);
+    // ==== Transport handling ====
+    let routeId = student.routeId;
+    let usesTransport = student.feePreferences.get('usesTransport');
+
+    if (body.usesTransport !== undefined) {
+      usesTransport = body.usesTransport === 'true' || body.usesTransport === true;
+      if (usesTransport) {
+        if (!body.routeId) throw new APIError('Route is required when transport is enabled', 400);
+        if (!mongoose.Types.ObjectId.isValid(body.routeId)) throw new APIError('Invalid route ID', 400);
+
+        const route = await Route.findOne({ _id: body.routeId, schoolId: req.user.schoolId });
+        if (!route) throw new APIError('Route not found or does not belong to school', 404);
+
+        routeId = body.routeId;
+      } else {
+        routeId = null;
       }
-      if (!mongoose.Types.ObjectId.isValid(updateData.routeId)) {
-        throw new APIError('Invalid route ID format', 400);
-      }
-      const route = await Route.findOne({ _id: updateData.routeId, schoolId: req.user.schoolId });
-      if (!route) {
-        throw new APIError('Route not found or does not belong to this school', 404);
-      }
-    } else if (updateData.usesTransport !== undefined && updateData.usesTransport === 'false') {
-      updateData.routeId = null; // Clear routeId if transportation is disabled
     }
 
-    // Prevent updating immutable fields
-    delete updateData.admissionNo;
-    delete updateData.schoolId;
-    delete updateData.createdBy;
+    // ==== APAAR Handling (Same smart logic as create) ====
+    let apaarId = body.apaarId !== undefined ? (body.apaarId?.trim() || null) : student.apaarId;
+    let apaarStatus = body.apaarStatus || student.apaarStatus;
+    let apaarNotes = body.apaarNotes?.trim() !== undefined ? body.apaarNotes.trim() : student.apaarNotes;
 
-    // Handle phone field separately to bypass validation
-    let updatedData = { ...updateData }; // Create a copy to modify
-    if (updatedData.phone !== undefined) {
-      updatedData.phone = updatedData.phone || null; // Allow any value or null
+    if (apaarId !== null) {
+      if (apaarId && (apaarId.length !== 12 || !/^\d{12}$/.test(apaarId))) {
+        throw new APIError('APAAR ID must be exactly 12 digits', 400);
+      }
+      if (apaarId) {
+        apaarStatus = 'generated';
+        apaarNotes = apaarNotes || 'Generated successfully';
+      }
     } else {
-      delete updatedData.phone; // Remove phone from update if not provided
+      apaarId = null;
+      if (apaarStatus === 'generated') {
+        console.warn(`Warning: APAAR status set to generated without ID for student ${student.name}`);
+        apaarStatus = 'pending';
+      }
     }
 
-    // Perform update without validation to avoid phone validation error
+    // ==== Prepare update object (only allowed fields) ====
+    const updateData = {
+      name: body.name?.trim(),
+      email: body.email?.trim(),
+      phone: body.phone?.trim(),
+      dateOfBirth: body.dateOfBirth,
+      city: body.city?.trim(),
+      state: body.state?.trim(),
+      country: body.country?.trim(),
+      address: body.address?.trim(),
+      classId: body.classId,
+      section: body.section ? (Array.isArray(body.section) ? body.section : [body.section]) : undefined,
+      gender: body.gender,
+      rollNo: body.rollNo?.trim(),
+      routeId,
+      apaarId,
+      apaarStatus,
+      apaarNotes,
+      status: body.status !== undefined ? body.status : undefined,
+    };
+
+    // Update feePreferences if transport changed
+    if (body.usesTransport !== undefined) {
+      updateData.feePreferences = student.feePreferences;
+      updateData.feePreferences.set('usesTransport', usesTransport);
+    }
+
+    // Remove undefined fields
+    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+
+    // ==== Final safe update with validators ON ====
     const updatedStudent = await Student.findByIdAndUpdate(
       studentId,
-      { $set: updatedData },
-      { new: true, runValidators: false } // Disable all validators to bypass phone validation
-    );
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).populate('classId', 'name');
 
-    if (!updatedStudent) {
-      throw new APIError('Failed to update student', 500);
-    }
+    if (!updatedStudent) throw new APIError('Failed to update student', 500);
 
-    res.status(200).json({ success: true, data: updatedStudent });
+    res.status(200).json({
+      success: true,
+      message: 'Student updated successfully',
+      data: updatedStudent
+    });
+
   } catch (error) {
     console.error('Error in updateStudent:', error);
     next(error);
   }
 };
-
 
 
 const softDeleteStudents = async (req, res, next) => {

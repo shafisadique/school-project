@@ -2,23 +2,8 @@ import { HttpClient, HttpErrorResponse, HttpEvent, HttpEventType, HttpParams } f
 import { Injectable } from '@angular/core';
 import { Observable, catchError, throwError } from 'rxjs';
 import { environment } from 'src/environments/environment';
+import { Teacher } from './teacher.interface';
 
-export interface Teacher {
-  _id: string;
-  name: string;
-  email: string;
-  leaveBalance: number;
-  schoolId: string;
-  phone: string;
-  designation: string;
-  subjects: string[];
-  gender: string;
-  profileImage?: string;
-  profileImageUrl?: string; // Added for proxy/full URL from backend
-  userId?: { _id: string; username: string }; // Added for populated username
-  status: boolean;
-  academicYearId?: string; // Optional for filters
-}
 
 @Injectable({
   providedIn: 'root'

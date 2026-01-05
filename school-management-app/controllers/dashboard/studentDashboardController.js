@@ -8,7 +8,7 @@ const Teacher = require('../../models/teacher');
 const Subject = require('../../models/subject');
 const Payment = require('../../models/payment');
 const attendance = require('../../models/studentAttendance')
-
+const Class = require('../../models/class');
 const mongoose = require('mongoose');
 const moment = require('moment-timezone');
 

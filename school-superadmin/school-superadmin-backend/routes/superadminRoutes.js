@@ -4,13 +4,9 @@ const Subscription = require('../models/subscription');
 const School = require('../models/School');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/authMiddleware');
-const superAdminGuard = require('../middleware/superAdminGuard');
-const LoginLog = require('../models/LoginLog'); 
 
 // Superadmin only
 router.use(authMiddleware);
-router.use(superAdminGuard);
-
 router.use((req, res, next) => {
   if (req.user.role !== 'superadmin') return res.status(403).json({ message: 'Access denied' });
   next();
@@ -149,15 +145,6 @@ router.post('/activate-trial', async (req, res) => {
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-});
-
-router.get('/login-history', superAdminGuard, async (req, res) => {
-  const logs = await LoginLog.find({})
-    .sort({ createdAt: -1 })
-    .limit(200)
-    .populate('schoolId', 'name')
-    .lean();
-  res.json({ logs });
 });
 
 module.exports = router;

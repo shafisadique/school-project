@@ -16,30 +16,30 @@ interface Metric {
   standalone: true,
   imports: [BadgeComponent, SafeHtmlPipe,CommonModule],
   template: `
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
-      <div *ngFor="let m of metrics"
-           class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-        <div class="flex items-center justify-center w-12 h-12 rounded-xl"
-             [ngClass]="{
-               'bg-blue-100 text-blue-600': m.color === 'info',
-               'bg-green-100 text-green-600': m.color === 'success',
-               'bg-yellow-100 text-yellow-600': m.color === 'warning',
-               'bg-red-100 text-red-600': m.color === 'error'
-             }"
-             [innerHTML]="m.icon | safeHtml">
-        </div>
-        <div class="flex items-end justify-between mt-5">
-          <div>
-            <span class="text-sm text-gray-500 dark:text-gray-400">{{ m.title }}</span>
-            <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">{{ m.value }}</h4>
-          </div>
-          <app-badge [color]="m.change > 0 ? 'success' : 'error'">
-            <span [innerHTML]="m.change > 0 ? icons.arrowUp : icons.arrowDown | safeHtml"></span>
-            {{ m.change > 0 ? '+' : '' }}{{ m.change }}%
-          </app-badge>
-        </div>
-      </div>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+  <div *ngFor="let m of metrics"
+       class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+    <div class="flex items-center justify-center w-12 h-12 rounded-xl"
+         [ngClass]="{
+           'bg-blue-100 text-blue-600': m.color === 'info',
+           'bg-green-100 text-green-600': m.color === 'success',
+           'bg-yellow-100 text-yellow-600': m.color === 'warning',
+           'bg-red-100 text-red-600': m.color === 'error'
+         }"
+         [innerHTML]="m.icon | safeHtml">
     </div>
+    <div class="flex items-end justify-between mt-5">
+      <div>
+        <span class="text-sm text-gray-500 dark:text-gray-400">{{ m.title }}</span>
+        <h4 class="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">{{ m.value }}</h4>
+      </div>
+      <app-badge [color]="m.change > 0 ? 'success' : 'error'">
+        <span [innerHTML]="m.change > 0 ? icons.arrowUp : icons.arrowDown | safeHtml"></span>
+        {{ m.change > 0 ? '+' : '' }}{{ m.change }}%
+      </app-badge>
+    </div>
+  </div>
+</div>
   `
 })
 export class SuperadminMetricsComponent {

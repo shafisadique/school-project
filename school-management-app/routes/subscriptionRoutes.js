@@ -47,7 +47,6 @@ async function getActiveSubscription(schoolId) {
   return { subscription: main, mainPlan: null, isBoost: false };
 }
 
-
 // GET /api/subscriptions/plans — FINAL WORKING CODE
 router.get('/plans', authMiddleware, async (req, res) => {
   const school = await School.findById(req.user.schoolId);
@@ -157,6 +156,81 @@ router.get('/current', authMiddleware, async (req, res) => {
   });
 });
 
+// NEW: GET /api/subscriptions/expiry-status — Lightweight endpoint for header display
+router.get('/expiry-status', authMiddleware, async (req, res) => {
+  try {
+    const schoolId = req.user.schoolId;
+    let { subscription } = await getActiveSubscription(schoolId);
+
+    // If no active subscription, check for trial or return 'none'
+    if (!subscription) {
+      const school = await School.findById(schoolId);
+      const isNew = new Date(school.createdAt) > new Date(Date.now() - 30*24*60*60*1000);
+      if (isNew) {
+        // Auto-create trial if new school (mirrors /current logic)
+        subscription = await new Subscription({
+          schoolId,
+          planType: 'trial',
+          priority: 1,
+          status: 'active',
+          startsAt: new Date(),
+          expiresAt: new Date(Date.now() + 14*24*60*60*1000),
+          durationDays: 14,
+          originalAmount: 0,
+          finalAmount: 0,
+          messageLimits: { smsMonthly: 100, whatsappMonthly: 50 },
+          isTemporaryBoost: false
+        }).save();
+      } else {
+        // No subscription: Treat as expired/none
+        return res.json({
+          currentPlanName: 'No Plan',
+          planType: '',
+          expiresAt: '',
+          daysRemaining: 0,
+          status: 'none',
+          isExpiringSoon: false,
+          isExpired: true,
+          isPending: false
+        });
+      }
+    }
+
+    // Calculate days remaining (on-the-fly, since it may not be stored)
+    const now = new Date();
+    const expiresAt = new Date(subscription.expiresAt);
+    const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Check for pending subscriptions
+    const pendings = await Subscription.find({ 
+      schoolId, 
+      status: 'pending' 
+    }).limit(1);
+    const isPending = pendings.length > 0;
+
+    // Determine status flags
+    const status = subscription.status;
+    const isExpiringSoon = status === 'active' && daysRemaining <= 7 && daysRemaining > 0;
+    const isExpired = status === 'expired' || daysRemaining <= 0;
+
+    // Get plan name from PLANS
+    const currentPlanName = PLANS[subscription.planType]?.name || 'Unknown Plan';
+
+    res.json({
+      currentPlanName,
+      planType: subscription.planType,
+      expiresAt: subscription.expiresAt.toISOString(), // ISO for frontend
+      daysRemaining,
+      status,
+      isExpiringSoon,
+      isExpired,
+      isPending: isPending || status === 'pending'
+    });
+  } catch (error) {
+    console.error('Expiry status error:', error);
+    res.status(500).json({ error: 'Failed to fetch expiry status' });
+  }
+});
 
 // UPGRADE – FULLY TESTED & WORKING
 router.post('/upgrade', authMiddleware, async (req, res) => {
@@ -230,35 +304,35 @@ router.post('/upgrade', authMiddleware, async (req, res) => {
 });
 
 // POST /api/subscriptions/verify-payment - Verify Razorpay payment
-  router.post('/verify-payment', authMiddleware, async (req, res) => {
-    try {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, subscriptionId } = req.body;
+router.post('/verify-payment', authMiddleware, async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, subscriptionId } = req.body;
 
-      const sign = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-        .digest('hex');
+    const sign = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
 
-      if (sign !== razorpay_signature) {
-        return res.status(400).json({ message: 'Invalid signature' });
-      }
-
-      const sub = await Subscription.findById(subscriptionId);
-      if (!sub || sub.razorpayOrderId !== razorpay_order_id || sub.status !== 'pending') {
-        return res.status(400).json({ message: 'Invalid subscription' });
-      }
-
-      sub.status = 'active';
-      sub.startsAt = new Date();
-      sub.transactionId = razorpay_payment_id;
-      await sub.save();
-
-      res.json({ success: true, message: 'Payment successful & plan activated' });
-    } catch (err) {
-      console.error('Verify error:', err);
-      res.status(500).json({ message: 'Verification failed' });
+    if (sign !== razorpay_signature) {
+      return res.status(400).json({ message: 'Invalid signature' });
     }
-  });
+
+    const sub = await Subscription.findById(subscriptionId);
+    if (!sub || sub.razorpayOrderId !== razorpay_order_id || sub.status !== 'pending') {
+      return res.status(400).json({ message: 'Invalid subscription' });
+    }
+
+    sub.status = 'active';
+    sub.startsAt = new Date();
+    sub.transactionId = razorpay_payment_id;
+    await sub.save();
+
+    res.json({ success: true, message: 'Payment successful & plan activated' });
+  } catch (err) {
+    console.error('Verify error:', err);
+    res.status(500).json({ message: 'Verification failed' });
+  }
+});
 
 // POST /api/subscriptions/webhook - Razorpay webhook for payment confirmation
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -291,8 +365,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         subscription.transactionId = payment.id;
         await subscription.save();
 
-        // ←←← THIS IS THE MISSING LINE (FIXED!)
-        await school.findByIdAndUpdate(subscription.schoolId, {
+        // Fixed: 'school' → 'School'
+        await School.findByIdAndUpdate(subscription.schoolId, {
           $set: {
             smsPackActive: true,
             remainingSms: subscription.messageLimits.smsMonthly || 1000,
@@ -301,144 +375,107 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
           }
         });
 
-        logger.info(`SMS pack activated for school ${subscription.schoolId} via webhook`);
+        console.log(`SMS pack activated for school ${subscription.schoolId} via webhook`); // Assuming logger is console
       }
     }
 
     res.json({ received: true });
   } catch (err) {
-    logger.error('Webhook error:', err);
+    console.error('Webhook error:', err);
     res.status(500).json({ message: 'Failed' });
   }
 });
 
-// POST /api/subscriptions/approve-bank-transfer
-// router.post('/approve-bank-transfer', authMiddleware, async (req, res) => {
-//   try {
-//     if (req.user.role !== 'superadmin') {
-//       return res.status(403).json({ message: 'Only super admin can approve bank transfers' });
-//     }
-
-//     const { subscriptionId } = req.body;
-
-//     if (!mongoose.Types.ObjectId.isValid(subscriptionId)) {
-//       return res.status(400).json({ message: 'Invalid subscription ID' });
-//     }
-
-//     const subscription = await Subscription.findById(subscriptionId);
-//     if (!subscription || subscription.paymentMethod !== 'bank_transfer' || subscription.status !== 'pending') {
-//       return res.status(400).json({ message: 'Invalid or non-pending bank transfer subscription' });
-//     }
-
-//     subscription.status = 'active';
-//     subscription.startsAt = new Date();
-//     subscription.paymentProof = subscription.testMode ? 'test-mode-approved' : 'manually-approved';
-//     await subscription.save();
-
-//     res.status(200).json({
-//       message: 'Bank transfer subscription approved and activated',
-//       subscription: {
-//         schoolId: subscription.schoolId,
-//         planType: subscription.planType,
-//         status: subscription.status,
-//         messageLimits: subscription.messageLimits
-//       }
-//     });
-//   } catch (err) {
-//     res.status(500).json({ message: 'Error approving bank transfer', error: err.message });
-//   }
-// });
-
-// POST /api/subscriptions/cancel - Cancel auto-renewal
-  router.post('/cancel-auto-renew', authMiddleware, async (req, res) => {
-    try {
-      const subscription = await Subscription.findOne({
-        schoolId: req.user.schoolId,
-        status: 'active'
-      });
-      
-      if (!subscription) {
-        return res.status(404).json({ message: 'No active subscription found' });
-      }
-      
-      subscription.autoRenew = false;
-      await subscription.save();
-      
-      res.status(200).json({ message: 'Auto-renewal cancelled successfully' });
-    } catch (err) {
-      res.status(500).json({ message: 'Error cancelling auto-renewal', error: err.message });
+// POST /api/subscriptions/cancel-auto-renew
+router.post('/cancel-auto-renew', authMiddleware, async (req, res) => {
+  try {
+    const subscription = await Subscription.findOne({
+      schoolId: req.user.schoolId,
+      status: 'active'
+    });
+    
+    if (!subscription) {
+      return res.status(404).json({ message: 'No active subscription found' });
     }
-  });
+    
+    subscription.autoRenew = false;
+    await subscription.save();
+    
+    res.status(200).json({ message: 'Auto-renewal cancelled successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error cancelling auto-renewal', error: err.message });
+  }
+});
 
 // POST /api/subscriptions/apply-coupon - Apply discount coupon
-  router.post('/apply-coupon', authMiddleware, async (req, res) => {
-    try {
-      const { planType, couponCode } = req.body;
-      const planDetails = getPlanDetails(planType);
-      
-      if (!planDetails) {
-        return res.status(400).json({ message: 'Invalid plan type' });
-      }
-      
-      // In a real application, you would validate the coupon against a database
-      const coupon = validateCoupon(couponCode, planType);
-      
-      if (!coupon.valid) {
-        return res.status(400).json({ message: 'Invalid or expired coupon code' });
-      }
-      
-      const discountedPrice = calculateDiscount(planDetails.price, coupon.discount);
-      
-      res.status(200).json({
-        originalPrice: planDetails.price,
-        discount: coupon.discount,
-        finalPrice: discountedPrice,
-        couponCode: coupon.code,
-        message: `Coupon applied successfully! You saved ${coupon.discount}%`
-      });
-    } catch (err) {
-      res.status(500).json({ message: 'Error applying coupon', error: err.message });
+router.post('/apply-coupon', authMiddleware, async (req, res) => {
+  try {
+    const { planType, couponCode } = req.body;
+    const planDetails = getPlanDetails(planType);
+    
+    if (!planDetails) {
+      return res.status(400).json({ message: 'Invalid plan type' });
     }
-  });
-
-  // NEW: POST /api/subscriptions/cancel-upgrade – Delete pending sub on cancel
-  router.post('/cancel-upgrade', authMiddleware, async (req, res) => {
-    try {
-      const { orderId } = req.body;  // From frontend ondismiss
-
-      if (!orderId) {
-        return res.status(400).json({ message: 'Order ID required' });
-      }
-
-      // Find & delete pending sub linked to this order
-      const pendingSub = await Subscription.findOneAndDelete({
-        razorpayOrderId: orderId,
-        status: 'pending',
-        schoolId: req.user.schoolId
-      });
-
-      if (!pendingSub) {
-        return res.status(404).json({ message: 'No pending subscription found' });
-      }
-
-      // Optional: Cancel Razorpay order (API call)
-      await rzp.orders.cancel(orderId);
-
-      res.json({ 
-        success: true, 
-        message: 'Upgrade cancelled – pending sub removed. Features restored.' 
-      });
-    } catch (err) {
-      console.error('Cancel upgrade error:', err);
-      res.status(500).json({ message: 'Cancel failed' });
+    
+    // In a real application, you would validate the coupon against a database
+    const coupon = validateCoupon(couponCode, planType);
+    
+    if (!coupon.valid) {
+      return res.status(400).json({ message: 'Invalid or expired coupon code' });
     }
-  });
+    
+    const discountedPrice = calculateDiscount(planDetails.price, coupon.discount);
+    
+    res.status(200).json({
+      originalPrice: planDetails.price,
+      discount: coupon.discount,
+      finalPrice: discountedPrice,
+      couponCode: coupon.code,
+      message: `Coupon applied successfully! You saved ${coupon.discount}%`
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Error applying coupon', error: err.message });
+  }
+});
+
+// NEW: POST /api/subscriptions/cancel-upgrade – Delete pending sub on cancel
+router.post('/cancel-upgrade', authMiddleware, async (req, res) => {
+  try {
+    const { orderId } = req.body;  // From frontend ondismiss
+
+    if (!orderId) {
+      return res.status(400).json({ message: 'Order ID required' });
+    }
+
+    // Find & delete pending sub linked to this order
+    const pendingSub = await Subscription.findOneAndDelete({
+      razorpayOrderId: orderId,
+      status: 'pending',
+      schoolId: req.user.schoolId
+    });
+
+    if (!pendingSub) {
+      return res.status(404).json({ message: 'No pending subscription found' });
+    }
+
+    // Optional: Cancel Razorpay order (API call)
+    await rzp.orders.cancel(orderId);
+
+    res.json({ 
+      success: true, 
+      message: 'Upgrade cancelled – pending sub removed. Features restored.' 
+    });
+  } catch (err) {
+    console.error('Cancel upgrade error:', err);
+    res.status(500).json({ message: 'Cancel failed' });
+  }
+});
 
 function getPlanDetails(planType) {
   // Handle trial
   if (planType === 'trial') {
     return {
-      ...subscriptionPlans.trial,
+      ...PLANS.trial,
       planType: 'trial',
       priority: 1
     };
@@ -456,9 +493,9 @@ function getPlanDetails(planType) {
   // Reconstruct key: both_basic_monthly, sms_basic_yearly, etc.
   const key = `${channel}_${tier}_${duration}`;
   
-  if (subscriptionPlans[key]) {
+  if (PLANS[key]) {  // Fixed: PLANS instead of subscriptionPlans
     return {
-      ...subscriptionPlans[key],
+      ...PLANS[key],
       planType: key,
       priority: channel === 'both' && tier === 'premium' ? 3 : 2
     };
@@ -468,35 +505,35 @@ function getPlanDetails(planType) {
 }
 
 // Helper function to validate coupon (simplified)
-  function validateCoupon(code, planType) {
-    // In a real application, this would check against a database
-    const coupons = {
-      'WELCOME10': { discount: 10, validFor: ['basic_monthly', 'premium_monthly'], expires: '2024-12-31' },
-      'EDU25': { discount: 25, validFor: ['basic_yearly', 'premium_yearly'], expires: '2024-06-30' }
-    };
-    
-    const coupon = coupons[code];
-    if (!coupon) {
-      return { valid: false };
-    }
-    
-    const now = new Date();
-    const expires = new Date(coupon.expires);
-    
-    if (now > expires || !coupon.validFor.includes(planType)) {
-      return { valid: false };
-    }
-    
-    return {
-      valid: true,
-      discount: coupon.discount,
-      code: code
-    };
+function validateCoupon(code, planType) {
+  // In a real application, this would check against a database
+  const coupons = {
+    'WELCOME10': { discount: 10, validFor: ['basic_monthly', 'premium_monthly'], expires: '2024-12-31' },
+    'EDU25': { discount: 25, validFor: ['basic_yearly', 'premium_yearly'], expires: '2024-06-30' }
+  };
+  
+  const coupon = coupons[code];
+  if (!coupon) {
+    return { valid: false };
   }
+  
+  const now = new Date();
+  const expires = new Date(coupon.expires);
+  
+  if (now > expires || !coupon.validFor.includes(planType)) {
+    return { valid: false };
+  }
+  
+  return {
+    valid: true,
+    discount: coupon.discount,
+    code: code
+  };
+}
 
 // Helper function to calculate discount
-  function calculateDiscount(price, discountPercent) {
-    return price - (price * discountPercent / 100);
-  }
+function calculateDiscount(price, discountPercent) {
+  return price - (price * discountPercent / 100);
+}
 
 module.exports = router;

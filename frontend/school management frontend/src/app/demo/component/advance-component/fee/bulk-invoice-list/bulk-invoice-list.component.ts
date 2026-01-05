@@ -132,6 +132,7 @@ export class BulkInvoiceListComponent implements OnInit, OnDestroy {
         }
       }
     });
+    this.setViewMode('class');
   }
 
   ngOnDestroy(): void {

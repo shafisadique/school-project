@@ -7,6 +7,7 @@ $warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
 $shadow-light: 0 4px 12px rgba(0,0,0,0.08);
 $shadow-hover: 0 10px 25px rgba(0,0,0,0.12);
 $border-color: #e2e8f0;
+$orange-border: #f97316; // Matches image's outer border
 
 .attendance-container {
   padding: 16px;
@@ -121,6 +122,7 @@ $border-color: #e2e8f0;
     }
   }
 
+  // Desktop Table Styles
   .professional-table {
     font-size: 0.9rem;
     th {
@@ -138,6 +140,7 @@ $border-color: #e2e8f0;
     }
     .student-name-cell {
       font-weight: 500;
+      min-width: 180px;
     }
     .avatar-sm {
       width: 38px;
@@ -163,6 +166,7 @@ $border-color: #e2e8f0;
       max-width: 120px;
       margin: 0 auto;
       font-size: 0.85rem;
+      padding: 6px 10px;
     }
   }
 
@@ -209,7 +213,41 @@ $border-color: #e2e8f0;
     }
   }
 
-  // Mobile Responsive
+  // Shared Avatar
+  .avatar-sm, .avatar-circle {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: $primary-gradient;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 14px;
+
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .initials-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      pointer-events: none;
+      z-index: 1; // Ensures overlay shows over image if needed
+    }
+  }
+
+  // Mobile Styles (No Inner Borders)
   @media (max-width: 768px) {
     padding: 12px;
 
@@ -220,39 +258,17 @@ $border-color: #e2e8f0;
     .table-header {
       flex-direction: column;
       align-items: flex-start;
+      gap: 8px;
     }
 
-    .professional-table {
-      font-size: 0.85rem;
-      thead { display: none; }
-      tbody tr {
-        display: block;
-        margin-bottom: 16px;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 16px;
-        background: white;
-        box-shadow: $shadow-light;
-      }
-      td {
-        display: block;
-        text-align: right;
-        padding: 8px 0;
-        border: none;
+    .table-header .legend {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
 
-        &::before {
-          content: attr(data-label);
-          float: left;
-          font-weight: 600;
-          color: #64748b;
-        }
-
-        &:last-child { border-bottom: none; }
-      }
-      .student-name-cell::before { content: "Student"; }
-      .roll-no::before { content: "Roll No"; }
-      .status-cell::before { content: "Status"; text-align: left; }
-      .status-cell { text-align: right; }
+    // Hide desktop table
+    .table-responsive {
+      display: none;
     }
 
     .action-buttons {
@@ -261,114 +277,257 @@ $border-color: #e2e8f0;
         width: 100%;
       }
     }
-  }
-}
-.avatar-sm {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: linear-gradient(135deg, #4a90e2, #50c9c3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
 
-  .avatar-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .initials-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    pointer-events: none;
-  }
-}
-
-
-.professional-table {
-  thead th {
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-    color: white;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-
-  .status-select {
-    max-width: 130px;
-    margin: 0 auto;
-    font-size: 0.85rem;
-    padding: 6px 10px;
-  }
-
-  .student-name-cell {
-    min-width: 180px;
-  }
-}
-
-/* MOBILE RESPONSIVE - CARDS STYLE */
-@media (max-width: 768px) {
-  .professional-table {
-    thead { display: none; }
-
-    tbody tr {
-      display: block;
-      margin-bottom: 16px;
-      padding: 16px;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-      border: 1px solid #e2e8f0;
+    // Mobile Cards Container
+    .mobile-students-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px; // Space between cards
     }
 
-    td {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border: none;
-      font-size: 0.95rem;
+    .student-card {
+      background: white;
+      border: 1px solid $orange-border; // Outer orange border only (matches image)
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: $shadow-light;
+      transition: all 0.2s ease;
 
-      &::before {
-        content: attr(data-label);
-        font-weight: 600;
-        color: #4a5568;
-        margin-right: 10px;
+      &:hover {
+        box-shadow: $shadow-hover;
+        transform: translateY(-1px);
       }
 
-      &.index { display: none; }
-      &.student-name-cell {
+      .card-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 16px;
+        gap: 12px;
+      }
+
+      .left-section {
+        display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 10px;
-        &::before { content: "Student"; }
+        gap: 8px;
+        flex: 1;
       }
-      &.roll-no {
-        &::before { content: "Roll No"; }
+
+      .avatar-container {
+        align-self: flex-start;
+      }
+
+      .name-roll-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .student-name {
         font-weight: 600;
+        font-size: 1rem;
+        color: #1e293b;
+        line-height: 1.2;
       }
-      &.status-cell {
-        &::before { content: "Status"; }
-        .status-select {
-          width: 100%;
-          max-width: none;
+
+      .roll-no {
+        font-size: 0.85rem;
+        color: #64748b;
+        font-weight: 500;
+      }
+
+      .right-section {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+        min-width: 120px;
+      }
+
+      .status-label {
+        font-weight: 600;
+        color: #64748b;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+
+      .status-dropdown {
+        width: 100px; // Fixed width like image
+        border: none; // No border
+        border-radius: 8px;
+        padding: 4px 8px;
+        font-size: 0.9rem;
+        background: white;
+        color: #374151;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); // Subtle shadow instead of border
+
+        &:focus {
+          outline: none;
+          background: #dbeafe; // Light blue on focus
+          box-shadow: 0 0 0 2px #3b82f6;
+        }
+
+        // Selected option blue background (matches image)
+        option:checked {
+          background-color: #3b82f6;
+          color: white;
+        }
+
+        option {
+          background: white;
+          color: #374151;
+          padding: 4px;
+        }
+      }
+
+      // Larger avatar for mobile
+      .avatar-circle {
+        width: 48px;
+        height: 48px;
+        font-size: 16px;
+      }
+    }
+    .history-table-responsive {
+    display: none;
+  }
+
+  .history-section {
+    .section-title {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+    }
+  }
+
+  // Mobile History Cards
+  .mobile-history-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .history-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: $shadow-light;
+    transition: all 0.2s ease;
+    border: 1px solid $border-color; // Subtle border, no orange to keep it neutral
+
+    &:hover {
+      box-shadow: $shadow-hover;
+      transform: translateY(-1px);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      gap: 8px;
+
+      .date-class {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+
+        .record-date {
+          font-weight: 600;
+          font-size: 1rem;
+          color: #1e293b;
+        }
+
+        .record-class {
+          font-size: 0.85rem;
+          color: #64748b;
+        }
+      }
+
+      .record-subject {
+        font-weight: 500;
+        font-size: 0.9rem;
+        color: #374151;
+        white-space: nowrap;
+      }
+    }
+
+    .card-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 8px;
+
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 8px 4px;
+
+        .stat-label {
+          font-size: 0.75rem;
+          color: #64748b;
+          text-align: center;
+        }
+
+        .stat-value {
+          font-weight: 600;
+          font-size: 0.85rem;
+          padding: 4px 8px;
+          border-radius: 6px;
+          min-width: 24px;
+          text-align: center;
         }
       }
     }
+
+    .edit-btn {
+      align-self: flex-end;
+      background: transparent;
+      border: 1px solid #3b82f6;
+      color: #3b82f6;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+
+      &:hover:not([disabled]) {
+        background: #3b82f6;
+        color: white;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      i {
+        margin-right: 4px;
+      }
+    }
+  }
+}
+
+// Desktop History Table (ensure it's compact)
+.professional-table.table-sm {
+  font-size: 0.8rem;
+
+  th, td {
+    padding: 8px 6px;
+    white-space: nowrap;
   }
 
-  .table-responsive {
-    border: none;
+  .badge {
+    font-size: 0.7rem;
+    padding: 4px 6px;
+  }
   }
 }

@@ -2,32 +2,38 @@
   <li class="pc-h-item">
     <div class="row mb-3">
       <div class="col-md-12">
-        <button class="btn btn-primary" (click)="openUpgradeModal(upgradeModal)" *ngIf="role === 'admin'">Upgrade</button>
-        <div class="d-flex justify-content-between align-items-center" *ngIf="authService.getUserRole() === 'admin'">
-          <div *ngIf="isExpiringSoon && !isExpired && !isPending" class="alert alert-warning alert-dismissible fade show" role="alert">
-            Your plan expires in {{ subscriptionData.daysRemaining }} days.
-            <button
-            class="btn btn-primary"
-            (click)="openUpgradeModal(upgradeModal)"
-            *ngIf="role === 'admin' && subscriptionData.subscriptionStatus !== 'active'">
-            Upgrade
-          </button>
-          <div *ngIf="subscriptionData.subscriptionStatus === 'active'" class="alert alert-success p-2 mb-0">
-            <strong>{{ subscriptionData.name }}</strong>
-            <span *ngIf="subscriptionData.isTrial"> (Trial – {{ subscriptionData.daysRemaining }} days left)</span>
-            <span *ngIf="!subscriptionData.isTrial"> until {{ subscriptionData.expiresAt | date:'mediumDate' }}</span>
-          </div>
-          </div>
-          <div *ngIf="isExpired" class="alert alert-danger alert-dismissible fade show" role="alert">
-            Your subscription has expired. You can only view data.
-            <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Renew now</a>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-          <div *ngIf="isPending" class="alert alert-info alert-dismissible fade show" role="alert">
-            Your payment is pending verification. You can only view data until approved.
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        </div>
+        <!-- <button class="btn btn-primary" (click)="openUpgradeModal(upgradeModal)" *ngIf="role === 'admin'">Upgrade</button> -->
+      <!-- nav-right.component.html – Replace the subscription alert section only -->
+<div class="subscription-alert-container" *ngIf="authService.getUserRole() === 'admin' && showExpiryAlert">
+  <!-- Expiring Soon (Warning) -->
+  <div class="alert alert-warning d-flex align-items-center gap-3" *ngIf="isExpiringSoon">
+    <i class="bi bi-exclamation-triangle me-2"></i> <!-- Optional icon -->
+    <span>{{ expiryMessage }}</span>
+    <button class="btn btn-sm btn-primary ms-auto" routerLink="/subscription-plans">
+      Upgrade Now
+    </button>
+  </div>
+
+  <!-- Expired (Danger) -->
+  <div class="alert alert-danger d-flex align-items-center gap-3" *ngIf="isExpired">
+    <i class="bi bi-x-circle me-2"></i>
+    <span>{{ expiryMessage }}</span>
+    <button class="btn btn-sm btn-danger ms-auto" routerLink="/subscription-plans">
+      Renew Now
+    </button>
+  </div>
+
+  <!-- Pending (Info) -->
+  <div class="alert alert-info d-flex align-items-center gap-3" *ngIf="isPending">
+    <i class="bi bi-clock me-2"></i>
+    <span>{{ expiryMessage }}</span>
+    <button class="btn btn-sm btn-info ms-auto" routerLink="/subscription-plans">
+      Check Status
+    </button>
+  </div>
+</div>
+
+<!-- ... rest of HTML unchanged (notifications dropdown, user profile, etc.) -->
       </div>
     </div>
   </li>
@@ -156,7 +162,7 @@
     </div>
   </li>
 </ul>
-
+<!-- 
 <ng-template #upgradeModal>
   <div class="modal-header premium-header">
     <h4 class="modal-title text-white fw-bold">Upgrade Your Subscription</h4>
@@ -165,7 +171,6 @@
 
   <div class="modal-body p-5" style="background:#f9f9f9;">
 
-    <!-- Current Plan -->
     <div class="current-plan-banner text-center mb-5 p-4 rounded-4 border-0" 
          style="background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.08);" 
          *ngIf="subscriptionData?.planType">
@@ -182,7 +187,6 @@
              [class.best-value]="plan.value.includes('premium')"
              [class.current-plan-card]="subscriptionData?.planType === plan.value">
 
-          <!-- Ribbons -->
           <div class="ribbon ribbon-popular" *ngIf="plan.value.includes('yearly') && !plan.value.includes('premium')">
             MOST POPULAR
           </div>
@@ -226,4 +230,4 @@
   <div class="modal-footer premium-header">
     <button class="btn btn-outline-light fw-bold px-4" (click)="modalService.dismissAll()">Close</button>
   </div>
-</ng-template>
+</ng-template> -->

@@ -56,37 +56,72 @@
       </div>
 
       <!-- Students Table -->
-      <div *ngIf="students.length > 0" class="table-section mt-4">
-        <div class="table-header">
-          <h5 class="mb-0">
-            <i class="fas fa-users me-2"></i>
-            Students ({{ students.length }})
-          </h5>
-          <div class="legend">
-            <span class="legend-item present">Present</span>
-            <span class="legend-item absent">Absent</span>
-            <span class="legend-item late">Late</span>
+        <div *ngIf="students.length > 0" class="table-section mt-4">
+          <div class="table-header">
+            <h5 class="mb-0">
+              <i class="fas fa-users me-2"></i>
+              Students ({{ students.length }})
+            </h5>
+            <div class="legend">
+              <span class="legend-item present">Present</span>
+              <span class="legend-item absent">Absent</span>
+              <span class="legend-item late">Late</span>
+            </div>
           </div>
-        </div>
 
-        <div class="table-responsive">
-          <table class="table professional-table table-hover">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Student Name</th>
-                <th>Roll No</th>
-                <th class="text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let student of studentsWithAvatar; let i = index" class="student-row">
-                <td class="index">{{ i + 1 }}</td>
+          <!-- Desktop: Table -->
+          <div class="table-responsive" *ngIf="windowWidth > 768">
+            <table class="table professional-table table-hover">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Student Name</th>
+                  <th>Roll No</th>
+                  <th class="text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let student of studentsWithAvatar; let i = index" class="student-row">
+                  <td class="index">{{ i + 1 }}</td>
+                  <td class="student-name-cell">
+                    <div class="d-flex align-items-center">
+                      <div class="avatar-sm me-3">
+                        <img 
+                          [src]="student.avatarUrl" 
+                          alt="{{ student.name }}" 
+                          class="avatar-img"
+                          (error)="handleImageError($event, student)">
+                        <span class="initials-overlay">
+                          {{ student.initials }}
+                        </span>
+                      </div>
+                      <div class="student-name">{{ student.name }}</div>
+                    </div>
+                  </td>
+                  <td class="roll-no text-center">{{ student.rollNo || '—' }}</td>
+                  <td class="status-cell text-center">
+                    <select 
+                      class="form-select form-select-sm status-select"
+                      [value]="getAttendanceStatus(student._id)"
+                      (change)="updateAttendanceStatus(student._id, $event)"
+                      [disabled]="!canMarkAttendance">
+                      <option value="Present">Present</option>
+                      <option value="Absent">Absent</option>
+                      <option value="Late">Late</option>
+                    </select>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-                <!-- Avatar + Name -->
-                <td class="student-name-cell">
-                  <div class="d-flex align-items-center">
-                    <div class="avatar-sm me-3">
+          <!-- Mobile: Cards (No Borders Inside) -->
+          <div class="mobile-students-container" *ngIf="windowWidth <= 768">
+            <div *ngFor="let student of studentsWithAvatar; let i = index" class="student-card">
+              <div class="card-content">
+                <div class="left-section">
+                  <div class="avatar-container">
+                    <div class="avatar-circle">
                       <img 
                         [src]="student.avatarUrl" 
                         alt="{{ student.name }}" 
@@ -96,17 +131,16 @@
                         {{ student.initials }}
                       </span>
                     </div>
-                    <div class="student-name">{{ student.name }}</div>
                   </div>
-                </td>
-
-                <!-- Roll No -->
-                <td class="roll-no text-center">{{ student.rollNo || '—' }}</td>
-
-                <!-- STATUS DROPDOWN - THIS WAS MISSING! -->
-                <td class="status-cell text-center">
+                  <div class="name-roll-container">
+                    <div class="student-name">{{ student.name }}</div>
+                    <div class="roll-no">Roll No: {{ student.rollNo || '—' }}</div>
+                  </div>
+                </div>
+                <div class="right-section">
+                  <label class="status-label">Status:</label>
                   <select 
-                    class="form-select form-select-sm status-select"
+                    class="status-dropdown"
                     [value]="getAttendanceStatus(student._id)"
                     (change)="updateAttendanceStatus(student._id, $event)"
                     [disabled]="!canMarkAttendance">
@@ -114,12 +148,11 @@
                     <option value="Absent">Absent</option>
                     <option value="Late">Late</option>
                   </select>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
       <!-- Action Buttons -->
       <div class="action-buttons mt-4">
@@ -139,43 +172,80 @@
   </div>
 
   <!-- Attendance History -->
-  <div class="history-section" *ngIf="attendanceHistory.length > 0">
-    <div class="section-title">
-      <i class="fas fa-history me-2"></i>Recent Attendance Records
-    </div>
-    <div class="table-responsive">
-      <table class="table professional-table table-sm">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Class</th>
-            <th>Subject</th>
-            <th>Present</th>
-            <th>Absent</th>
-            <th>Late</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let record of attendanceHistory | slice:0:10">
-            <td>{{ record.date | date:'dd MMM yyyy' }}</td>
-            <td>{{ record.classId?.name }}</td>
-            <td>{{ record.subjectId?.name }}</td>
-            <td><span class="badge bg-success">{{ countStatus(record, 'Present') }}</span></td>
-            <td><span class="badge bg-danger">{{ countStatus(record, 'Absent') }}</span></td>
-            <td><span class="badge bg-warning text-dark">{{ countStatus(record, 'Late') }}</span></td>
-            <td>
-              <button class="btn btn-sm btn-outline-info" 
-                      (click)="openEditModal(editModal, record)"
-                      [disabled]="!isToday(record.date) || !canMarkAttendance">
-                <i class="fas fa-edit"></i>
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+  <!-- Attendance History -->
+<div class="history-section" *ngIf="attendanceHistory.length > 0">
+  <div class="section-title">
+    <i class="fas fa-history me-2"></i>Recent Attendance Records
+  </div>
+
+  <!-- Desktop: Table -->
+  <div class="history-table-responsive" *ngIf="windowWidth > 768">
+    <table class="table professional-table table-sm">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Class</th>
+          <th>Subject</th>
+          <th>Present</th>
+          <th>Absent</th>
+          <th>Late</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let record of attendanceHistory | slice:0:10">
+          <td>{{ record.date | date:'dd MMM yyyy' }}</td>
+          <td>{{ record.classId?.name }}</td>
+          <td>{{ record.subjectId?.name }}</td>
+          <td><span class="badge bg-success">{{ countStatus(record, 'Present') }}</span></td>
+          <td><span class="badge bg-danger">{{ countStatus(record, 'Absent') }}</span></td>
+          <td><span class="badge bg-warning text-dark">{{ countStatus(record, 'Late') }}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline-info" 
+                    (click)="openEditModal(editModal, record)"
+                    [disabled]="!isToday(record.date) || !canMarkAttendance">
+              <i class="fas fa-edit"></i>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Mobile: Cards -->
+  <div class="mobile-history-container" *ngIf="windowWidth <= 768">
+    <div *ngFor="let record of attendanceHistory | slice:0:10" class="history-card">
+      <div class="card-header">
+        <div class="date-class">
+          <div class="record-date">{{ record.date | date:'dd MMM yyyy' }}</div>
+          <div class="record-class">{{ record.classId?.name }}</div>
+        </div>
+        <div class="record-subject">{{ record.subjectId?.name }}</div>
+      </div>
+      <div class="card-body">
+        <div class="stats-grid">
+          <div class="stat-item">
+            <span class="stat-label">Present</span>
+            <span class="stat-value bg-success">{{ countStatus(record, 'Present') }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Absent</span>
+            <span class="stat-value bg-danger">{{ countStatus(record, 'Absent') }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Late</span>
+            <span class="stat-value bg-warning text-dark">{{ countStatus(record, 'Late') }}</span>
+          </div>
+        </div>
+        <button class="edit-btn" 
+                (click)="openEditModal(editModal, record)"
+                [disabled]="!isToday(record.date) || !canMarkAttendance">
+          <i class="fas fa-edit"></i> Edit
+        </button>
+      </div>
     </div>
   </div>
+</div>
 </div>
 
 <!-- Edit Modal - PERFECT VERSION (Only 2 fixes needed) -->

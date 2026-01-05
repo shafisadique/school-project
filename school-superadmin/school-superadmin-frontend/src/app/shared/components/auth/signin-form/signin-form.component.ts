@@ -18,7 +18,12 @@ import { ToastrService } from 'ngx-toastr';
     FormsModule,
   ],
   templateUrl: './signin-form.component.html',
-  styles: ``
+  styles: [`
+    .error-text { @apply mt-1 text-xs text-red-500 dark:text-red-400; }
+    .form-input { @apply w-full; }  /* Fallback for host classes */
+    .login-btn { @apply w-full h-11 rounded-lg bg-indigo-600 text-white font-medium text-sm px-4 py-2.5 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors; }
+    .forgot-link, .back-link { @apply text-sm text-indigo-600 hover:text-indigo-500 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors; }
+  `]
 })
 export class SigninFormComponent {
   serverErrors: any = {};
@@ -30,12 +35,27 @@ export class SigninFormComponent {
   isDisable = false;
   showForgotPassword = false;
 
+  // Toastr config for professional look (top-center, subtle)
+  private toastrConfig = {
+    positionClass: 'toast-top-center',
+    timeOut: 5000,
+    progressBar: true,
+    closeButton: true,
+    tapToDismiss: true,
+    toastClass: 'ngx-toastr toast toast-success shadow-lg rounded-lg'  // Custom classes for styling
+  };
+
   constructor(
     private fb: FormBuilder,
     public router: Router,
     private authService: AuthService,
     private toastrService: ToastrService
   ) {
+    this.toastrService.success(
+  'Login successful! Welcome back.',
+  'Success',
+  { positionClass: 'toast-top-center', timeOut: 120000 }
+);
     this.loginForm = this.fb.group({
       email: ['', Validators.required],  // email only (no email validation for superadmin)
       password: ['', Validators.required],
@@ -73,24 +93,27 @@ export class SigninFormComponent {
           // Fallback for non-superadmin (though superadmin-only app)
           this.router.navigate(['//auth/register']);
         }
-        this.toastrService.success('Login Success', 'Welcome!');
+        this.toastrService.success('Login Success', 'Welcome!', this.toastrConfig);
         this.isLoading = false;
         this.isDisable = false;
       },
       error: (errorResponse) => {
         // Extract message correctly: backend sends { error: "msg" } or { message: "msg" }
-        const errorMessage = errorResponse.error?.error || errorResponse.error?.message || 'Login Failed';
+        let errorMessage = errorResponse.error?.error || errorResponse.error?.message || 'Login Failed';
+        
+        // Normalize to structured errors for consistency
+        this.serverErrors = errorResponse.error?.errors || { email: errorMessage };  // Assume backend might send {errors: {email: 'msg'}}
+
         if (errorResponse.status === 400) {
-          this.toastrService.error(errorMessage, 'Invalid Credentials');
+          this.toastrService.error(errorMessage, 'Invalid Credentials', this.toastrConfig);
         } else if (errorResponse.status === 0) {
-          this.toastrService.error('Network Error', 'Connection Failed');
+          this.toastrService.error('Network Error', 'Connection Failed', this.toastrConfig);
         } else if (errorResponse.status === 500) {
-          this.toastrService.error('Server Error', 'Please try again later');
+          this.toastrService.error('Server Error', 'Please try again later', this.toastrConfig);
         } else {
-          this.toastrService.error(errorMessage, 'Login Failed');
+          this.toastrService.error(errorMessage, 'Login Failed', this.toastrConfig);
         }
 
-        this.serverErrors = { message: errorMessage };
         this.isLoading = false;
         this.isDisable = false;
       }
@@ -109,7 +132,7 @@ export class SigninFormComponent {
     const { email } = this.forgotPasswordForm.value;
     this.authService.forgotPassword(email.trim()).subscribe({
       next: (res: any) => {
-        this.toastrService.success('Password reset link sent to your email', 'Success');
+        this.toastrService.success('Password reset link sent to your email', 'Success', this.toastrConfig);
         this.isLoading = false;
         this.isDisable = false;
         this.toggleForgotPassword();
@@ -119,19 +142,19 @@ export class SigninFormComponent {
         const errorMessage = errorResponse.error?.error || errorResponse.error?.message || 'Failed to send reset link';
 
         if (errorResponse.status === 404) {
-          this.toastrService.error('Email not found in our records', 'Error');
+          this.toastrService.error('Email not found in our records', 'Error', this.toastrConfig);
           this.serverErrors = { email: 'Email not found in our records' };
         } else if (errorResponse.status === 400) {
-          this.toastrService.error(errorMessage, 'Invalid Input');
+          this.toastrService.error(errorMessage, 'Invalid Input', this.toastrConfig);
           this.serverErrors = { email: errorMessage };
         } else if (errorResponse.status === 429) {
-          this.toastrService.error('Too many requests, please try again later', 'Rate Limit Exceeded');
+          this.toastrService.error('Too many requests, please try again later', 'Rate Limit Exceeded', this.toastrConfig);
           this.serverErrors = { email: 'Too many requests, please try again later' };
         } else if (errorResponse.status === 0) {
-          this.toastrService.error('Network Error', 'Connection Failed');
+          this.toastrService.error('Network Error', 'Connection Failed', this.toastrConfig);
           this.serverErrors = { email: 'Network error, please check your connection' };
         } else {
-          this.toastrService.error('An unexpected error occurred', 'Error');
+          this.toastrService.error('An unexpected error occurred', 'Error', this.toastrConfig);
           this.serverErrors = { email: 'An unexpected error occurred' };
         }
 
@@ -139,5 +162,30 @@ export class SigninFormComponent {
         this.isDisable = false;
       }
     });
+  }
+
+  // Helper to get error hint for inputs
+  getErrorHint(controlName: string, form: FormGroup, serverKey?: string): string | undefined {
+    const control = form.get(controlName);
+    if (control?.touched && control.errors?.['required']) {
+      return `${controlName.charAt(0).toUpperCase() + controlName.slice(1)} is required`;
+    }
+    if (control?.touched && control.errors?.['email']) {
+      return 'Please enter a valid email';
+    }
+    if (this.serverErrors[serverKey || controlName]) {
+      return this.serverErrors[serverKey || controlName];
+    }
+    return undefined;  // Changed from null to undefined
+  }
+
+  getFieldErrorState(controlName: string, form: FormGroup): boolean {
+    const control = form.get(controlName);
+    return !!(control?.touched && control.invalid) || !!this.serverErrors[controlName];
+  }
+
+  getFieldSuccessState(controlName: string, form: FormGroup): boolean {
+    const control = form.get(controlName);
+    return !!(control?.touched && control.valid && !this.serverErrors[controlName]);
   }
 }

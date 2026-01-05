@@ -14,9 +14,8 @@ import { CustomReportConfig, ReportResponse, ReportService } from 'src/app/theme
   styleUrls: ['./reports.component.scss']
 })
 export class ReportsComponent implements OnInit {
-  // Existing properties (keep if any)
-  
-  // New properties for custom reports
+  udiseCompliance: any = null;
+  isLoadingCompliance = true;
   showCustomBuilder = false;
   availableReports: any[] = [];
   udiseTemplates: any[] = [];
@@ -39,7 +38,7 @@ export class ReportsComponent implements OnInit {
 
   ngOnInit() {
     this.loadAvailableReports();
-    // Your existing ngOnInit code...
+    this.loadUDISECompliance();
   }
 
   // Load available report types
@@ -105,14 +104,14 @@ loadAvailableReports() {
 // Add this method inside ReportsComponent class
 getAvailableColumns(reportType?: string): string[] {
   const columnsMap: { [key: string]: string[] } = {
-    student: ['name', 'rollNo', 'classId', 'gender', 'category', 'enrollmentDate', 'status', 'admissionNo', 'phone'],
-    'fee-defaulters': ['name', 'rollNo', 'classId', 'totalDue', 'totalPaid', 'feeStatus', 'lastPaymentDate'],
-    'academic-performance': ['studentName', 'rollNo', 'subjectName', 'marksObtained', 'totalMarks', 'percentage', 'grade', 'position'],
-    'attendance-summary': ['teacherName', 'designation', 'date', 'status', 'subject', 'remarks'],
-    'teacher-performance': ['name', 'designation', 'subjects', 'phone', 'email', 'experience', 'status', 'leaveBalance']
+    student: ['name', 'rollNo', 'className', 'gender', 'status','fatherName', 'motherName', 'fatherPhone', 'motherPhone', 'admissionNo'],
+              'fee-defaulters': ['name', 'rollNo', 'className', 'totalDue', 'totalPaid', 'feeStatus', 'lastPaymentDate'],
+              'academic-performance': ['studentName', 'rollNo', 'subjectName', 'marksObtained', 'totalMarks', 'percentage', 'grade', 'position'],
+              'attendance-summary': ['teacherName', 'designation', 'date', 'status', 'subject', 'remarks'],
+              'teacher-performance': ['name', 'designation', 'subjects', 'phone', 'email', 'experience', 'status', 'leaveBalance']
   };
 
-  return columnsMap[reportType || 'student'] || ['name', 'rollNo', 'classId'];
+  return columnsMap[reportType || 'student'] || ['name', 'rollNo', 'className'];
 }
 getReportColor(type: string): string {
   const colors: { [key: string]: string } = {
@@ -124,7 +123,19 @@ getReportColor(type: string): string {
   };
   return colors[type] || '#6b7280';
 }
-
+loadUDISECompliance() {
+  this.isLoadingCompliance = true;
+  this.reportService.getUDISECompliance().subscribe({
+    next: (res) => {
+      this.udiseCompliance = res.data;
+      this.isLoadingCompliance = false;
+    },
+    error: () => {
+      this.toastr.error('Failed to load UDISE+ readiness');
+      this.isLoadingCompliance = false;
+    }
+  });
+}
 
 
 generateQuickReport(type: any) {

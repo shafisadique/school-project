@@ -136,7 +136,7 @@
             <th scope="col">Remaining Due</th>
             <th scope="col">Status</th>
             <th scope="col">Due Date</th>
-            <th scope="col" class="text-center">Actions</th>
+            <th scope="col" class="text-center">Download/Pay/Invoice</th>
           </tr>
         </thead>
         <tbody>
@@ -169,26 +169,26 @@
             <td data-label="Due Date">{{ invoice.dueDate | date:'dd-MMM-yyyy' }}</td>
             <td class="text-center" data-label="Actions">
               <button 
-                class="btn-material btn-outline-primary" 
+                class="btn-material btn-sm btn-outline-primary" 
                 (click)="downloadInvoicePDF(invoice._id)"
                 [attr.aria-label]="'Download invoice for ' + (invoice.studentId?.name || 'Unknown')"
                 type="button">
-                <i class="fas fa-download"></i> Download
+                <i class="fas fa-download"></i> 
               </button>
               <button 
                 *ngIf="invoice.status !== 'Paid'" 
-                class="btn-material btn-outline-success" 
+                class="btn-material btn-sm btn-outline-success" 
                 (click)="processPayment(invoice._id, invoice.remainingDue)"
                 [attr.aria-label]="'Process payment for ' + (invoice.studentId?.name || 'Unknown')"
                 type="button">
-                <i class="fas fa-money-bill-wave"></i> Pay Now
+                <i class="fas fa-money-bill-wave"></i>
               </button>
               <button 
-                class="btn-material btn-outline-info" 
+                class="btn-material btn-sm btn-outline-info" 
                 (click)="openStudentView(invoice.studentId?._id || invoice.student?._id, invoice.studentId?.name || invoice.student?.name)"
                 [attr.aria-label]="'View all invoices for ' + (invoice.studentId?.name || 'Unknown')"
                 type="button">
-                <i class="fas fa-eye"></i> All Invoices
+                <i class="fas fa-eye"></i>
               </button>
             </td>
           </tr>

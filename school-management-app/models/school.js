@@ -73,8 +73,7 @@ const schoolSchema = new mongoose.Schema({
 
 // ✅ Index for Faster School Lookup
 schoolSchema.index({ createdBy: 1, strictPopulate: false }); // Index on createdBy for faster queries
-// schoolSchema.index({ name: 1 }, { unique: true }); // Ensure unique name enforcement
-// schoolSchema.index({ email: 1 }, { unique: true }); // Ensure unique email enforcement
+
 schoolSchema.index({ mobileNo: 1 }, { unique: true }); // Ensure unique mobile number enforcement
 
 module.exports = mongoose.model('School', schoolSchema);

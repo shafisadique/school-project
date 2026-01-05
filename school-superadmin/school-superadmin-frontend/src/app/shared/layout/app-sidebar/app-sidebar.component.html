@@ -16,7 +16,7 @@
   (mouseleave)="sidebarService.setHovered(false)"
 >
   <div
-    class="py-8 flex"
+    class="flex"
     [ngClass]="{
       'xl:justify-center': !((isExpanded$ | async) || (isHovered$ | async)),
       'justify-start': (isExpanded$ | async) || (isHovered$ | async)
@@ -28,8 +28,8 @@
         class="dark:hidden"
         src="/images/edglobe.jpeg"
         alt="Logo"
-        width="150"
-        height="40"
+        width="100%"
+        height="60"
       />
       <img
         class="hidden dark:block"

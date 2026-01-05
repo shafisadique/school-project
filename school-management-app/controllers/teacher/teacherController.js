@@ -154,17 +154,19 @@ async function createTransporter(schoolId) {
 /**
  * ADD TEACHER — FINAL 100% WORKING (EMAIL FIXED FOREVER)
  */
-exports.addTeacher = async (req, res, next) => {
+exports.addTeacher = async (req, res) => {
   const session = await mongoose.startSession();
+
   try {
+    let result;
+
     await session.withTransaction(async () => {
       const schoolId = req.user.schoolId;
 
-      // CRITICAL FIX: Use .lean() here so communication fields are real objects
       const school = await School.findById(schoolId)
-        .select('name email mobileNo communication activeAcademicYear')
+        .select('name communication activeAcademicYear')
         .populate('activeAcademicYear')
-        .lean()                    // ADD THIS LINE
+        .lean()
         .session(session);
 
       if (!school) throw new Error('School not found');
@@ -172,121 +174,165 @@ exports.addTeacher = async (req, res, next) => {
 
       const academicYearId = school.activeAcademicYear._id;
 
-      // 2. Validate input
-      const { name, username, email, phone, designation, subjects, gender } = req.body;
-      if (!name || !username || !email || !phone || !subjects || !designation) {
-        throw new Error('All fields required');
-      }
-
-      // 3. Check duplicate
-      const existing = await User.findOne({
-        $or: [{ email }, { username }],
-        schoolId
-      }).session(session);
-      if (existing) throw new Error('Email or username already exists');
-
-      // 4. Generate password
-      const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
-
-      // 5. Create User
-      const newUser = new User({
+      // Extract all fields
+      const {
         name,
         username,
         email,
+        phone,
+        designation,
+        subjects,
+        gender,
+        qualification,
+        joiningDate,
+        dateOfBirth,
+        address,
+        bloodGroup,
+        emergencyContactName,
+        emergencyContactPhone,
+        leaveBalance = 12
+      } = req.body;
+
+      // Required fields check
+      if (!name?.trim() || !username?.trim() || !email?.trim() || !phone?.trim() ||
+          !designation?.trim() || !gender || !subjects) {
+        throw new Error('All required fields must be filled');
+      }
+
+      // Parse subjects safely
+      let parsedSubjects = [];
+      try {
+        parsedSubjects = typeof subjects === 'string' ? JSON.parse(subjects) : subjects;
+        if (!Array.isArray(parsedSubjects) || parsedSubjects.length === 0) {
+          throw new Error('At least one subject must be selected');
+        }
+      } catch (e) {
+        throw new Error('Invalid subjects format');
+      }
+
+      // Check duplicate email/username in User collection
+      const existingUser = await User.findOne({
+        schoolId,
+        $or: [
+          { email: email.toLowerCase().trim() },
+          { username: username.toLowerCase().trim() }
+        ]
+      }).session(session);
+
+      if (existingUser) {
+        throw new Error('Email or username already exists in this school');
+      }
+
+      // Generate temporary password
+      const tempPassword = Math.random().toString(36).slice(-8) + 'A1@';
+
+      // Create User for portal login
+      const newUser = new User({
+        name: name.trim(),
+        username: username.toLowerCase().trim(),
+        email: email.toLowerCase().trim(),
         password: bcrypt.hashSync(tempPassword, 10),
         role: 'teacher',
         schoolId,
-        phoneNumber: phone
+        phoneNumber: phone.trim()
       });
       await newUser.save({ session });
 
-      // 6. Upload photo
+      // Upload profile image
       let profileImageKey = '';
       if (req.file) {
-        const fileName = `teachers/${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const fileExt = req.file.originalname.split('.').pop()?.toLowerCase();
+        const fileName = `teachers/${newUser._id}_${Date.now()}.${fileExt}`;
+
         await s3Client.send(new PutObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
           Key: fileName,
           Body: req.file.buffer,
           ContentType: req.file.mimetype
         }));
+
         profileImageKey = fileName;
       }
 
-      // 7. Create Teacher
+      // Create Teacher document - WITH name, email, phone (backward compatible)
       const teacher = new Teacher({
         userId: newUser._id,
-        name,
-        email,
-        phone,
-        designation,
-        subjects: Array.isArray(subjects) ? subjects : JSON.parse(subjects || '[]'),
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        phone: phone.trim(),
+        designation: designation.trim(),
+        subjects: parsedSubjects,
         gender,
+        qualification: qualification?.trim(),
+        joiningDate: joiningDate ? new Date(joiningDate) : undefined,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+        address: address?.trim(),
+        bloodGroup: bloodGroup?.trim(),
+        emergencyContactName: emergencyContactName?.trim(),
+        emergencyContactPhone: emergencyContactPhone?.trim(),
+        leaveBalance: parseInt(leaveBalance) || 12,
+        profileImage: profileImageKey,
         schoolId,
         academicYearId,
-        profileImage: profileImageKey,
         status: true,
         createdBy: req.user.id
       });
+
       await teacher.save({ session });
 
-      // 8. SEND EMAIL — NOW 100% FROM SCHOOL EMAIL
-      try {
-        const transporter = await createTransporter(schoolId);
+        // Send welcome email FROM SCHOOL'S CONFIGURED EMAIL to the TEACHER
+    try {
+      const transporter = await createTransporter(schoolId); // This uses school's SMTP settings
+      const fromName = school.communication?.emailName || school.name;
+      const fromEmail = school.communication?.emailFrom; // This is the school's email (e.g., admin@myschool.com)
 
-        // These will NOW be defined because of .lean()
-        const fromName = school.communication?.emailName || school.name;
-        const fromEmail = school.communication?.emailFrom;
-
-        if (!fromEmail) {
-          logger.warn('School email not configured, skipping email');
-        } else {
-          const mailOptions = {
-            from: `"${fromName}" <${fromEmail}>`,
-            to: email,
-            subject: `Welcome to ${school.name}!`,
-            html: `
-              <h2>Welcome ${name}!</h2>
-              <p>You have been added as a teacher at <strong>${school.name}</strong>.</p>
-              <p><strong>Login Details:</strong><br>
-              Username: ${username}<br>
-              Password: ${tempPassword}</p>
-              <p>Please change your password after first login.</p>
-              <p>Best regards,<br>${school.name} Team</p>
+      if (!fromEmail) {
+        logger.warn('School email not configured — skipping welcome email');
+      } else {
+        await transporter.sendMail({
+          from: `"${fromName}" <${fromEmail}>`,  // ← FROM school's email
+          to: email,                             // ← TO teacher's email (correct)
+          subject: `Welcome to ${school.name} - Your Teacher Account`,
+          html: `
+            <h2>Hello ${name},</h2>
+            <p>You have been successfully added as a teacher at <strong>${school.name}</strong>.</p>
+            <div style="background:#f0f0f0;padding:15px;border-radius:8px;margin:20px 0;">
+              <p><strong>Your Login Credentials:</strong></p>
+              <p><strong>Username:</strong> ${username}</p>
+              <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+              </div>
+              <p><strong>Important:</strong> Please change your password immediately after logging in.</p>
+              <p>Best regards,<br><strong>${school.name} Administration</strong></p>
             `
-          };
-
-          await transporter.sendMail(mailOptions);
+          });
           logger.info(`Welcome email sent from ${fromEmail} to ${email}`);
         }
-      } catch (err) {
-        logger.error('Email failed in addTeacher:', err.message);
-        // Don't fail the whole request
+      } catch (emailErr) {
+        logger.warn('Failed to send welcome email:', emailErr.message);
+        // Don't fail the whole transaction
       }
 
-      // 9. SEND NOTIFICATION
-      const notification = await createWelcomeNotification(
-        { name, username, email, phone, password: tempPassword },
-        school,
-        newUser._id,
-        session,
-        req.user.id
-      );
-      await deliver(notification, session);
-
-      res.status(201).json({
-        success: true,
-        message: 'Teacher added successfully!',
-        data: {
-          teacherId: teacher._id,
-          username,
-          temporaryPassword: tempPassword
-        }
-      });
+      // Store result
+      result = {
+        teacherId: teacher._id,
+        username: username.toLowerCase().trim(),
+        temporaryPassword: tempPassword
+      };
     });
+
+    // Success
+    return res.status(201).json({
+      success: true,
+      message: 'Teacher added successfully! Credentials sent via email.',
+      data: result
+    });
+
   } catch (err) {
-    logger.error('Add teacher error:', err);
-    next(err);
+    logger.error('Add teacher error:', err.message);
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'Failed to add teacher'
+    });
   } finally {
     session.endSession();
   }
@@ -367,118 +413,143 @@ exports.getTeacher = async (req, res, next) => {
  * @route PUT /api/teachers/:id
  * @access Private/Admin
  */
-exports.updateTeacher = async (req, res, next) => {
+/**
+ * @desc Update teacher
+ * @route PUT /api/teachers/:id
+ * @access Private/Admin
+ */
+exports.updateTeacher = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     await session.withTransaction(async () => {
-      const { schoolId } = req.user;
       if (req.user.role !== 'admin') {
-        throw new APIError('Unauthorized: Only admins can update teacher details', 403);
+        throw new APIError('Unauthorized: Only admins can update teachers', 403);
       }
 
-      const teacherData = await validateTeacherInput(req.body, true);
-      const teacher = await Teacher.findOne({ _id: req.params.id, schoolId })
-        .session(session)
-        .orFail(new APIError('Teacher not found', 404));
+      const schoolId = req.user.schoolId;
+      const teacherId = req.params.id;
 
-      // Track changes for notifications
-      const changes = { email: false, other: false };
-      let email = teacherData.email || teacher.email;
-      if (email && email !== teacher.email) {
-        changes.email = true;
-        const existingUser = await User.findOne({ email }).session(session);
-        if (existingUser && existingUser._id.toString() !== teacher.userId.toString()) {
-          throw new APIError('Email already in use by another user', 409);
+      // Extract ALL possible fields from body
+      const {
+        name,
+        email,
+        phone,
+        designation,
+        subjects,
+        gender,
+        qualification,
+        joiningDate,
+        dateOfBirth,
+        address,
+        bloodGroup,
+        emergencyContactName,
+        emergencyContactPhone,
+        leaveBalance,
+        status
+      } = req.body;
+
+      // Find teacher
+      const teacher = await Teacher.findOne({ _id: teacherId, schoolId }).session(session);
+      if (!teacher) throw new APIError('Teacher not found', 404);
+
+      // Parse subjects if sent
+      let parsedSubjects = teacher.subjects;
+      if (subjects) {
+        try {
+          parsedSubjects = typeof subjects === 'string' ? JSON.parse(subjects) : subjects;
+          if (!Array.isArray(parsedSubjects) || parsedSubjects.length === 0) {
+            throw new Error('At least one subject must be selected');
+          }
+        } catch (e) {
+          throw new APIError('Invalid subjects format', 400);
         }
-        await User.findOneAndUpdate({ _id: teacher.userId }, { email }, { session });
       }
 
-      // Handle password if provided
-      if (teacherData.password) {
-        const hashedPassword = bcrypt.hashSync(teacherData.password, 10);
-        await User.findOneAndUpdate({ _id: teacher.userId }, { password: hashedPassword }, { session });
+      // Handle email update (also update in User if exists)
+      if (email && email.toLowerCase().trim() !== teacher.email) {
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // Check if new email is already used by another user
+        const existingUser = await User.findOne({
+          schoolId,
+          email: normalizedEmail,
+          _id: { $ne: teacher.userId } // Exclude current user
+        }).session(session);
+
+        if (existingUser) {
+          throw new APIError('Email already in use by another account', 400);
+        }
+
+        // Update in User collection if userId exists
+        if (teacher.userId) {
+          await User.findByIdAndUpdate(
+            teacher.userId,
+            { email: normalizedEmail },
+            { session }
+          );
+        }
+
+        teacher.email = normalizedEmail;
       }
 
-      // Any other field change triggers "other" notification
-      if (teacherData.name !== teacher.name || teacherData.phone !== teacher.phone || 
-          JSON.stringify(teacherData.subjects) !== JSON.stringify(teacher.subjects) || 
-          teacherData.designation !== teacher.designation) {
-        changes.other = true;
-      }
-
-      // Handle profile image: Store KEY only
+      // Handle profile image upload
       let profileImageKey = teacher.profileImage;
       if (req.file) {
-        const fileBuffer = req.file.buffer;
-        const fileName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-        const params = {
+        const ext = req.file.originalname.split('.').pop()?.toLowerCase();
+        const fileName = `teachers/${teacher.userId || teacher._id}_${Date.now()}.${ext}`;
+
+        await s3Client.send(new PutObjectCommand({
           Bucket: process.env.R2_BUCKET_NAME,
-          Key: `teachers/${fileName}`,
-          Body: fileBuffer,
-          ContentType: req.file.mimetype,
-        };
-        const command = new PutObjectCommand(params);
-        await s3Client.send(command);
-        profileImageKey = `teachers/${fileName}`;
+          Key: fileName,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype
+        }));
+
+        profileImageKey = fileName;
       }
 
-      // Update teacher (exclude password)
-      const { password: _, ...updateData } = teacherData;
-      const updatedTeacher = await Teacher.findByIdAndUpdate(
-        req.params.id,
-        {
-          ...updateData,
-          email,
-          profileImage: profileImageKey,
-        },
-        { new: true, runValidators: true, session }
-      ).orFail(new APIError('Failed to update teacher', 500));
+      // Update all fields — INCLUDING NEW ONES
+      teacher.name = name?.trim() || teacher.name;
+      teacher.phone = phone?.trim() || teacher.phone;
+      teacher.designation = designation?.trim() || teacher.designation;
+      teacher.subjects = parsedSubjects;
+      teacher.gender = gender || teacher.gender;
+      teacher.qualification = qualification?.trim() || teacher.qualification;
+      teacher.joiningDate = joiningDate ? new Date(joiningDate) : teacher.joiningDate;
+      teacher.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : teacher.dateOfBirth;
+      teacher.address = address?.trim() || teacher.address;
+      teacher.bloodGroup = bloodGroup?.trim() || teacher.bloodGroup;
+      teacher.emergencyContactName = emergencyContactName?.trim() || teacher.emergencyContactName;
+      teacher.emergencyContactPhone = emergencyContactPhone?.trim() || teacher.emergencyContactPhone;
+      teacher.leaveBalance = leaveBalance !== undefined ? parseInt(leaveBalance) : teacher.leaveBalance;
+      teacher.status = status !== undefined ? status : teacher.status;
+      teacher.profileImage = profileImageKey;
 
-      // Send notification only if changes
-      if (changes.email || changes.other) {
-        const school = await School.findById(schoolId).select('name email mobileNo').session(session);
-        const transporter = await createTransporter(schoolId);
-        const mailOptions = {
-          from: `"${school.communication?.emailName || school.name}" <${school.communication?.emailFrom}>`,
-          to: email,
-          subject: 'Profile Updated',
-          html: `
-            <h1>Profile Update Notification</h1>
-            ${changes.email ? `<p>Your email has been updated to <strong>${email}</strong>.</p>` : ''}
-            ${changes.other ? `<p>Your details (name, phone, subjects, or designation) have been updated.</p>` : ''}
-            <p>If you did not request this, contact ${school.name} immediately.</p>
-            <p>School Contact: ${school.mobileNo} | ${school.email}</p>
-            <p>Best,<br>The ${school.name} Team</p>
-          `,
-        };
-        try {
-          await transporter.sendMail(mailOptions);
-          logger.info('✅ Update notification sent');
-        } catch (emailError) {
-          logger.error('❌ Update notification failed:', emailError);
-        }
-      }
+      await teacher.save({ session });
 
-      // Enrich with proxy URL
+      // Generate proxy URL
       const base = `${req.protocol}://${req.get('host')}`;
-      const key = toR2Key(updatedTeacher.profileImage);
-      const profileImageUrl = key ? `${base}/api/proxy-image/${encodeURIComponent(key)}` : '';
+      const key = toR2Key(teacher.profileImage);
+      const profileImageUrl = key ? `${base}/api/proxy-image/${encodeURIComponent(key)}` : null;
 
       res.json({
         success: true,
         message: 'Teacher updated successfully',
         data: {
-          ...updatedTeacher.toObject(),
-          profileImageUrl,
-        },
+          ...teacher.toObject(),
+          profileImageUrl
+        }
       });
     });
   } catch (error) {
-    logger.error('Error in updateTeacher:', error);
+    logger.error('updateTeacher error:', error);
     if (session.inTransaction()) await session.abortTransaction();
-    next(error);
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to update teacher'
+    });
   } finally {
-    await session.endSession();
+    session.endSession();
   }
 };
 

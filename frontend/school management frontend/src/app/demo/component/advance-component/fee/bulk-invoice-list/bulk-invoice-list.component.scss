@@ -12,7 +12,7 @@ $shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
 $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
 
 .ledger-table {
-  font-size: 0.9rem;
+  font-size: 0.85rem;  // Slightly reduced from 0.9rem
   th { background: $primary-color; color: white; }
   .table-overdue { background-color: $primary-color; }
   .profile-wrapper { min-width: 150px; }
@@ -23,10 +23,12 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
     display: flex; 
     align-items: center; 
     justify-content: center; 
-    font-size: 0.8rem; 
+    font-size: 0.75rem;  // Reduced from 0.8rem
   }
   .payment-history { border-left: 4px solid #007bff; }
-  .history-table { font-size: 0.85rem; }
+  .history-table { font-size: 0.8rem;  // Reduced from 0.85rem
+    th { font-size: 0.8rem; }  // Match body
+  }
   .summary-card { box-shadow: $shadow-light; }
   .no-data { color: #6c757d; font-style: italic; }
 }
@@ -317,16 +319,17 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
       border-radius: 16px;
       background: white;
       overflow: hidden;
+      font-size: 0.85rem;  // Reduced base font for table
 
       thead {
         tr {
           background: linear-gradient(135deg, $primary-color, #34495e);
 
           th {
-            padding: 16px 12px;
+            padding: 12px 8px;  // Reduced from 16px 12px
             text-align: left;
             font-weight: 600;
-            font-size: 0.9rem;
+            font-size: 0.85rem;  // Reduced from 0.9rem
             color: white;
             white-space: nowrap;
             text-transform: uppercase;
@@ -353,9 +356,9 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
           }
 
           td {
-            padding: 16px 12px;
+            padding: 12px 8px;  // Reduced from 16px 12px
             color: $primary-color;
-            font-size: 0.9rem;
+            font-size: 0.8rem;  // Reduced from 0.9rem
             vertical-align: middle;
             border-bottom: 1px solid $border-color;
 
@@ -392,7 +395,7 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
         justify-content: center;
         color: white;
         font-weight: 600;
-        font-size: 0.85rem;
+        font-size: 0.8rem;  // Reduced from 0.85rem
         text-transform: uppercase;
         flex-shrink: 0;
         box-shadow: $shadow-light;
@@ -401,12 +404,12 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
       .teacher-name {
         font-weight: 500;
         color: $primary-color;
-        font-size: 0.95rem;
+        font-size: 0.85rem;  // Reduced from 0.95rem
       }
 
       .badge {
-        font-size: 0.75rem;
-        padding: 6px 12px;
+        font-size: 0.7rem;  // Reduced from 0.75rem
+        padding: 4px 10px;  // Reduced from 6px 12px
         border-radius: 20px;
         font-weight: 600;
         box-shadow: $shadow-light;
@@ -452,41 +455,46 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
         font-weight: 600;
         color: white;
         border: none;
+        padding: 10px 6px;  // Reduced padding
+        font-size: 0.8rem;
       }
 
       td {
         border-color: $border-color;
         vertical-align: middle;
+        padding: 10px 6px;  // Reduced padding
+        font-size: 0.75rem;  // Reduced for history table
       }
 
       .badge {
-        font-size: 0.7rem;
-        padding: 4px 8px;
+        font-size: 0.65rem;  // Reduced from 0.7rem
+        padding: 3px 6px;  // Reduced
         border-radius: 12px;
       }
     }
   }
 
-  // Action Buttons - Unique: Pill-shaped with gradients
+  // Action Buttons - Unique: Pill-shaped with gradients (Scaled Down)
   .btn-material {
     border: none;
     border-radius: 20px;
-    margin-right: 8px;
-    padding: 8px 16px;
+    margin-right: 6px;  // Reduced from 8px
+    padding: 6px 10px;  // Reduced from 8px 16px
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.75rem;  // Reduced from 0.8rem
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;  // Slightly reduced
     box-shadow: $shadow-light;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    min-width: 90px;
+    gap: 4px;  // Reduced from 6px
+    min-width: 75px;  // Reduced from 90px
     justify-content: center;
+    white-space: nowrap;  // Prevent wrapping on small screens
 
     i {
-      font-size: 0.9rem;
+      font-size: 0.8rem;  // Reduced from 0.9rem
     }
 
     &:hover {
@@ -522,7 +530,7 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
   }
 
-  // Mobile Responsiveness - Unique: Stacked cards for tables
+  // Mobile Responsiveness - Unique: Stacked cards for tables (Adjusted for Smaller Buttons)
   @media (max-width: 767px) {
     padding: 10px;
 
@@ -588,7 +596,7 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
             td {
               display: block;
               padding: 8px 0;
-              font-size: 0.85rem;
+              font-size: 0.8rem;  // Match reduced desktop
               border: none !important;
               border-bottom: 1px solid $border-color;
               display: flex;
@@ -626,6 +634,9 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
                 .btn-material {
                   flex: 1;
                   margin: 0 2px;
+                  padding: 8px 6px;  // Even smaller on mobile
+                  font-size: 0.7rem;
+                  min-width: auto;  // Allow shrink
                 }
               }
 
@@ -652,8 +663,8 @@ $shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
     .btn-material {
       flex: 1;
       margin: 2px;
-      padding: 10px;
-      font-size: 0.75rem;
+      padding: 8px 6px;  // Adjusted for mobile
+      font-size: 0.7rem;
     }
   }
 

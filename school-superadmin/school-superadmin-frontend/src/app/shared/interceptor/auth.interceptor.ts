@@ -1,10 +1,9 @@
-import {  HttpInterceptorFn} from '@angular/common/http';
-import { Observable, throwError } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { ToastrService } from 'ngx-toastr';
-import { AuthService } from '../services/auth.service';
+import { inject } from "@angular/core";
+import { catchError, throwError } from "rxjs";
+import { AuthService } from "../services/auth.service";
+import { Router } from "@angular/router";
+import { ToastrService } from "ngx-toastr";
+import { HttpInterceptorFn } from "@angular/common/http";
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
@@ -13,33 +12,25 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   const token = authService.getUserToken();
 
-  // Skip adding token for login
-  if (req.url.includes('/login') || req.url.includes('/register')) {
-    return next(req);
-  }
-
-  // Add token + GOD headers
-  let headers: any = {};
-
+  let authReq = req;
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    authReq = req.clone({
+      setHeaders: {
+        Authorization: `Bearer ${token}`
+      }
+    });
   }
-
-  // Always send these two (your nuclear lock)
-  const masterKey = localStorage.getItem('__GOD_MASTER_KEY');
-  const deviceFp = localStorage.getItem('__GOD_DEVICE_FP');
-  if (masterKey) headers['X-Master-Key'] = masterKey;
-  if (deviceFp) headers['X-Device-Fp'] = deviceFp;
-
-  const authReq = req.clone({ setHeaders: headers });
 
   return next(authReq).pipe(
-    catchError((error: any) => {
-      if (error.status === 401) {
-        toastr.error('Session expired or invalid');
+    catchError((error) => {
+      // IMPORTANT: Only handle REAL HTTP errors (status >= 100)
+      // Do NOT catch status 0 (network/CORS failure)
+      if (error.status >= 100 && (error.status === 401 || error.status === 403)) {
+        toastr.error('Session expired or unauthorized access', 'Authentication Error');
         authService.logOut();
         router.navigate(['/signin']);
       }
+
       return throwError(() => error);
     })
   );

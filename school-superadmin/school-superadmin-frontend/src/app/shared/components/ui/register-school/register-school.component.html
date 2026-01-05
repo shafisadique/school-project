@@ -137,6 +137,60 @@
             </div>
           </div>
           <!-- ←←← END OF NEW FIELDS -->
+           <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+      <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+        Assign Trial Subscription (Optional)
+      </h3>
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        You can give the school immediate access with a custom trial period.
+      </p>
+
+      <!-- Checkbox + Duration Selection -->
+      <div class="space-y-4">
+              <!-- Superadmin-only fast-track skip (hidden for normal users) -->
+        <div *ngIf="isSuperadmin()" class="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+          <div class="flex items-center">
+            <input type="checkbox" id="skipOtpSuper" formControlName="skipOtpSuper"
+                  class="h-5 w-5 text-yellow-600 border-gray-300 rounded focus:ring-yellow-500" />
+            <label for="skipOtpSuper" class="ml-3 text-sm font-medium text-yellow-800 dark:text-yellow-300">
+              Superadmin Fast-Track: Skip OTP & give direct access (for relatives/special schools)
+            </label>
+          </div>
+          <small class="text-xs text-yellow-700 dark:text-yellow-400 mt-2 block">
+            Use only for trusted users. They will get instant access without mobile verification.
+          </small>
+        </div>
+        <div class="flex items-center">
+          <input type="checkbox" id="assignTrial" formControlName="assignTrial"
+                 class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+          <label for="assignTrial" class="ml-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+            Assign trial subscription now (recommended for new schools)
+          </label>
+        </div>
+
+        <!-- Duration dropdown (only visible if checkbox is checked) -->
+        <div *ngIf="schoolForm.get('assignTrial')?.value" class="pl-8">
+          <app-label for="trialDurationDays">Trial Duration</app-label>
+         <app-select formControlName="trialDurationDays" [options]="[
+            { value: '14', label: '14 days (Standard quick trial)' },
+            { value: '30', label: '30 days (1 month)' },
+            { value: '60', label: '60 days (2 months)' },
+            { value: '90', label: '90 days (3 months)' },
+            { value: '180', label: '180 days (6 months – for serious prospects)' },
+            { value: '365', label: '365 days (1 year – special cases)' },
+            { value: 'custom', label: 'Custom days...' }
+          ]" placeholder="Select duration" />
+
+          <!-- Custom days input (only if 'custom' selected) -->
+          <div *ngIf="schoolForm.get('trialDurationDays')?.value === 'custom'" class="mt-4">
+            <app-label for="customTrialDays">Enter custom days (1–365)</app-label>
+            <app-input-field-fixed id="customTrialDays" type="number" formControlName="customTrialDays"
+                                  placeholder="e.g., 90" min="1" max="365" />
+          </div>
+        </div>
+        
+      </div>
+    </div>
 
           <div class="flex items-center space-x-2 mt-4">
             <input type="checkbox" formControlName="whatsappOptIn" id="whatsappOptIn" class="h-4 w-4 text-blue-600 rounded" />
@@ -147,10 +201,16 @@
             <button type="button" (click)="prevStep()" class="flex-1 px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600">
               Back
             </button>
-            <button type="submit"
-                    [disabled]="schoolForm.invalid || isSendingOtp()"
+           <button type="submit"
+                    [disabled]="
+                      (step() === 1 && isSendingOtp()) ||
+                      (step() === 2 && (otpForm.invalid || isVerifyingOtp())) ||
+                      (step() === 3 && (addressForm.invalid || isSubmitting()))
+                    "
                     class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-              {{ isSendingOtp() ? 'Sending OTP...' : 'Next Step' }}
+              {{ step() === 1 ? (isSendingOtp() ? 'Sending OTP...' : 'Next Step') :
+                step() === 2 ? (isVerifyingOtp() ? 'Verifying...' : 'Verify & Continue') :
+                (isSubmitting() ? 'Creating...' : 'Create Account') }}
             </button>
           </div>
         </form>

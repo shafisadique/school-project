@@ -29,9 +29,5 @@ export const SuperAdminOwnerGuard: CanActivateFn = () => {
     authService.logOut();
     return false;
   }
-
-  // Reset timer on every protected page visit
-  authService.resetSessionTimer();
-
   return true;
 };

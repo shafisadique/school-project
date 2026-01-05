@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, Output, EventEmitter, OnInit, forwardRef } from '@angular/core';
-import { NG_VALUE_ACCESSOR } from '@angular/forms';
+import { Component, forwardRef, Input } from '@angular/core';
+import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 export interface Option {
   value: string;
@@ -9,9 +9,10 @@ export interface Option {
 
 @Component({
   selector: 'app-select',
-  imports:[CommonModule],
+  standalone: true,
+  imports: [CommonModule],
   templateUrl: './select.component.html',
-   providers: [
+  providers: [
     {
       provide: NG_VALUE_ACCESSOR,
       useExisting: forwardRef(() => SelectComponent),
@@ -19,24 +20,44 @@ export interface Option {
     },
   ],
 })
-export class SelectComponent implements OnInit {
+export class SelectComponent implements ControlValueAccessor {
   @Input() options: Option[] = [];
   @Input() placeholder: string = 'Select an option';
   @Input() className: string = '';
-  @Input() defaultValue: string = '';
-  @Input() value: string = '';
 
-  @Output() valueChange = new EventEmitter<string>();
+  value: string = ''; // internal value
 
-  ngOnInit() {
-    if (!this.value && this.defaultValue) {
-      this.value = this.defaultValue;
+  // ControlValueAccessor methods (required)
+  onChange: (value: string) => void = () => {};
+  onTouched: () => void = () => {};
+
+  // Write value from form control
+  writeValue(value: string): void {
+    if (value !== undefined && value !== null) {
+      this.value = value;
     }
   }
 
-  onChange(event: Event) {
-    const value = (event.target as HTMLSelectElement).value;
-    this.value = value;
-    this.valueChange.emit(value);
+  // Register change handler
+  registerOnChange(fn: (value: string) => void): void {
+    this.onChange = fn;
+  }
+
+  // Register touched handler
+  registerOnTouched(fn: () => void): void {
+    this.onTouched = fn;
+  }
+
+  // Handle selection change
+  onSelectChange(event: Event): void {
+    const selectedValue = (event.target as HTMLSelectElement).value;
+    this.value = selectedValue;
+    this.onChange(selectedValue); // Tell form control about change
+    this.onTouched();             // Mark as touched
+  }
+
+  // Optional: set disabled state if needed
+  setDisabledState?(isDisabled: boolean): void {
+    // Add disabled logic if you need it later
   }
 }

@@ -100,21 +100,26 @@ class ReportService {
       ...filters
     })
       .populate('classId', 'name')
-      .select('name rollNo admissionNo parents classId gender status')
+      .select('name rollNo admissionNo parents classId gender status apaarId apaarStatus') // ← Added apaarId & apaarStatus
       .limit(limit)
       .lean();
-
+    console.log('Fetched Students:', students);
     return students.map(s => ({
       name: s.name || 'N/A',
       rollNo: s.rollNo || 'N/A',
-      admissionNo: s.admissionNo,
+      admissionNo: s.admissionNo || 'N/A',
       fatherName: s.parents?.fatherName || '-',
       motherName: s.parents?.motherName || '-',
       fatherPhone: s.parents?.fatherPhone || '-',
       motherPhone: s.parents?.motherPhone || '-',
       className: s.classId?.name || 'N/A',
       gender: s.gender || 'N/A',
-      status: s.status ? 'Active' : 'Inactive'
+      status: s.status ? 'Active' : 'Inactive',
+      apaarId: s.apaarId || 'N/A',
+      apaarStatus: s.apaarStatus === 'generated' ? 'Generated' : 
+                  s.apaarStatus === 'refused' ? 'REFUSED' : 
+                  s.apaarStatus === 'not_generated' ? 'NOGEN' : 
+                  s.apaarStatus || 'NOGEN'
     }));
   }
 
@@ -126,8 +131,8 @@ class ReportService {
       status: { $in: ['Pending', 'Partial', 'Overdue'] }
     })
       .populate({
-        path: 'studentId',
-        select: 'name rollNo admissionNo classId',
+        path: 'studentId',  // ← Change from 'student' to 'studentId'
+        select: 'name rollNo admissionNo parents classId',
         populate: { path: 'classId', select: 'name' }
       })
       .limit(limit)

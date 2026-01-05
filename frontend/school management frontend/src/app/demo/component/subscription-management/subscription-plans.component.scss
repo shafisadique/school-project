@@ -1,0 +1,111 @@
+.subscription-page {
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  min-height: 100vh;
+  color: white;
+  padding: 80px 0;
+}
+
+.toggle-container .btn-group {
+  background: rgba(255,255,255,0.1);
+  border-radius: 50px;
+  overflow: hidden;
+}
+
+.btn {
+  border-radius: 50px !important;
+  padding: 12px 32px;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: #667eea;
+  border: none;
+}
+
+.plan-card {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.4s ease;
+  overflow: hidden;
+
+  &:hover {
+    transform: translateY(-15px);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+  }
+
+  &.popular {
+    border: 2px solid #ff4757;
+    background: rgba(255,71,87,0.1);
+  }
+
+  &.best-value {
+    border: 2px solid #667eea;
+    background: rgba(102,126,234,0.1);
+  }
+}
+
+.ribbon {
+  position: absolute;
+  top: 25px;
+  padding: 10px 0;
+  width: 180px;
+  text-align: center;
+  font-weight: bold;
+  color: white;
+  font-size: 0.9rem;
+  z-index: 10;
+  text-transform: uppercase;
+}
+
+.ribbon-popular {
+  right: -55px;
+  background: #ff4757;
+  transform: rotate(45deg);
+}
+
+.ribbon-best {
+  right: -60px;
+  background: #667eea;
+  transform: rotate(45deg);
+}
+
+.price h2 {
+  font-size: 4.2rem;
+  font-weight: 900;
+  color: white;
+}
+
+.save-badge {
+  background: #ff4757;
+  color: white;
+  padding: 8px 24px;
+  border-radius: 50px;
+  font-weight: bold;
+  box-shadow: 0 6px 15px rgba(255,71,87,0.4);
+}
+
+.btn-choose {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(102,126,234,0.5);
+  }
+
+  &:disabled {
+    background: #4a4a4a;
+    cursor: not-allowed;
+  }
+}
+
+.current-plan-banner {
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+}

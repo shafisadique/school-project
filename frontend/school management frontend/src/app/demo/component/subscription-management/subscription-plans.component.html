@@ -1,0 +1,89 @@
+<!-- subscription-plans.component.html -->
+<div class="subscription-page">
+  <div class="container">
+    <!-- Header -->
+    <div class="text-center mb-5">
+      <h1 class="display-4 fw-bold text-white mb-3">
+        Flexible pricing for schools of all sizes
+      </h1>
+      <p class="lead text-white-75">
+        Simple, transparent pricing. Upgrade anytime.
+      </p>
+    </div>
+
+    <!-- Toggle Monthly / Annual -->
+    <div class="toggle-container text-center mb-5">
+      <div class="btn-group btn-group-lg" role="group">
+        <button 
+          type="button" 
+          class="btn" 
+          [class.btn-primary]="viewMode === 'monthly'"
+          [class.btn-outline-light]="viewMode !== 'monthly'"
+          (click)="toggleViewMode('monthly')">
+          MONTHLY
+        </button>
+        <button 
+          type="button" 
+          class="btn" 
+          [class.btn-primary]="viewMode === 'yearly'"
+          [class.btn-outline-light]="viewMode !== 'yearly'"
+          (click)="toggleViewMode('yearly')">
+          ANNUAL
+        </button>
+      </div>
+    </div>
+
+    <!-- Current Plan Banner -->
+    <div class="current-plan text-center mb-5" *ngIf="currentPlanType">
+      <span class="badge bg-warning text-dark px-4 py-2">
+        Current Plan: {{ currentPlanType | titlecase  }}
+      </span>
+    </div>
+
+    <!-- Plans Grid -->
+    <div class="row g-5 justify-content-center">
+      <div class="col-lg-4 col-md-6" *ngFor="let plan of getFilteredPlans()">
+        <div class="plan-card position-relative h-100"
+             [class.popular]="plan.priority === 2"
+             [class.best-value]="plan.planType.includes('premium')">
+
+          <!-- Ribbons -->
+          <div class="ribbon ribbon-popular" *ngIf="plan.priority === 2">MOST POPULAR</div>
+          <div class="ribbon ribbon-best" *ngIf="plan.planType.includes('premium')">BEST VALUE</div>
+
+          <div class="card-body text-center p-5 d-flex flex-column">
+            <h3 class="fw-bold mb-4 text-white">{{ plan.name }}</h3>
+
+            <div class="price mb-4">
+              <h2 class="display-4 fw-bold text-white mb-0">₹{{ plan.price | number }}</h2>
+              <p class="text-white-75 fs-5">/ {{ plan.isYearly ? 'year' : 'month' }}</p>
+            </div>
+
+            <div class="save-badge mx-auto mb-4" *ngIf="plan.isYearly">
+              Save up to 40%
+            </div>
+
+            <ul class="list-unstyled features mb-5 flex-grow-1">
+              <li class="mb-3 text-white"><strong>{{ plan.sms | number }}</strong> SMS</li>
+              <li class="mb-3 text-white"><strong>{{ plan.whatsapp | number }}</strong> WhatsApp</li>
+              <li class="mb-3 text-white">Instant Activation</li>
+              <li class="mb-3 text-white">Priority Support</li>
+              <li class="text-white">All Core Features</li>
+            </ul>
+
+            <button class="btn btn-choose mt-auto py-3 px-5 rounded-pill fw-bold"
+                    [disabled]="plan.planType === currentPlanType || isLoading"
+                    (click)="selectPlan(plan)">
+              <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+              {{ plan.planType === currentPlanType ? 'Current Plan' : 'GET STARTED' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center mt-5 text-white-75">
+      Secured by Razorpay • Instant Activation • Trusted by 10,000+ Schools
+    </div>
+  </div>
+</div>

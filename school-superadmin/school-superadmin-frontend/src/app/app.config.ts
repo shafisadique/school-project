@@ -19,14 +19,24 @@ export const appConfig: ApplicationConfig = {
   providers: [
      provideAnimations(),
     provideToastr({
-      timeOut: 3000,
-      positionClass: 'toast-top-right',
-      preventDuplicates: true,
-      progressBar: true,
-      closeButton: true
-    }),
+    timeOut: 5000,              // Auto-dismiss after 5s
+    positionClass: 'toast-top-center',  // ← Changed to top-center (looks best)
+    preventDuplicates: true,
+    closeButton: true,
+    progressBar: true,
+    enableHtml: true,
+    newestOnTop: true,          // Newest message on top of stack
+    tapToDismiss: true,
+    toastClass: 'ngx-toastr',   // Default class (keep)
+    iconClasses: {
+      error: 'toast-error',
+      success: 'toast-success',
+      warning: 'toast-warning',
+      info: 'toast-info'
+    }
+  }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([tokenInterceptor,loadingInterceptor,authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor])),
     importProvidersFrom(GoogleMapsModule),
     {
       provide: 'GOOGLE_MAPS_API_KEY',

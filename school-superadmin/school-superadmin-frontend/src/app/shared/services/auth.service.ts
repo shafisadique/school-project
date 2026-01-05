@@ -1,79 +1,74 @@
-// src/app/services/auth.service.ts
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastrService } from 'ngx-toastr';
-import { BehaviorSubject, catchError, map, Observable, throwError } from 'rxjs';
+import { BehaviorSubject, catchError, map, Observable, Subject, takeUntil, throwError } from 'rxjs';
 import { AuthResponse, UserResponse } from '../models/auth.models';
 import { environment } from '../../../environments/environments';
 
 @Injectable({
   providedIn: 'root'
 })
-export class AuthService {
+export class AuthService implements OnDestroy {
   private http = inject(HttpClient);
   private toastr = inject(ToastrService);
   private router = inject(Router);
+  private destroy$ = new Subject<void>();  // Lifecycle cleanup
 
   private baseUrl = environment.apiUrl;
   private isLoggedIn = new BehaviorSubject<boolean>(this.hasToken());
-
-  // 1 HOUR SESSION TIMER
   private sessionTimeout: any;
 
   constructor() {
     this.updateAuthState();
-    this.startSessionTimer(); // Start timer on app load
+    this.startSessionTimer();
   }
 
   login(email: string, password: string): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.baseUrl}/api/auth/login`, { email, password }).pipe(
+      takeUntil(this.destroy$),  // Unsubscribe on destroy
       map((response) => {
         if (response && response.token) {
-          this.toastr.success('Welcome back, Owner!', 'Login Success');
-
-          // STORE NORMAL DATA
-          localStorage.setItem('token', response.token);
-          localStorage.setItem('role', response.user.role);
-          localStorage.setItem('userId', response.user.id || response.user.id);
-          localStorage.setItem('user', JSON.stringify(response.user));
-
-          // CRITICAL: SAVE GOD PROOFS
-          localStorage.setItem('__GOD_MASTER_KEY', environment.masterKey);
-          localStorage.setItem('__GOD_DEVICE_FP', environment.deviceFp);
-
+          this.showToast('success', 'Welcome back, Owner!', 'Login Success');
+          this.storeAuthData(response);
           this.resetSessionTimer();
           this.isLoggedIn.next(true);
           this.router.navigate(['/dashboard']);
         }
         return response;
       }),
-      catchError(this.handleError)
+      catchError(this.handleError.bind(this))
     );
   }
 
-  // MUST CALL THIS ON EVERY USER ACTIVITY
-  resetSessionTimer() {
-    if (this.sessionTimeout) clearTimeout(this.sessionTimeout);
-
-    this.sessionTimeout = setTimeout(() => {
-      this.toastr.warning('Session expired after 1 hour', 'Logging out...');
-      this.forceLogout();
-    }, 60 * 60 * 1000); // Exactly 60 minutes
-  }
-
-  private startSessionTimer() {
-    if (this.hasToken()) {
-      this.resetSessionTimer();
+  // Centralized Toastr (production-friendly: silent in prod if env.prod)
+  private showToast(type: 'success' | 'error' | 'warning' | 'info', title: string, message?: string): void {
+    if (environment.production) {
+      // In prod, log instead of toast (or customize)
+      console.warn(`[${type.toUpperCase()}] ${title}: ${message || ''}`);
+      return;
     }
+    this.toastr[type](message, title, { enableHtml: true });
   }
 
-  private forceLogout() {
+  private resetSessionTimer(): void {
+    if (this.sessionTimeout) clearTimeout(this.sessionTimeout);
+    this.sessionTimeout = setTimeout(() => {
+      this.showToast('warning', 'Session expired after 1 hour', 'Logging out...');
+      this.forceLogout();
+    }, 60 * 60 * 1000);  // 1 hour
+  }
+
+  private startSessionTimer(): void {
+    if (this.hasToken()) this.resetSessionTimer();
+  }
+
+  private forceLogout(): void {
     localStorage.clear();
     sessionStorage.clear();
     this.isLoggedIn.next(false);
     this.router.navigate(['/signin']);
-    this.toastr.info('You have been logged out');
+    this.showToast('info', 'You have been logged out');
   }
 
   logOut(): void {
@@ -97,15 +92,10 @@ export class AuthService {
     return this.isLoggedIn.asObservable();
   }
 
-  // OWNER VERIFICATION (Used by SuperAdminOwnerGuard)
   isRealOwner(): boolean {
     const savedMaster = localStorage.getItem('__GOD_MASTER_KEY');
     const savedFp = localStorage.getItem('__GOD_DEVICE_FP');
-
-    return (
-      savedMaster === environment.masterKey &&
-      savedFp === environment.deviceFp
-    );
+    return savedMaster === environment.masterKey && savedFp === environment.deviceFp;
   }
 
   private hasToken(): boolean {
@@ -115,7 +105,7 @@ export class AuthService {
   private storeAuthData(response: AuthResponse): void {
     localStorage.setItem('token', response.token);
     localStorage.setItem('role', response.user.role);
-    localStorage.setItem('userId', response.user.id || response.user.id);
+    localStorage.setItem('userId', response.user.id);
     localStorage.setItem('user', JSON.stringify(response.user));
     localStorage.setItem('__GOD_MASTER_KEY', environment.masterKey);
     localStorage.setItem('__GOD_DEVICE_FP', environment.deviceFp);
@@ -125,76 +115,82 @@ export class AuthService {
     this.isLoggedIn.next(this.hasToken());
   }
 
-  private handleError = (error: HttpErrorResponse) => {
+  private handleError(error: HttpErrorResponse): Observable<never> {
     let msg = 'Something went wrong';
-    if (error.error?.message) msg = error.error.message;
-    else if (error.status === 401) msg = 'Invalid credentials';
+    if (error.status === 0) msg = 'Network error—check connection';
+    else if (error.status === 401) {
+      msg = 'Session expired';
+      this.forceLogout();
+    } else if (error.error?.error) msg = error.error.error;
+    else if (error.error?.message) msg = error.error.message;
 
-    this.toastr.error(msg);
+    this.showToast('error', 'Error', msg);
     return throwError(() => new Error(msg));
-  };
+  }
 
   registerSchool(formData: any): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/auth/register-school`, formData).pipe(catchError(this.handleError));
-  }
-changePassword(data: { currentPassword: string; newPassword: string }): Observable<any> {
-    return this.http.patch(`${this.baseUrl}/api/user/change-password`, data).pipe(
-      map(() => {
-        this.toastr.success('Password changed successfully');
-        return true;
-      }),
-      catchError(this.handleError)
+    return this.http.post(`${this.baseUrl}/api/auth/register-school`, formData).pipe(
+      takeUntil(this.destroy$),
+      catchError(this.handleError.bind(this))
     );
   }
 
-  forgotPassword(email: string): Observable<any> {
-    return this.http.post(`${this.baseUrl}/api/auth/user/forgot-password`, { email }).pipe(
+  changePassword(data: { currentPassword: string; newPassword: string }): Observable<boolean> {
+    return this.http.patch(`${this.baseUrl}/api/user/change-password`, data).pipe(
+      takeUntil(this.destroy$),
       map(() => {
-        this.toastr.success('Password reset link sent to your email');
+        this.showToast('success', 'Success', 'Password changed successfully');
         return true;
       }),
-      catchError(this.handleError)
+      catchError(this.handleError.bind(this))
+    );
+  }
+
+  forgotPassword(email: string): Observable<boolean> {
+    return this.http.post(`${this.baseUrl}/api/auth/user/forgot-password`, { email }).pipe(
+      takeUntil(this.destroy$),
+      map(() => {
+        this.showToast('success', 'Success', 'Password reset link sent to your email');
+        return true;
+      }),
+      catchError(this.handleError.bind(this))
     );
   }
 
   resetPassword(token: string, newPassword: string): Observable<any> {
-  return this.http.post(`${this.baseUrl}/api/auth/reset-password`, {
-    token,
-    newPassword
-  });
-}
+    return this.http.post(`${this.baseUrl}/api/auth/reset-password`, { token, newPassword }).pipe(
+      takeUntil(this.destroy$),
+      catchError(this.handleError.bind(this))
+    );
+  }
 
   getProfile(): Observable<UserResponse> {
     const userId = this.getUserId();
-    if (!userId) {
-      throw new Error('User ID not found');
-    }
+    if (!userId) throw new Error('User ID not found');
     return this.http.get<UserResponse>(`${this.baseUrl}/api/users/${userId}`).pipe(
+      takeUntil(this.destroy$),
       map((response) => {
-        this.toastr.success('Profile retrieved successfully');
+        this.showToast('success', 'Success', 'Profile retrieved successfully');
         return response;
       }),
-      catchError(this.handleError)
+      catchError(this.handleError.bind(this))
     );
   }
 
   updateProfile(data: { name: string; email: string; additionalInfo?: any }): Observable<UserResponse> {
     const userId = this.getUserId();
-    if (!userId) {
-      throw new Error('User ID not found');
-    }
+    if (!userId) throw new Error('User ID not found');
     return this.http.put<UserResponse>(`${this.baseUrl}/api/users/${userId}`, data).pipe(
+      takeUntil(this.destroy$),
       map((response) => {
-        this.toastr.success('Profile updated successfully');
+        this.showToast('success', 'Success', 'Profile updated successfully');
         return response;
       }),
-      catchError(this.handleError)
+      catchError(this.handleError.bind(this))
     );
   }
 
-
   setUser(user: AuthResponse): void {
-    localStorage.setItem('user', JSON.stringify(user));
     this.storeAuthData(user);
   }
 
@@ -203,5 +199,9 @@ changePassword(data: { currentPassword: string; newPassword: string }): Observab
     return user ? JSON.parse(user) : null;
   }
 
-
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    if (this.sessionTimeout) clearTimeout(this.sessionTimeout);
+  }
 }

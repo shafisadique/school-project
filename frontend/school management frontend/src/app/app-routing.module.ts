@@ -52,11 +52,7 @@ export const routes: Routes = [
         canActivate:[AuthGuard],
         loadComponent: () => import('./demo/dashboard/student-dashboard/student-dashboard.component').then((c) => c.StudentDashboardComponent)
       },
-      {
-        path: 'subscription-management',data: { roles: ['superadmin'] },
-        canActivate: [AuthGuard],
-        loadComponent: () => import('./demo/component/subscription-management/subscription-management/subscription-management.component').then(c => c.SubscriptionManagementComponent)
-      },
+      
       {
         path:'route',
         canActivate:[AuthGuard],
@@ -183,6 +179,12 @@ export const routes: Routes = [
           }
     ]
   },
+  {
+        path: 'subscription-plans',
+        canActivate: [AuthGuard],
+        data: { roles: ['admin'] },
+        loadComponent: () => import('./demo/component/subscription-management/subscription-plans.component').then(c => c.SubscriptionPlansComponent)
+      },
   {
     path: '',
     component: GuestLayoutComponent,

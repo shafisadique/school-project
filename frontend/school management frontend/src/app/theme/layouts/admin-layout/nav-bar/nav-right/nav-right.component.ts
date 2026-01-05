@@ -22,6 +22,7 @@ import {
   QuestionCircleOutline,
   LockOutline,
   CommentOutline,
+  SoundOutline,
   UnorderedListOutline,
   ArrowRightOutline,
   GithubOutline,
@@ -34,6 +35,7 @@ import { environment } from 'src/environments/environment';
 import { HttpClient } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
 import { SubscriptionPlan } from 'src/app/demo/component/advance-component/fee/plan.interface';
+import { SubscriptionService } from 'src/app/demo/component/subscription-management/subscription.service';
 
 interface Notification {
   _id: string;
@@ -79,6 +81,9 @@ export class NavRightComponent implements OnInit, OnDestroy {
   notificationCount: number = 0;
   filteredProfile: any[] = [];
   filteredSetting: any[] = [];
+  currentPlanName: string = '';
+  daysRemaining: number = 0;
+  subscriptionStatus: string = '';
 
   // SIMPLE AUDIO: One object, pre-set
   private audio = new Audio('assets/notification.wav');
@@ -88,26 +93,29 @@ export class NavRightComponent implements OnInit, OnDestroy {
   isExpiringSoon: boolean = false;
   isExpired: boolean = false;
   isPending: boolean = false;
-  selectedPlan: string | null = null;
-  plans: SubscriptionPlan[] = [];
-  upiId: string = '';
-  subscriptionData: any = {};
-  selectedPaymentMethod: string | null = null;
-  paymentProof: File | null = null;
-  bankDetails: any = null;
-  subscriptionId: string | null = null;
-  isLoading: boolean = false;
-  cardNumber: string = '';
-  expiryDate: string = '';
-  cvv: string = '';
-  nameOnCard: string = '';
+  showExpiryAlert: boolean = true;
+  expiryMessage: string = '';
+  private subscriptionService = inject(SubscriptionService);
+  // selectedPlan: string | null = null;
+  // plans: SubscriptionPlan[] = [];
+  // upiId: string = '';
+  // subscriptionData: any = {};
+  // selectedPaymentMethod: string | null = null;
+  // paymentProof: File | null = null;
+  // bankDetails: any = null;
+  // subscriptionId: string | null = null;
+  // isLoading: boolean = false;
+  // cardNumber: string = '';
+  // expiryDate: string = '';
+  // cvv: string = '';
+  // nameOnCard: string = '';
 
   constructor() {
     this.windowWidth = window.innerWidth;
     this.iconService.addIcon(...[
       CheckCircleOutline, GiftOutline, MessageOutline, SettingOutline, PhoneOutline,
       LogoutOutline, UserOutline, EditOutline, ProfileOutline, QuestionCircleOutline,
-      LockOutline, CommentOutline, UnorderedListOutline, ArrowRightOutline,
+      LockOutline, CommentOutline, UnorderedListOutline, ArrowRightOutline,SoundOutline,
       BellOutline, AppstoreOutline, CalendarOutline, BankOutline, GithubOutline, WalletOutline,
     ]);
 
@@ -124,23 +132,25 @@ export class NavRightComponent implements OnInit, OnDestroy {
       }
     }, { once: true });
 
-    this.fetchPlans();
+    // this.fetchPlans();
   }
 
-  ngOnInit(): void {
+ ngOnInit(): void {
     this.authService.getProfile().subscribe((profile) => {
       this.username = profile.data.name || 'Unknown Name';
       this.role = profile.data.role || 'Not Available';
-      this.oldNotificationCount = 0;  // Reset count
+      this.oldNotificationCount = 0;
       this.loadNotifications();
       this.filteredProfile = this.profile.filter(item => item.roles.includes(this.role));
       this.filteredSetting = this.setting;
-      if (this.role === 'admin') {
-        this.fetchSubscription();
-      }
       this.connectSocket();
+      if (this.role === 'admin') {
+        this.checkSubscriptionExpiry(); // new method
+      }
     });
   }
+
+  
   private connectSocket() {
   // Import socket.io-client
     this.socket = io(environment.apiUrl, {
@@ -189,11 +199,11 @@ export class NavRightComponent implements OnInit, OnDestroy {
     this.hasPlayedSound = false;
   }, 3000);
 }
-directUpgrade(planValue: string) {
-  this.selectedPlan = planValue;
-  this.selectedPaymentMethod = 'razorpay';  // Auto select
-  this.upgradePlan();  // Direct payment
-}
+// directUpgrade(planValue: string) {
+//   this.selectedPlan = planValue;
+//   this.selectedPaymentMethod = 'razorpay';  // Auto select
+//   this.upgradePlan();  // Direct payment
+// }
 
   ngOnDestroy(): void {
     this.audio.pause();
@@ -215,6 +225,36 @@ directUpgrade(planValue: string) {
       console.log('Sound playing! 🎵');  // Success log
     }).catch((err) => {
       console.error('Play failed:', err);  // Error log
+    });
+  }
+    private checkSubscriptionExpiry() {
+    this.subscriptionService.getExpiryStatus().subscribe({
+      next: (res: any) => {  // Typed as ExpiryStatus if you want
+        this.currentPlanName = res.currentPlanName;
+        this.daysRemaining = res.daysRemaining;
+        this.subscriptionStatus = res.status;
+        this.isExpiringSoon = res.isExpiringSoon;
+        this.isExpired = res.isExpired;
+        this.isPending = res.isPending;
+
+        // Dynamic message with plan name and expiry
+        if (this.isExpired) {
+          this.expiryMessage = `Current Plan: ${this.currentPlanName} has expired.`;
+          this.showExpiryAlert = true;
+        } else if (this.isExpiringSoon) {
+          this.expiryMessage = `Current Plan: ${this.currentPlanName} expires in ${this.daysRemaining} days.`;
+          this.showExpiryAlert = true;
+        } else if (this.isPending) {
+          this.expiryMessage = `Payment for ${this.currentPlanName} is pending verification.`;
+          this.showExpiryAlert = true;
+        } else {
+          this.showExpiryAlert = false; // Hide if active and not expiring
+        }
+      },
+      error: (err) => {
+        console.error('Expiry check failed:', err);
+        this.showExpiryAlert = false; // Hide on error to avoid broken UI
+      }
     });
   }
 
@@ -282,231 +322,231 @@ loadNotifications() {
   });
 }
 
-  fetchPlans() {
-    this.dashboardService.getPlans().subscribe({
-      next: (data: any) => {
-        this.plans = Object.keys(data).map(key => ({
-          value: key,
-          ...data[key]
-        }));
-        console.log('Plans loaded:', this.plans);
-      },
-      error: (error) => {
-        console.error('Error fetching plans:', error);
-        this.toastr.error('Failed to load plans');
-      }
-    });
-  }
+  // fetchPlans() {
+  //   this.dashboardService.getPlans().subscribe({
+  //     next: (data: any) => {
+  //       this.plans = Object.keys(data).map(key => ({
+  //         value: key,
+  //         ...data[key]
+  //       }));
+  //       console.log('Plans loaded:', this.plans);
+  //     },
+  //     error: (error) => {
+  //       console.error('Error fetching plans:', error);
+  //       this.toastr.error('Failed to load plans');
+  //     }
+  //   });
+  // }
 
-  openUpgradeModal(template: TemplateRef<any>) {
-    this.selectedPlan = null;
-    this.selectedPaymentMethod = null;
-    this.paymentProof = null;
-    this.bankDetails = null;
-    this.subscriptionId = null;
-    this.upiId = '';
-    this.modalService.open(template, {
-      centered: true,
-      size: 'lg',
-      windowClass: 'custom-modal',
-      backdrop: 'static',
-    });
-    this.fetchSubscription();
-  }
+  // openUpgradeModal(template: TemplateRef<any>) {
+  //   this.selectedPlan = null;
+  //   this.selectedPaymentMethod = null;
+  //   this.paymentProof = null;
+  //   this.bankDetails = null;
+  //   this.subscriptionId = null;
+  //   this.upiId = '';
+  //   this.modalService.open(template, {
+  //     centered: true,
+  //     size: 'lg',
+  //     windowClass: 'custom-modal',
+  //     backdrop: 'static',
+  //   });
+  //   this.fetchSubscription();
+  // }
 
-  selectPlan(planValue: string) {
-    this.selectedPlan = planValue;
-  }
+  // selectPlan(planValue: string) {
+  //   this.selectedPlan = planValue;
+  // }
 
-  selectPaymentMethod(method: string) {
-    this.selectedPaymentMethod = method;
-  }
+  // selectPaymentMethod(method: string) {
+  //   this.selectedPaymentMethod = method;
+  // }
 
-  onFileChange(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files.length) {
-      this.paymentProof = input.files[0];
-    }
-  }
+  // onFileChange(event: Event) {
+  //   const input = event.target as HTMLInputElement;
+  //   if (input.files && input.files.length) {
+  //     this.paymentProof = input.files[0];
+  //   }
+  // }
 
-  getPlanPrice(planValue: string): number {
-    const plan = this.plans.find(p => p.value === planValue);
-    return plan ? plan.price : 0;
-  }
+  // getPlanPrice(planValue: string): number {
+  //   const plan = this.plans.find(p => p.value === planValue);
+  //   return plan ? plan.price : 0;
+  // }
 
-  upgradePlan() {
-    if (!this.selectedPlan || !this.selectedPaymentMethod) {
-      alert('Please select both a plan and a payment method.');
-      return;
-    }
+  // upgradePlan() {
+  //   if (!this.selectedPlan || !this.selectedPaymentMethod) {
+  //     alert('Please select both a plan and a payment method.');
+  //     return;
+  //   }
 
-    this.isLoading = true;
+  //   this.isLoading = true;
 
-    const payload: any = {
-      planType: this.selectedPlan,
-      paymentMethod: this.selectedPaymentMethod,
-      autoRenew: false
-    };
+  //   const payload: any = {
+  //     planType: this.selectedPlan,
+  //     paymentMethod: this.selectedPaymentMethod,
+  //     autoRenew: false
+  //   };
 
-    if (this.selectedPaymentMethod === 'phonepe') {
-      payload.upiId = this.upiId;
-    }
+  //   if (this.selectedPaymentMethod === 'phonepe') {
+  //     payload.upiId = this.upiId;
+  //   }
 
-    this.dashboardService.upgradeSubscription(payload).subscribe({
-      next: (response: any) => {
-        if (environment.testMode) {
-          alert('Test mode: Subscription upgraded successfully!');
-          this.fetchSubscription();
-          this.modalService.dismissAll();
-          this.isLoading = false;
-          return;
-        }
+  //   this.dashboardService.upgradeSubscription(payload).subscribe({
+  //     next: (response: any) => {
+  //       if (environment.testMode) {
+  //         alert('Test mode: Subscription upgraded successfully!');
+  //         this.fetchSubscription();
+  //         this.modalService.dismissAll();
+  //         this.isLoading = false;
+  //         return;
+  //       }
 
-        if (this.selectedPaymentMethod === 'bank_transfer') {
-          this.bankDetails = response.bankDetails;
-          this.subscriptionId = response.subscriptionId;
-          this.isLoading = false;
-          return;
-        }
+  //       if (this.selectedPaymentMethod === 'bank_transfer') {
+  //         this.bankDetails = response.bankDetails;
+  //         this.subscriptionId = response.subscriptionId;
+  //         this.isLoading = false;
+  //         return;
+  //       }
 
-        if (response.order) {
-          this.initiateRazorpayPayment(response.order, response.plan, response.subscriptionId);
-        } else {
-          alert('Failed to initialize payment. Please try again.');
-          this.isLoading = false;
-        }
-      },
-      error: (error) => {
-        console.error('Error initiating upgrade:', error);
-        alert('Failed to initiate payment. Please try again or contact support.');
-        this.isLoading = false;
-      },
-    });
-  }
+  //       if (response.order) {
+  //         this.initiateRazorpayPayment(response.order, response.plan, response.subscriptionId);
+  //       } else {
+  //         alert('Failed to initialize payment. Please try again.');
+  //         this.isLoading = false;
+  //       }
+  //     },
+  //     error: (error) => {
+  //       console.error('Error initiating upgrade:', error);
+  //       alert('Failed to initiate payment. Please try again or contact support.');
+  //       this.isLoading = false;
+  //     },
+  //   });
+  // }
 
-  private initiateRazorpayPayment(order: any, plan: any, subscriptionId: string) {
-    const options = {
-      key: environment.razorpayKey,
-      amount: order.amount,
-      currency: order.currency,
-      name: 'School Management System',
-      description: `Upgrade to ${plan.name}`,
-      image: '/assets/images/logo.png',
-      order_id: order.id,
-      prefill: {
-        name: this.username,
-        email: this.authService.getUserEmail(),
-        contact: ''
-      },
-      handler: (response: any) => {
-        this.handlePaymentSuccess(response, subscriptionId);
-      },
-      modal: {
-        ondismiss: () => {
-          this.isLoading = false;
-          this.toastr.info('Payment was cancelled. You can try again anytime.');
-        this.dashboardService.cancelUpgrade({ orderId: order.id }).subscribe({
-          next: (resp) => {
-            console.log('Cleanup OK:', resp);
-            this.fetchSubscription();  // Refresh to clear banner
-            this.toastr.success('Upgrade cancelled – features restored!');
-          },
-          error: (err) => {
-            console.error('Cleanup failed:', err);
-            this.toastr.warning('Payment cancelled, but manual cleanup may be needed.');
-            this.fetchSubscription();  // Still refresh
-          }
-        });          
-        }
-      },
-      theme: {
-        color: '#4a90e2'
-      }
-    };
+  // private initiateRazorpayPayment(order: any, plan: any, subscriptionId: string) {
+  //   const options = {
+  //     key: environment.razorpayKey,
+  //     amount: order.amount,
+  //     currency: order.currency,
+  //     name: 'School Management System',
+  //     description: `Upgrade to ${plan.name}`,
+  //     image: '/assets/images/logo.png',
+  //     order_id: order.id,
+  //     prefill: {
+  //       name: this.username,
+  //       email: this.authService.getUserEmail(),
+  //       contact: ''
+  //     },
+  //     handler: (response: any) => {
+  //       this.handlePaymentSuccess(response, subscriptionId);
+  //     },
+  //     modal: {
+  //       ondismiss: () => {
+  //         this.isLoading = false;
+  //         this.toastr.info('Payment was cancelled. You can try again anytime.');
+  //       this.dashboardService.cancelUpgrade({ orderId: order.id }).subscribe({
+  //         next: (resp) => {
+  //           console.log('Cleanup OK:', resp);
+  //           this.fetchSubscription();  // Refresh to clear banner
+  //           this.toastr.success('Upgrade cancelled – features restored!');
+  //         },
+  //         error: (err) => {
+  //           console.error('Cleanup failed:', err);
+  //           this.toastr.warning('Payment cancelled, but manual cleanup may be needed.');
+  //           this.fetchSubscription();  // Still refresh
+  //         }
+  //       });          
+  //       }
+  //     },
+  //     theme: {
+  //       color: '#4a90e2'
+  //     }
+  //   };
 
-    try {
-      const rzp = new (window as any).Razorpay(options);
+  //   try {
+  //     const rzp = new (window as any).Razorpay(options);
       
-      rzp.on('payment.failed', (response: any) => {
-        console.error('Payment failed:', response.error);
-        this.toastr.error(`Payment failed: ${response.error.description}`);
-        this.isLoading = false;
-      });
+  //     rzp.on('payment.failed', (response: any) => {
+  //       console.error('Payment failed:', response.error);
+  //       this.toastr.error(`Payment failed: ${response.error.description}`);
+  //       this.isLoading = false;
+  //     });
 
-      rzp.open();
-    } catch (error) {
-      console.error('Error opening Razorpay:', error);
-      this.toastr.error('Error initializing payment gateway');
-      this.isLoading = false;
-    }
-  }
+  //     rzp.open();
+  //   } catch (error) {
+  //     console.error('Error opening Razorpay:', error);
+  //     this.toastr.error('Error initializing payment gateway');
+  //     this.isLoading = false;
+  //   }
+  // }
 
-  private handlePaymentSuccess(paymentResponse: any, subscriptionId: string) {
-    console.log('Handling payment success:', paymentResponse);
+  // private handlePaymentSuccess(paymentResponse: any, subscriptionId: string) {
+  //   console.log('Handling payment success:', paymentResponse);
     
-    const verificationData = {
-      ...paymentResponse,
-      subscriptionId: subscriptionId
-    };
+  //   const verificationData = {
+  //     ...paymentResponse,
+  //     subscriptionId: subscriptionId
+  //   };
 
-    this.dashboardService.verifyPayment(verificationData).subscribe({
-      next: (verificationResponse) => {
-        console.log('Payment verified successfully:', verificationResponse);
-        this.toastr.success('Subscription upgraded successfully!');
+  //   this.dashboardService.verifyPayment(verificationData).subscribe({
+  //     next: (verificationResponse) => {
+  //       console.log('Payment verified successfully:', verificationResponse);
+  //       this.toastr.success('Subscription upgraded successfully!');
         
-        this.fetchSubscription();
+  //       this.fetchSubscription();
         
-        this.modalService.dismissAll();
-        this.isLoading = false;
+  //       this.modalService.dismissAll();
+  //       this.isLoading = false;
         
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-      },
-      error: (error) => {
-        console.error('Payment verification failed:', error);
-        this.toastr.error('Payment verification failed. Please contact support with your payment ID.');
-        this.isLoading = false;
-      },
-    });
-  }
+  //       setTimeout(() => {
+  //         window.location.reload();
+  //       }, 2000);
+  //     },
+  //     error: (error) => {
+  //       console.error('Payment verification failed:', error);
+  //       this.toastr.error('Payment verification failed. Please contact support with your payment ID.');
+  //       this.isLoading = false;
+  //     },
+  //   });
+  // }
 
-  uploadPaymentProof() {
-    if (!this.paymentProof || !this.subscriptionId) {
-      alert('Please select a payment proof file and ensure a subscription ID is available.');
-      return;
-    }
-    this.isLoading = true;
-    this.dashboardService.uploadPaymentProof(this.subscriptionId, this.paymentProof).subscribe({
-      next: () => {
-        alert('Payment proof uploaded. Awaiting verification by the super admin.');
-        this.fetchSubscription();
-        this.modalService.dismissAll();
-        this.isLoading = false;
-      },
-      error: (error) => {
-        console.error('Error uploading payment proof:', error);
-        alert('Failed to upload payment proof. Please try again.');
-        this.isLoading = false;
-      },
-    });
-  }
+  // uploadPaymentProof() {
+  //   if (!this.paymentProof || !this.subscriptionId) {
+  //     alert('Please select a payment proof file and ensure a subscription ID is available.');
+  //     return;
+  //   }
+  //   this.isLoading = true;
+  //   this.dashboardService.uploadPaymentProof(this.subscriptionId, this.paymentProof).subscribe({
+  //     next: () => {
+  //       alert('Payment proof uploaded. Awaiting verification by the super admin.');
+  //       this.fetchSubscription();
+  //       this.modalService.dismissAll();
+  //       this.isLoading = false;
+  //     },
+  //     error: (error) => {
+  //       console.error('Error uploading payment proof:', error);
+  //       alert('Failed to upload payment proof. Please try again.');
+  //       this.isLoading = false;
+  //     },
+  //   });
+  // }
 
-  fetchSubscription() {
-    this.dashboardService.getSubscription().subscribe({
-      next: (data: any) => {
-        this.subscriptionData = data;
-        const isActive = data.status === 'active';
-        const isExpired = data.status === 'expired';
-        const isPending = data.status === 'pending' ||data.hasPending;
+  // fetchSubscription() {
+  //   this.dashboardService.getSubscription().subscribe({
+  //     next: (data: any) => {
+  //       this.subscriptionData = data;
+  //       const isActive = data.status === 'active';
+  //       const isExpired = data.status === 'expired';
+  //       const isPending = data.status === 'pending' ||data.hasPending;
 
-        this.isExpiringSoon = data.daysRemaining !== undefined && data.daysRemaining <= 7 && isActive;
-        this.isExpired = isExpired;
-        this.isPending = isPending && !isActive;
-      },
-      error: (error) => console.error('Error fetching subscription:', error),
-    });
-  }
+  //       this.isExpiringSoon = data.daysRemaining !== undefined && data.daysRemaining <= 7 && isActive;
+  //       this.isExpired = isExpired;
+  //       this.isPending = isPending && !isActive;
+  //     },
+  //     error: (error) => console.error('Error fetching subscription:', error),
+  //   });
+  // }
 
   logOut() {
     this.authService.logOut().subscribe({

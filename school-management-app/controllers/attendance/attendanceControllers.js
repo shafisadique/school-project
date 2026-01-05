@@ -9,6 +9,7 @@ const Teacher = require('../../models/teacher');
 const Holiday = require('../../models/holiday');
 const classSubjectAssignment = require('../../models/classSubjectAssignment');
 const { calculateDistance } = require('../../utils/locationUtils');
+const moment = require('moment');
 
 const markAttendance = async (req, res, next) => {
   try {
@@ -31,10 +32,33 @@ const markAttendance = async (req, res, next) => {
     if (!location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
       throw new APIError('Location required', 400);
     }
-
+    console.log(`Marking attendance: school ${location.latitude} ${schoolId}, class ${classId}, subject ${subjectId}, date ${date}, academicYear ${academicYearId}, by user ${userId}`);
     const teacher = await Teacher.findOne({ userId }).select('_id');
     if (!teacher) throw new APIError('Teacher not found', 404);
+    const teacherId = teacher._id.toString();
 
+    // NEW: AUTHORIZATION CHECK (Mirrored from editAttendance)
+    const classData = await Class.findById(classId)
+      .populate('attendanceTeacher', '_id')
+      .populate('substituteAttendanceTeachers', '_id')
+      .lean();
+    if (!classData) throw new APIError('Class not found', 404);
+
+    const isSubjectTeacher = await Subject.exists({
+      _id: subjectId,
+      'teacherAssignments.teacherId': teacherId,
+      'teacherAssignments.academicYearId': academicYearId,
+      classes: classId
+    });
+
+    const isAttendanceTeacher = classData.attendanceTeacher?._id.toString() === teacherId;
+    const isSubstituteTeacher = classData.substituteAttendanceTeachers?.some(t => t._id.toString() === teacherId) || false;
+
+    if (!isSubjectTeacher && !isAttendanceTeacher && !isSubstituteTeacher) {
+      throw new APIError('Not authorized to mark attendance for this class/subject. Must be subject teacher, attendance teacher, or substitute.', 403);
+    }
+
+    // Rest of your code unchanged (school fetch, geofencing, timing, holiday, duplicate, save)...
     // GET SCHOOL
     const school = await School.findById(schoolId)
       .select('schoolTiming weeklyHolidayDay radius latitude longitude')
@@ -52,7 +76,6 @@ const markAttendance = async (req, res, next) => {
       school.longitude
     );
 
-    // If distance > 50km → fake WiFi/laptop GPS → ALLOW (teacher is in school)
     if (distance > 50000) {
       console.log(`Student Attendance: Fake GPS (${Math.round(distance/1000)}km) → allowed`);
     } else if (distance > allowedRadius) {
@@ -64,11 +87,9 @@ const markAttendance = async (req, res, next) => {
       });
     }
 
-    // TIMING CHECK — CORRECT IST
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTotal = currentHour * 60 + currentMinute;
+    // TIMING CHECK — IST-AWARE
+    const nowIST = moment().tz('Asia/Kolkata');
+    const currentTotal = nowIST.hour() * 60 + nowIST.minute();
 
     const opening = (school.schoolTiming?.openingTime || '08:00').trim();
     const closing = (school.schoolTiming?.closingTime || '14:00').trim();
@@ -82,32 +103,43 @@ const markAttendance = async (req, res, next) => {
     if (currentTotal < openTotal || currentTotal > closeTotal) {
       return res.status(400).json({
         success: false,
-        message: `Attendance only allowed ${opening} - ${closing}`,
-        currentTime: now.toLocaleTimeString('en-IN')
+        message: `Attendance only allowed ${opening} - ${closing} IST`,
+        currentTime: nowIST.format('HH:mm:ss')
       });
     }
 
-    // DATE PARSING
-    const attendanceDate = new Date(date);
+    // DATE PARSING — IST-AWARE
+    const attendanceDateIST = moment.tz(date || nowIST.format('YYYY-MM-DD'), 'Asia/Kolkata');
+    const attendanceDate = attendanceDateIST.toDate();
     attendanceDate.setHours(0, 0, 0, 0);
 
-    // HOLIDAY CHECK
+    // HOLIDAY CHECK — IST-AWARE
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const dayStartIST = new Date(attendanceDateIST.startOf('day').toDate());
+    const dayEndIST = new Date(attendanceDateIST.endOf('day').toDate());
+
     const holiday = await Holiday.findOne({
       schoolId,
-      date: { $gte: attendanceDate, $lt: new Date(attendanceDate.getTime() + 24*60*60*1000) }
+      date: { 
+        $gte: new Date(dayStartIST.getTime() - istOffsetMs),
+        $lt: new Date(dayEndIST.getTime() - istOffsetMs + 1)
+      }
     });
-    if (holiday) throw new APIError('Holiday today', 400);
 
-    // WEEKLY HOLIDAY
-    const dayName = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][attendanceDate.getUTCDay()];
-    if (dayName === (school.weeklyHolidayDay || 'Sunday')) {
-      throw new APIError('Weekly holiday', 400);
+    if (holiday) {
+      throw new APIError(`Holiday today: ${holiday.title}`, 400);
     }
 
-    // DUPLICATE CHECK
+    // WEEKLY HOLIDAY — IST-AWARE
+    const dayName = attendanceDateIST.format('dddd');
+    if (dayName === (school.weeklyHolidayDay || 'Sunday')) {
+      throw new APIError(`Weekly holiday: ${dayName}`, 400);
+    }
+
+    // DUPLICATE CHECK — IST-AWARE
     const existing = await Attendance.findOne({
       schoolId, classId, subjectId,
-      date: attendanceDate
+      date: { $gte: dayStartIST, $lt: dayEndIST }
     });
     if (existing) throw new APIError('Already marked today', 400);
 
@@ -125,9 +157,10 @@ const markAttendance = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Student attendance marked!',
-      currentTime: now.toLocaleTimeString('en-IN'),
+      currentTime: nowIST.format('HH:mm:ss') + ' IST',
       distance: Math.round(distance) + 'm',
-      usedSchoolLocation: distance > 50000
+      usedSchoolLocation: distance > 50000,
+      attendanceDate: attendanceDateIST.format('YYYY-MM-DD')
     });
 
   } catch (error) {
