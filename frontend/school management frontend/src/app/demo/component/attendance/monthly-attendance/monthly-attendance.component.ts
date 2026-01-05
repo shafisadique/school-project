@@ -1,137 +1,267 @@
 import { Component, OnInit } from '@angular/core';
-import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AttendanceService } from '../attendance.service';
 import { ToastrService } from 'ngx-toastr';
 import { ActivatedRoute } from '@angular/router';
+import { SchoolService } from '../../advance-component/school/school.service';
+
+interface School {
+  name: string;
+  address: { city: string; state: string };
+}
 
 @Component({
   selector: 'app-monthly-attendance',
   standalone: true,
-  imports: [ReactiveFormsModule, CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './monthly-attendance.component.html',
   styleUrls: ['./monthly-attendance.component.scss']
 })
 export class MonthlyAttendanceComponent implements OnInit {
   classId!: string;
-  subjectId!: string;
   academicYearId!: string;
-  attendanceForm!: FormGroup;
+
   students: any[] = [];
-  loading: boolean = false;
-  currentMonth: Date = new Date(); // June 30, 2025, 11:33 AM IST
-  daysInMonth: number = 0;
+  loading = false;
+
+  viewMode: 'monthly' | 'weekly' = 'monthly';
+
+  // Monthly
+  selectedMonth: Date = new Date();
+  selectedMonthStr = '';
+  daysInMonth = 0;
+
+  // Weekly
+  selectedWeekStr = '';
+  currentWeekStart = new Date();
+  weekEnd = new Date();
+
+  // Days to show
+  visibleDays: number[] = [];
+
   attendanceData: any[] = [];
 
+  totalPresent = 0;
+  totalAbsent = 0;
+  workingDays = 0;
+  attendancePercentage = 0;
+
+  school: School = { name: "Children's Public School", address: { city: 'Katihar', state: 'Bihar' } };
+
   constructor(
-    private fb: FormBuilder,
     private attendanceService: AttendanceService,
     private toastr: ToastrService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private schoolService: SchoolService
   ) {}
 
   ngOnInit(): void {
     this.classId = this.route.snapshot.queryParams['classId'] || '';
-    this.subjectId = this.route.snapshot.queryParams['subjectId'] || '';
     this.academicYearId = this.route.snapshot.queryParams['academicYearId'] || localStorage.getItem('activeAcademicYearId') || '';
 
-    if (!this.classId || !this.subjectId || !this.academicYearId) {
-      this.toastr.error('Missing required parameters. Please try again.', 'Error');
+    if (!this.classId || !this.academicYearId) {
+      this.toastr.error('Missing parameters');
       return;
     }
 
-    this.initForm();
+    this.loadSchoolData();
+    this.initCurrentMonth();
     this.loadStudents();
-    this.loadAttendanceHistory();
-    this.daysInMonth = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth() + 1, 0).getDate(); // 30 days for June
   }
 
-  initForm() {
-    this.attendanceForm = this.fb.group({
-      studentAttendances: this.fb.array([])
+  loadSchoolData() {
+    this.schoolService.getMySchoolForTeacher().subscribe({
+      next: (res: any) => {
+        this.school = {
+          name: res.name || "Children's Public School",
+          address: { city: res.address?.city || 'Katihar', state: res.address?.state || 'Bihar' }
+        };
+      }
     });
   }
 
-  get studentAttendances(): FormArray {
-    return this.attendanceForm.get('studentAttendances') as FormArray;
+  initCurrentMonth() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    this.selectedMonth = new Date(year, today.getMonth(), 1);
+    this.daysInMonth = new Date(year, month, 0).getDate();
+    this.selectedMonthStr = `${year}-${month.toString().padStart(2, '0')}`;
+    this.updateVisibleDays();
   }
-
+  getInitials(name: string): string {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
   loadStudents() {
-    if (!this.classId) return;
     this.loading = true;
     this.attendanceService.getStudentsByClass(this.classId).subscribe({
-      next: (response) => {
-        this.students = Array.isArray(response) ? response.map(s => ({ _id: s._id, name: s.name, rollNo: s.rollNo })) : response?.students?.map(s => ({ _id: s._id, name: s.name, rollNo: s.rollNo })) || [];
-        console.log('Loaded Students:', this.students); // Debug
-        this.addStudentsToForm();
-        this.loading = false;
+      next: (res: any) => {
+        this.students = (Array.isArray(res) ? res : res?.students || []).map((s: any) => ({
+          _id: s._id,
+          name: s.name
+        }));
+        this.loadAttendance();
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
-        this.toastr.error(err.error?.message || 'Error fetching students', 'Error');
+        this.toastr.error('Failed to load students');
       }
     });
   }
 
-  addStudentsToForm() {
-    this.studentAttendances.clear();
-    this.students.forEach(student => {
-      this.studentAttendances.push(this.fb.group({
-        studentId: [student._id],
-        attendance: this.fb.group({})
-      }));
-    });
-    this.updateAttendanceData();
-  }
-
-  loadAttendanceHistory() {
-    if (!this.classId || !this.academicYearId) return;
+  loadAttendance() {
     this.loading = true;
-    const month = this.currentMonth.getMonth(); // 5 for June (0-based)
-    const year = this.currentMonth.getFullYear(); // 2025
-    const startDate = new Date(year, month, 1).toISOString(); // June 1, 2025
-    const endDate = new Date(year, month + 1, 0).toISOString(); // June 30, 2025
+    let start: Date, end: Date;
 
-    this.attendanceService.getAttendanceHistory(this.classId, this.academicYearId, { startDate, endDate }).subscribe({
-      next: (history) => {
-        this.attendanceData = Array.isArray(history) ? history : [];
-        console.log('Fetched Attendance Data:', this.attendanceData); // Debug
-        this.updateAttendanceData();
+    if (this.viewMode === 'monthly') {
+      const y = this.selectedMonth.getFullYear();
+      const m = this.selectedMonth.getMonth();
+      start = new Date(Date.UTC(y, m, 1));
+      end = new Date(Date.UTC(y, m + 1, 1));
+    } else {
+      start = new Date(this.currentWeekStart);
+      end = new Date(this.currentWeekStart);
+      end.setDate(end.getDate() + 6);
+    }
+
+    this.attendanceService.getAttendanceHistory(this.classId, this.academicYearId, {
+      startDate: start.toISOString(),
+      endDate: end.toISOString()
+    }).subscribe({
+      next: (data: any) => {
+        this.attendanceData = Array.isArray(data) ? data : [];
+        this.updateStudentAttendance();
+        this.calculateTotals();
         this.loading = false;
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
-        this.toastr.error(err.error?.message || 'Error fetching attendance history', 'Error');
-        console.error('Attendance History Error:', err); // Debug
       }
     });
   }
 
-  updateAttendanceData() {
-    this.studentAttendances.controls.forEach((studentGroup, index) => {
-      const studentId = this.students[index]?._id;
-      const attendanceGroup = studentGroup.get('attendance') as FormGroup;
-      for (let day = 1; day <= this.daysInMonth; day++) {
-        const date = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth(), day);
-        const isoDate = date.toISOString();
-        const attendanceRecord = this.attendanceData.find(record => {
-          const recordDate = new Date(record.date);
-          return recordDate.toDateString() === date.toDateString() &&
-                 record.students.some((s: any) => s.studentId._id === studentId);
-        });
-        const status = attendanceRecord?.students.find((s: any) => s.studentId._id === studentId)?.status || '-';
-        attendanceGroup.addControl(`day${day}`, this.fb.control({ value: status, disabled: true }));
-        console.log(`Student ${studentId}, Day ${day}, Status: ${status}, Record: ${JSON.stringify(attendanceRecord)}`); // Enhanced debug
-      }
+  updateStudentAttendance() {
+    this.students.forEach(student => {
+      student.attendance = {};
+      this.visibleDays.forEach(day => {
+        const date = this.viewMode === 'monthly'
+          ? new Date(this.selectedMonth.getFullYear(), this.selectedMonth.getMonth(), day)
+          : new Date(this.currentWeekStart);
+        
+        if (this.viewMode === 'weekly') {
+          date.setDate(date.getDate() + day - 1);
+        }
+
+        const iso = date.toISOString().split('T')[0];
+        const record = this.attendanceData.find((r: any) => 
+          new Date(r.date).toISOString().split('T')[0] === iso
+        );
+        const status = record?.students.find((s: any) => s.studentId._id === student._id)?.status || '-';
+        student.attendance[day] = status;
+      });
     });
   }
 
-  getDaysArray(): number[] {
-    return Array.from({ length: this.daysInMonth }, (_, i) => i + 1);
+  getStatus(student: any, day: number): string {
+    return student.attendance?.[day] || '-';
+  }
+
+  getStudentTotal(student: any, type: 'Present' | 'Absent'): number {
+    return Object.values(student.attendance || {}).filter((s: any) => s === type).length;
+  }
+
+  getStudentPercentage(student: any): number {
+    const total = Object.keys(student.attendance || {}).length;
+    const present = this.getStudentTotal(student, 'Present');
+    return total > 0 ? Math.round((present / total) * 100) : 0;
+  }
+
+  isHoliday(day: number): boolean {
+    const date = this.viewMode === 'monthly'
+      ? new Date(this.selectedMonth.getFullYear(), this.selectedMonth.getMonth(), day)
+      : new Date(this.currentWeekStart);
+    
+    if (this.viewMode === 'weekly') {
+      date.setDate(date.getDate() + day - 1);
+    }
+    return date.getDay() === 0; // Sunday
+  }
+
+  updateVisibleDays() {
+    if (this.viewMode === 'monthly') {
+      this.visibleDays = Array.from({ length: this.daysInMonth }, (_, i) => i + 1);
+    } else {
+      this.visibleDays = [1, 2, 3, 4, 5, 6];
+      this.setCurrentWeek();
+    }
+  }
+
+  setCurrentWeek() {
+    const today = new Date();
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    this.currentWeekStart = new Date(today.setDate(diff));
+    this.weekEnd = new Date(this.currentWeekStart);
+    this.weekEnd.setDate(this.weekEnd.getDate() + 5);
+  }
+
+  onMonthChange() {
+    if (!this.selectedMonthStr) return;
+    const [y, m] = this.selectedMonthStr.split('-').map(Number);
+    this.selectedMonth = new Date(y, m - 1, 1);
+    this.daysInMonth = new Date(y, m, 0).getDate();
+    this.updateVisibleDays();
+    this.loadAttendance();
+  }
+
+  onWeekChange() {
+    if (!this.selectedWeekStr) return;
+    const [year, week] = this.selectedWeekStr.split('-W');
+    const date = new Date(Number(year), 0, (Number(week) - 1) * 7 + 1);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    this.currentWeekStart = new Date(date.setDate(diff));
+    this.weekEnd = new Date(this.currentWeekStart);
+    this.weekEnd.setDate(this.weekEnd.getDate() + 5);
+    this.updateVisibleDays();
+    this.loadAttendance();
+  }
+
+  setViewMode(mode: 'monthly' | 'weekly') {
+    this.viewMode = mode;
+    if (mode === 'weekly') this.setCurrentWeek();
+    this.updateVisibleDays();
+    this.loadAttendance();
+  }
+
+  calculateTotals() {
+    this.totalPresent = this.students.reduce((s, st) => s + this.getStudentTotal(st, 'Present'), 0);
+    this.totalAbsent = this.students.reduce((s, st) => s + this.getStudentTotal(st, 'Absent'), 0);
+    this.workingDays = this.visibleDays.filter(d => !this.isHoliday(d)).length;
+    this.attendancePercentage = this.students.length && this.workingDays
+      ? Math.round((this.totalPresent / (this.students.length * this.workingDays)) * 100)
+      : 0;
   }
 
   getAcademicYear(): string {
-    const year = this.currentMonth.getFullYear();
-    return `${year}-${year + 1}`; // e.g., 2025-2026
+    return `${this.selectedMonth.getFullYear()}-${this.selectedMonth.getFullYear() + 1}`;
+  }
+
+  // Helper for Weekly View
+  getWeekDayName(day: number): string {
+    const date = new Date(this.currentWeekStart);
+    date.setDate(date.getDate() + day - 1);
+    return date.toLocaleDateString('en-US', { weekday: 'short' });
+  }
+
+  getWeekDayDate(day: number): Date {
+    const date = new Date(this.currentWeekStart);
+    date.setDate(date.getDate() + day - 1);
+    return date;
+  }
+
+  print() {
+    window.print();
   }
 }

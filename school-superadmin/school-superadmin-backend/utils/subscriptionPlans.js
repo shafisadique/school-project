@@ -62,7 +62,7 @@ const subscriptionPlans = {
         "Phone & email support",
         "Custom reports",
         "5 admin accounts",
-        "Data export功能"
+        "Data export"
       ],
       savings: 0,
       recommended: false

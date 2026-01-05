@@ -865,3 +865,44 @@ pre[class*="language-"] {
 pre[class*="language-"].line-numbers {
   padding-left: 2.8em !important;
 }
+/* === FORCE ALL TOASTR TO TOP-CENTER – Bulletproof Override === */
+ngx-toastr {
+  top: 20px !important;
+  bottom: auto !important;               /* ← Kills any bottom positioning */
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+  width: 420px !important;
+  max-width: 90vw !important;
+  z-index: 999999 !important;            /* Stay above everything */
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+  margin: 0 auto !important;
+  font-family: 'Outfit', sans-serif !important;
+}
+
+/* Prevent stacking issues */
+ngx-toastr.toast {
+  opacity: 1 !important;
+  padding: 16px 24px !important;
+  font-size: 15px !important;
+  line-height: 1.5 !important;
+}
+
+/* Beautiful colors matching your theme */
+.toast-success {
+  background: #10b981 !important;        /* Emerald */
+  border-left: 6px solid #059669 !important;
+}
+.toast-error {
+  background: #ef4444 !important;
+  border-left: 6px solid #dc2626 !important;
+}
+.toast-warning {
+  background: #f59e0b !important;
+  border-left: 6px solid #d97706 !important;
+}
+.toast-info {
+  background: #3b82f6 !important;
+  border-left: 6px solid #2563eb !important;
+}

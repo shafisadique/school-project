@@ -1,0 +1,144 @@
+<div class="student-dashboard" *ngIf="!loading && student; else loader">
+
+  <!-- Profile Card -->
+  <div class="profile-card">
+    <div class="photo-circle">
+     <img 
+  [src]="getImageUrl(student.photo)" 
+  alt="{{ student.name }}"
+  class="student-avatar">
+    </div>
+
+    <div class="profile-info">
+      <h1 class="student-name">{{ student.name }}</h1>
+      <div class="student-details">
+        <span>Class: {{ student.className }}</span> • 
+        <span>Roll No: {{ student.rollNo }}</span> • 
+        <span>Section: {{ student.section?.join(' & ') }}</span>
+      </div>
+
+      <div class="attendance-status" 
+           [class.holiday]="student.todayAttendance === 'Holiday'">
+        <strong>
+          {{ student.todayAttendance === 'Holiday' ? 'Holiday Today' : 'Present Today' }}
+        </strong>
+        <span *ngIf="student.todayAttendance === 'Holiday'" class="holiday-name">
+          — {{ getTodayHolidayName() }}
+        </span>
+      </div>
+    </div>
+
+    <div class="status-indicator"></div>
+  </div>
+
+  <!-- Main Cards Grid -->
+  <div class="cards-grid">
+
+    <!-- Calendar Card -->
+    <div class="card calendar">
+      <div class="card-header">
+        <h3>School Calendar</h3>
+      </div>
+      <div class="card-body">
+        <div class="upcoming-holidays">
+          <h4>Upcoming Holidays</h4>
+          <div class="holiday-list">
+            <div class="holiday-item" *ngFor="let h of student.allHolidays.slice(0, 5)">
+              <div>
+                <strong>{{ h.title }}</strong>
+              </div>
+              <div class="date">{{ h.date }}</div>
+            </div>
+            <p class="no-data" *ngIf="!student.allHolidays?.length">
+              No upcoming holidays
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fee Card - Professional & Clean -->
+    <div class="card fee">
+      <div class="card-header">
+        <h3>Fee Status</h3>
+      </div>
+      <div class="card-body">
+
+        <!-- Summary -->
+        <div class="fee-summary-box">
+          <div class="fee-row">
+            <span>Total Fee</span>
+            <strong>₹{{ student.totalFee | number:'1.0-0' }}</strong>
+          </div>
+          <div class="fee-row paid">
+            <span>Paid Amount</span>
+            <strong>₹{{ student.totalPaid | number:'1.0-0' }}</strong>
+          </div>
+          <div class="fee-row due" *ngIf="student.totalDue > 0">
+            <span>Due Amount</span>
+            <strong>₹{{ student.totalDue | number:'1.0-0' }}</strong>
+          </div>
+          <div class="fee-row success" *ngIf="student.totalDue === 0">
+            <span>All Paid</span>
+            <strong>₹0</strong>
+          </div>
+        </div>
+
+        <!-- Monthly Breakdown -->
+        <div class="monthly-breakdown" *ngIf="student.feeInvoices?.length">
+          <h4>Recent Invoices</h4>
+          <div class="invoice-list">
+            <div class="invoice-item" *ngFor="let inv of student.feeInvoices">
+              <div class="month">{{ formatMonth(inv.month) }}</div>
+              <div class="amount">₹{{ inv.totalAmount | number:'1.0-0' }}</div>
+              <div class="status-badge" [class.paid]="inv.status === 'Paid'">
+                {{ inv.status }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="no-data" *ngIf="!student.feeInvoices?.length">
+          No fee records found
+        </p>
+      </div>
+    </div>
+
+    <!-- Assignments -->
+    <div class="card assignments">
+      <div class="card-header">
+        <h3>Pending Assignments</h3>
+      </div>
+      <div class="card-body">
+        <div class="assignment-list">
+          <div class="assignment-item" *ngFor="let a of student.pendingAssignments">
+            <span class="subject">{{ a.subject }}</span>
+            <span class="due">Due: {{ a.dueDate }}</span>
+          </div>
+          <p class="no-data" *ngIf="!student.pendingAssignments?.length">
+            No pending assignments
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results (Placeholder) -->
+    <div class="card results">
+      <div class="card-header">
+        <h3>Exam Results</h3>
+      </div>
+      <div class="card-body placeholder">
+        <p>Results will be published soon</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Loading Template -->
+<ng-template #loader>
+  <div class="loading-screen">
+    <div class="spinner"></div>
+    <p>Loading your dashboard...</p>
+  </div>
+</ng-template>

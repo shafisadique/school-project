@@ -9,11 +9,11 @@ import { HttpClient } from '@angular/common/http';
 export class DashboardService {
   constructor(private http: HttpClient) { }
 
-getSuperadminDashboard(): Observable<any> {
-  return this.http.get(`${environment.apiUrl}/api/superadmin/dashboard`, { withCredentials: true });
-}
+  getSuperadminDashboard(): Observable<any> {
+    return this.http.get(`${environment.apiUrl}/api/superadmin/dashboard`);
+  }
 
-activateTrial(schoolId: string): Observable<any> {
-  return this.http.post(`${environment.apiUrl}/api/superadmin/activate-trial`, { schoolId }, { withCredentials: true });
-}
+  activateTrial(schoolId: string): Observable<any> {
+    return this.http.post(`${environment.apiUrl}/api/superadmin/activate-trial`, { schoolId });
+  }
 }

@@ -1,4 +1,5 @@
 // src/app/modules/student/student-create/student-create.component.ts
+
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import {
   FormBuilder,
@@ -32,6 +33,17 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
   imagePreview: string | null = null;
   fileError = '';
   serverError = '';
+  showRouteField = false;
+
+  // APAAR Status Options
+  apaarStatusOptions = [
+    { value: 'not_generated', label: 'Not Generated Yet' },
+    { value: 'pending', label: 'Pending Generation' },
+    { value: 'consent_pending', label: 'Consent Form Pending' },
+    { value: 'refused', label: 'Parent Refused Consent' },
+    { value: 'mismatch_error', label: 'Aadhaar Mismatch / Error' },
+    { value: 'generated', label: 'Generated (Has APAAR ID)' },
+  ];
 
   private destroy$ = new Subject<void>();
   private schoolId = localStorage.getItem('schoolId')!;
@@ -49,6 +61,7 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
     this.loadClasses();
     this.loadRoutes();
     this.watchTransport();
+    this.watchApaarId(); // Auto-update status when ID is entered
   }
 
   ngOnDestroy(): void {
@@ -56,7 +69,6 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  // --- Form ---
   private initForm(): void {
     this.form = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2), Validators.maxLength(100)]],
@@ -77,36 +89,54 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
       fatherPhone: [''],
       motherName: [''],
       motherPhone: [''],
+      // === APAAR FIELDS ===
+      apaarId: ['', [Validators.pattern(/^\d{12}$/)]], // Exactly 12 digits if provided
+      apaarStatus: ['not_generated', Validators.required],
+      apaarNotes: [''],
     });
   }
 
   get f() { return this.form.controls; }
 
-  // --- Dynamic Validation ---
+  // Watch transport
   private watchTransport(): void {
     this.form.get('usesTransport')?.valueChanges
       .pipe(takeUntil(this.destroy$))
-      .subscribe(val => {
+      .subscribe((val: boolean) => {
         const routeCtrl = this.form.get('routeId');
-        if (val) routeCtrl?.setValidators(Validators.required);
-        else routeCtrl?.clearValidators();
+        if (val) {
+          this.showRouteField = true;
+          routeCtrl?.setValidators(Validators.required);
+        } else {
+          this.showRouteField = false;
+          routeCtrl?.setValue('');
+          routeCtrl?.clearValidators();
+        }
         routeCtrl?.updateValueAndValidity();
+      });
+    this.showRouteField = this.form.get('usesTransport')?.value === true;
+  }
+
+  // Auto-set status to 'generated' when valid APAAR ID is entered
+  private watchApaarId(): void {
+    this.form.get('apaarId')?.valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((id: string) => {
+        if (id && /^\d{12}$/.test(id.trim())) {
+          this.form.get('apaarStatus')?.setValue('generated');
+        }
       });
   }
 
-  // --- Data Load ---
+  // Data Load
   private loadClasses(): void {
     this.classSvc.getClassesBySchool(this.schoolId)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (res: any) => {
-          this.classList = res.data || res || [];  // Handle both {data: []} and direct array
-          console.log('Classes loaded:', this.classList);  // Debug log
-        },
-        error: (err) => {
-          console.error('Classes error:', err);
-          this.toastr.error('Failed to load classes. Please refresh.');
-          this.classList = [];  // Fallback
+        next: (res: any) => this.classList = res.data || res || [],
+        error: () => {
+          this.toastr.error('Failed to load classes');
+          this.classList = [];
         }
       });
   }
@@ -120,7 +150,7 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
       });
   }
 
-  // --- File ---
+  // File
   onFileSelect(event: any): void {
     const file: File = event.target.files[0];
     if (!file) return;
@@ -141,7 +171,7 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
     reader.readAsDataURL(file);
   }
 
-  // --- Submit ---
+  // Submit
   onSubmit(): void {
     this.submitted = true;
     this.serverError = '';
@@ -161,8 +191,7 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
         },
         error: (err: any) => {
           this.serverError = this.parseError(err);
-          const errorMsg = err.error?.message || 'Failed to add student';
-          this.toastr.error(errorMsg, 'Error');
+          this.toastr.error(err.error?.message || 'Failed to add student');
           this.loading = false;
         }
       });
@@ -172,14 +201,10 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
     const fd = new FormData();
     const val = this.form.value;
 
-    // Send only non-empty, non-null fields
     Object.keys(val).forEach(k => {
       const v = val[k];
       if (v !== null && v !== undefined && v !== '') {
-        // Skip phone if not 10 digits
-        if (k === 'phone' && !/^\d{10}$/.test(v)) {
-          return; // Don't send invalid phone
-        }
+        if (k === 'phone' && !/^\d{10}$/.test(v)) return;
         fd.append(k, v);
       }
     });
@@ -195,16 +220,25 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
     });
     if (Object.keys(parents).length) fd.append('parents', JSON.stringify(parents));
 
+   // APAAR fields
+    fd.append('apaarId', (val.apaarId || '').toString());
+    fd.append('apaarStatus', val.apaarStatus || 'not_generated');
+    fd.append('apaarNotes', (val.apaarNotes || '').trim());
+    if (val.apaarNotes?.trim()) {
+      fd.append('apaarNotes', val.apaarNotes.trim());
+    }
+
     fd.append('profileImage', this.selectedFile!);
     return fd;
   }
 
   private parseError(err: any): string {
-    const msg = err.error?.message || 'Server error';
+    const msg = err.error?.message || '';
     if (msg.includes('parent')) return 'At least one parent name required';
     if (msg.includes('phone')) return 'Parent phone required if name given';
     if (msg.includes('route')) return 'Route required for transport';
-    return msg;
+    if (msg.includes('APAAR')) return 'Invalid APAAR ID (must be 12 digits)';
+    return msg || 'Server error';
   }
 
   private resetForm(): void {
@@ -216,11 +250,15 @@ export class StudentCreateComponent implements OnInit, OnDestroy {
       fatherName: '',
       fatherPhone: '',
       motherName: '',
-      motherPhone: ''
+      motherPhone: '',
+      apaarId: '',
+      apaarStatus: 'not_generated',
+      apaarNotes: ''
     });
     this.selectedFile = null;
     this.imagePreview = null;
     this.submitted = false;
     this.loading = false;
+    this.showRouteField = false;
   }
 }

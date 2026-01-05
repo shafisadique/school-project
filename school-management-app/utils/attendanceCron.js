@@ -34,7 +34,6 @@ cron.schedule('* 15 * * *', async () => {
       const istOffset = 5.5 * 60 * 60 * 1000;
       const todayIST = new Date(today.getTime() + istOffset);
       todayIST.setHours(0, 0, 0, 0);
-      console.log('Processing date:', todayIST);
 
       const schools = await School.find().select('_id activeAcademicYear').lean().session(session);
       if (!schools.length) {
@@ -54,7 +53,6 @@ cron.schedule('* 15 * * *', async () => {
           console.warn(`No admin found for school ${schoolId}. Skipping.`);
           continue;
         }
-        console.log('Admin found:', adminUser._id.toString());
 
         let academicYearId;
         try {

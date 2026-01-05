@@ -60,7 +60,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { isTeacher } = require('../middleware/roleMiddleware');
 
 // ✅ Protected Routes (Require Authentication)
-router.use(authMiddleware);
+// router.use(authMiddleware);
 
 // 🏫 **Class Management**
 router.post('/classes', createClass);

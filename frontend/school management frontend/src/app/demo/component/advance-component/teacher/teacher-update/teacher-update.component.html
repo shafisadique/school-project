@@ -9,7 +9,7 @@
             <!-- Personal Details -->
             <fieldset class="form-section">
               <legend>Personal Details</legend>
-
+              
               <div class="row g-3">
                 <div class="col-12 col-md-6">
                   <label class="form-label">Name <span class="text-danger">*</span></label>
@@ -63,6 +63,20 @@
                     <option [value]="false">Inactive</option>
                   </select>
                 </div>
+              <div class="col-12 col-md-6">
+                <label>Qualification</label>
+                <input type="text" class="form-control form-control-sm" formControlName="qualification">
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label>Joining Date</label>
+                <input type="date" class="form-control form-control-sm" formControlName="joiningDate">
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label>Date of Birth</label>
+                <input type="date" class="form-control form-control-sm" formControlName="dateOfBirth">
+              </div>
               </div>
             </fieldset>
 
@@ -73,13 +87,13 @@
               <div class="row g-3">
                 <div class="col-12">
                   <label class="form-label">Subjects Taught <span class="text-danger">*</span></label>
-                  <ng-select [items]="subjectsList" 
-                             bindLabel="name" 
-                             bindValue="name" 
-                             formControlName="subjects" 
-                             [multiple]="true" 
-                             placeholder="Select subjects"
-                             class="form-select-sm">
+                  <ng-select 
+                    [items]="subjectsList"
+                    formControlName="subjects"
+                    [multiple]="true"
+                    placeholder="Select subjects"
+                    [closeOnSelect]="false"
+                    class="form-select-sm">
                   </ng-select>
                   <div class="text-danger small mt-1" *ngIf="submitted && f['subjects'].errors?.['minlength']">
                     Select at least one subject
@@ -120,6 +134,51 @@
             </div>
 
           </div>
+
+          <!-- Additional Details -->
+          <fieldset class="form-section">
+            <legend>Additional Details (Optional)</legend>
+
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="form-label">Address</label>
+                <textarea class="form-control form-control-sm" formControlName="address" rows="2"></textarea>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Blood Group</label>
+                <select class="form-select form-select-sm" formControlName="bloodGroup">
+                  <option value="">Select</option>
+                  <option value="A+">A+</option>
+                  <option value="A-">A-</option>
+                  <option value="B+">B+</option>
+                  <option value="B-">B-</option>
+                  <option value="O+">O+</option>
+                  <option value="O-">O-</option>
+                  <option value="AB+">AB+</option>
+                  <option value="AB-">AB-</option>
+                </select>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Emergency Contact Name</label>
+                <input type="text" class="form-control form-control-sm" formControlName="emergencyContactName">
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Emergency Contact Phone</label>
+                <input type="text" class="form-control form-control-sm" formControlName="emergencyContactPhone" placeholder="10 digits">
+                <div class="text-danger small mt-1" *ngIf="submitted && f['emergencyContactPhone'].errors?.['pattern']">
+                  10 digits only
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label class="form-label">Leave Balance (days)</label>
+                <input type="number" min="0" class="form-control form-control-sm" formControlName="leaveBalance">
+              </div>
+            </div>
+          </fieldset>
         </form>
 
       </app-card>

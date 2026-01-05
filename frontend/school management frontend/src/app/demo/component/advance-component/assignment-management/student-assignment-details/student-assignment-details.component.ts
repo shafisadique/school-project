@@ -37,6 +37,11 @@ export class StudentAssignmentDetailsComponent implements OnInit {
       this.loading = false;
     }
   }
+  getSubmissionBadgeClass(): string {
+  if (!this.assignment.hasSubmitted) return 'bg-gray-100 text-gray-800 border border-gray-300';
+  if (this.assignment.grade !== null) return 'bg-green-100 text-green-800 border border-green-300';
+  return 'bg-blue-100 text-blue-800 border border-blue-300';
+}
 
   loadAssignment(id: string): void {
     this.assignmentService.getStudentAssignmentDetails(id).subscribe({

@@ -4,6 +4,7 @@ const User = require('../../models/user');  // School-only User model (no supera
 const Teacher = require('../../models/teacher');
 const AcademicYear = require('../../models/academicyear');
 const { decryptPassword } = require('../../utils/cryptoUtils');
+const { logLoginAttempt } = require('../../utils/loginLogger');
 
 const login = async (req, res) => {
   const { username, email, password } = req.body;
@@ -21,11 +22,13 @@ const login = async (req, res) => {
     };
     const user = await User.findOne(query);
     if (!user) {
+      await logLoginAttempt(req, null, 'failed', 'User not found');
       return res.status(401).json({ message: 'Invalid username/email or password' });
     }
 
     // Fail if no schoolId (enforce school context)
     if (!user.schoolId) {
+      await logLoginAttempt(req, user, 'failed', 'No school assigned');
       return res.status(403).json({ message: 'User not associated with a school' });
     }
 
@@ -49,6 +52,7 @@ const login = async (req, res) => {
     }
 
     if (!isPasswordValid) {
+      await logLoginAttempt(req, user, 'failed', 'Wrong password');
       return res.status(401).json({ message: 'Invalid username/email or password' });
     }
 
@@ -102,7 +106,7 @@ const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
-
+    await logLoginAttempt(req, user, 'success');
     res.json({
       token,
       role: user.role,

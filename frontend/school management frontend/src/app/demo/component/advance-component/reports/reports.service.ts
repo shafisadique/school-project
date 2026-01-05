@@ -28,4 +28,6 @@ export class ReportService {
   getSampleReports(): Observable<any> {
     return this.http.get(`${this.apiUrl}/api/reports/sample`);
   }
+  // In src/app/services/report.service.ts (or wherever ReportService is)
+
 }

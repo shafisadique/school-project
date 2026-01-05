@@ -32,10 +32,10 @@ import {
       />
 
       @if (hint) {
-        <p class="mt-1.5 text-xs"
+        <p class="mt-1 text-xs leading-relaxed"
           [ngClass]="{
-            'text-error-500': error,
-            'text-success-500': success,
+            'text-red-500': error,
+            'text-green-500': success,
             'text-gray-500': !error && !success
           }">
           {{ hint }}
@@ -52,12 +52,11 @@ import {
   ],
 })
 export class InputFieldComponent implements ControlValueAccessor {
-
-   @Input() type: string = 'text';
+  @Input() type: string = 'text';
   @Input() id?: string = '';
   @Input() name?: string = '';
   @Input() placeholder?: string = '';
-  @Input() value: string | number = '';
+  @Input() value: string | number | null = null;  // Allow null for empty
   @Input() min?: string;
   @Input() max?: string;
   @Input() step?: number;
@@ -66,8 +65,7 @@ export class InputFieldComponent implements ControlValueAccessor {
   @Input() error: boolean = false;
   @Input() hint?: string;
   @Input() className: string = '';
-  control = new FormControl();
-  @Output() valueChange = new EventEmitter<string | number>();
+  @Output() valueChange = new EventEmitter<string | number | null>();
 
   // Internal callbacks
   onChange: (value: any) => void = () => {};
@@ -75,7 +73,7 @@ export class InputFieldComponent implements ControlValueAccessor {
 
   // --- ControlValueAccessor methods ---
   writeValue(value: any): void {
-    this.value = value ?? '';
+    this.value = value ?? null;
   }
 
   registerOnChange(fn: any): void {
@@ -92,15 +90,26 @@ export class InputFieldComponent implements ControlValueAccessor {
 
   onInput(event: Event) {
     const input = event.target as HTMLInputElement;
-    const newValue = this.type === 'number' ? +input.value : input.value;
+    let newValue: string | number | null;
+    if (this.type === 'number') {
+      newValue = input.value ? Number(input.value) : null;
+    } else {
+      newValue = input.value || null;
+    }
     this.value = newValue;
     this.onChange(newValue);
+    this.valueChange.emit(newValue);
   }
 
   get inputClasses(): string {
-    let inputClasses = `h-11 w-full rounded-lg border appearance-none px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 ${this.className}`;
+    let inputClasses = `mt-1 block w-full h-11 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-800 dark:border-gray-600 dark:text-white dark:placeholder-gray-500 dark:focus:ring-indigo-400 ${this.className}`;
+    if (this.error) {
+      inputClasses += ' border-red-500 focus:ring-red-500 dark:border-red-500 dark:focus:ring-red-400';
+    } else if (this.success) {
+      inputClasses += ' border-green-500 focus:ring-green-500 dark:border-green-500 dark:focus:ring-green-400';
+    }
     if (this.disabled) {
-      inputClasses += ' opacity-40 cursor-not-allowed';
+      inputClasses += ' opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700';
     }
     return inputClasses;
   }

@@ -95,4 +95,7 @@ export class ReportService {
     this.toastr.error(msg);
     return throwError(() => new Error(msg));
   }
+    getUDISECompliance(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/api/reports/udise-compliance`);
+  }
 }

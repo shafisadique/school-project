@@ -23,6 +23,9 @@ const getMonthlyAttendance = async (teacherId, academicYearId, schoolId) => {
       console.log('Teacher not found:', teacherId);
       return {};
     }
+    console.log(teacher)
+    console.log(teacherId)
+
 
     // createdAt ko joining date maan lo
     const joinDate = new Date(teacher.createdAt);
@@ -38,6 +41,7 @@ const getMonthlyAttendance = async (teacherId, academicYearId, schoolId) => {
         $lte: new Date(year, month + 1, 0, 23, 59, 59, 999)
       }
     }).select('date status').lean();
+    console.log(records,'checking teacher attendace or not')
 
     // Holidays
     const holidays = await Holiday.find({

@@ -63,7 +63,9 @@ togglePasswordVisibility() {
           this.router.navigate(['/']);
         } else if (role === 'teacher') {
            this.router.navigate(['/teacher-dashboard']);
-        }else {
+        }else if (role === 'student') {
+           this.router.navigate(['/student-dashboard']);
+          }else {
           this.router.navigate(['/']);
         }
         this.toastrService.success('Login Success', 'Welcome!');

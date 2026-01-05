@@ -2,32 +2,38 @@
   <li class="pc-h-item">
     <div class="row mb-3">
       <div class="col-md-12">
-        <button class="btn btn-primary" (click)="openUpgradeModal(upgradeModal)" *ngIf="role === 'admin'">Upgrade</button>
-        <div class="d-flex justify-content-between align-items-center" *ngIf="authService.getUserRole() === 'admin'">
-          <div *ngIf="isExpiringSoon && !isExpired && !isPending" class="alert alert-warning alert-dismissible fade show" role="alert">
-            Your plan expires in {{ subscriptionData.daysRemaining }} days.
-            <button
-            class="btn btn-primary"
-            (click)="openUpgradeModal(upgradeModal)"
-            *ngIf="role === 'admin' && subscriptionData.subscriptionStatus !== 'active'">
-            Upgrade
-          </button>
-          <div *ngIf="subscriptionData.subscriptionStatus === 'active'" class="alert alert-success p-2 mb-0">
-            <strong>{{ subscriptionData.name }}</strong>
-            <span *ngIf="subscriptionData.isTrial"> (Trial – {{ subscriptionData.daysRemaining }} days left)</span>
-            <span *ngIf="!subscriptionData.isTrial"> until {{ subscriptionData.expiresAt | date:'mediumDate' }}</span>
-          </div>
-          </div>
-          <div *ngIf="isExpired" class="alert alert-danger alert-dismissible fade show" role="alert">
-            Your subscription has expired. You can only view data.
-            <a href="javascript:void(0)" (click)="openUpgradeModal(upgradeModal)">Renew now</a>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-          <div *ngIf="isPending" class="alert alert-info alert-dismissible fade show" role="alert">
-            Your payment is pending verification. You can only view data until approved.
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        </div>
+        <!-- <button class="btn btn-primary" (click)="openUpgradeModal(upgradeModal)" *ngIf="role === 'admin'">Upgrade</button> -->
+      <!-- nav-right.component.html – Replace the subscription alert section only -->
+<div class="subscription-alert-container" *ngIf="authService.getUserRole() === 'admin' && showExpiryAlert">
+  <!-- Expiring Soon (Warning) -->
+  <div class="alert alert-warning d-flex align-items-center gap-3" *ngIf="isExpiringSoon">
+    <i class="bi bi-exclamation-triangle me-2"></i> <!-- Optional icon -->
+    <span>{{ expiryMessage }}</span>
+    <button class="btn btn-sm btn-primary ms-auto" routerLink="/subscription-plans">
+      Upgrade Now
+    </button>
+  </div>
+
+  <!-- Expired (Danger) -->
+  <div class="alert alert-danger d-flex align-items-center gap-3" *ngIf="isExpired">
+    <i class="bi bi-x-circle me-2"></i>
+    <span>{{ expiryMessage }}</span>
+    <button class="btn btn-sm btn-danger ms-auto" routerLink="/subscription-plans">
+      Renew Now
+    </button>
+  </div>
+
+  <!-- Pending (Info) -->
+  <div class="alert alert-info d-flex align-items-center gap-3" *ngIf="isPending">
+    <i class="bi bi-clock me-2"></i>
+    <span>{{ expiryMessage }}</span>
+    <button class="btn btn-sm btn-info ms-auto" routerLink="/subscription-plans">
+      Check Status
+    </button>
+  </div>
+</div>
+
+<!-- ... rest of HTML unchanged (notifications dropdown, user profile, etc.) -->
       </div>
     </div>
   </li>
@@ -156,74 +162,72 @@
     </div>
   </li>
 </ul>
-
+<!-- 
 <ng-template #upgradeModal>
-  <div class="modal-header" style="background: linear-gradient(90deg, #4a90e2, #50c9c3);">
-    <h4 class="modal-title" style="color: white;">Upgrade Your Subscription</h4>
-    <button type="button" class="btn-close" (click)="modalService.dismissAll()" aria-label="Close"></button>
+  <div class="modal-header premium-header">
+    <h4 class="modal-title text-white fw-bold">Upgrade Your Subscription</h4>
+    <button type="button" class="btn-close btn-close-white" (click)="modalService.dismissAll()"></button>
   </div>
-  <div class="modal-body" style="background: #f8f9fa; padding: 20px;">
-    <div class="row">
-      <div class="col-12 mb-4 text-center">
-        <p *ngIf="subscriptionData.planType">
-          Current Plan: <strong>{{ subscriptionData.planType | titlecase }}</strong>
-          (Expired: {{ subscriptionData.expiresAt | date:'mediumDate' }})
-        </p>
-        <p *ngIf="isExpired" class="text-danger">Your subscription has expired. Select a new plan to continue.</p>
-        <p *ngIf="isPending" class="text-info">Payment pending. Upload proof if needed.</p>
-      </div>
 
-      <!-- Step 1: Select Plan -->
-      <div class="col-12 mb-4" *ngIf="!selectedPlan">
-        <h5 class="text-dark">Choose Your Plan</h5>
-        <div class="pricing-container">
-          <div class="pricing-card" *ngFor="let plan of plans">
-            <div class="plan-label">{{ plan.name }}</div>
-            <div class="price">₹{{ plan.price }}<span>/{{ plan.value.split('_')[1] === 'monthly' ? 'month' : 'year' }}</span></div>
-            <div class="subtitle">{{ plan.value === 'basic_monthly' ? 'Basic features' : 'Premium features' }}</div>
-            <ul class="features">
-              <li *ngFor="let feature of plan.features">{{ feature }}</li>
-            </ul>
-            <button class="btn plan-select-btn" (click)="selectPlan(plan.value)" [ngClass]="{'selected': selectedPlan === plan.value}">
-              Get Started
-            </button>
-            <div *ngIf="plan.discount > 0" class="discount">
-              <span class="original-price">₹{{ plan.originalPrice }}</span>
-              <span class="saved">Save ₹{{ plan.discount }}</span>
+  <div class="modal-body p-5" style="background:#f9f9f9;">
+
+    <div class="current-plan-banner text-center mb-5 p-4 rounded-4 border-0" 
+         style="background:#fff;box-shadow:0 10px 30px rgba(0,0,0,0.08);" 
+         *ngIf="subscriptionData?.planType">
+      <h5 class="mb-2 fw-bold">Current Plan: <span class="text-primary">{{ subscriptionData.name || subscriptionData.planType | titlecase }}</span></h5>
+      <p class="text-muted small mb-0">Expires on {{ subscriptionData.expiresAt | date:'dd MMM yyyy' }}</p>
+    </div>
+
+    <h4 class="text-center mb-5 fw-bold text-dark">Choose Your Plan</h4>
+
+    <div class="row g-4 justify-content-center">
+      <div class="col-lg-6 col-md-6" *ngFor="let plan of plans">
+        <div class="pricing-card-master position-relative overflow-hidden"
+             [class.popular]="plan.value.includes('yearly') && !plan.value.includes('premium')"
+             [class.best-value]="plan.value.includes('premium')"
+             [class.current-plan-card]="subscriptionData?.planType === plan.value">
+
+          <div class="ribbon ribbon-popular" *ngIf="plan.value.includes('yearly') && !plan.value.includes('premium')">
+            MOST POPULAR
+          </div>
+          <div class="ribbon ribbon-best" *ngIf="plan.value.includes('premium')">
+            BEST VALUE
+          </div>
+          <div class="ribbon ribbon-current" *ngIf="subscriptionData?.planType === plan.value">
+            CURRENT PLAN
+          </div>
+
+          <div class="card-content p-5 text-center">
+            <h5 class="fw-bold mb-4">{{ plan.name }}</h5>
+            
+            <div class="price mb-3">
+              <h2 class="fw-bold mb-1">₹{{ plan.price | number }}</h2>
+              <small class="text-muted d-block">/ {{ plan.value.includes('yearly') ? 'year' : 'month' }}</small>
             </div>
+
+            <div class="save-badge" *ngIf="plan.value.includes('yearly')">
+              Save up to 40%
+            </div>
+
+            <button class="btn btn-choose w-100 mt-4 py-3 rounded-pill fw-bold"
+                    [disabled]="subscriptionData?.planType === plan.value || isLoading"
+                    (click)="directUpgrade(plan.value)">
+              <span *ngIf="isLoading && selectedPlan === plan.value" class="spinner-border spinner-border-sm me-2"></span>
+              {{ subscriptionData?.planType === plan.value ? 'Current Plan' : 'Get Started' }}
+            </button>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Step 2: Select Payment Method -->
-<div class="col-12" *ngIf="selectedPlan">
-  <h5 class="text-dark">Choose Payment Method</h5>
-  <div class="payment-options">
-    <button class="btn payment-method-btn" (click)="selectPaymentMethod('razorpay')" [ngClass]="{'selected': selectedPaymentMethod === 'razorpay'}">
-      Card/UPI/Wallet/Netbanking (Recommended)
-    </button>
-    <!-- <button class="btn payment-method-btn" (click)="selectPaymentMethod('bank_transfer')" [ngClass]="{'selected': selectedPaymentMethod === 'bank_transfer'}">
-      Bank Transfer
-    </button> -->
-  </div>
-
-  <!-- Unified Pay Now for Razorpay (no form needed) -->
-  <div *ngIf="selectedPaymentMethod === 'razorpay'" class="payment-form mt-4 text-center">
-    <p class="text-muted mb-4">You'll be redirected to a secure payment page. Supports cards, UPI (PhonePe/GPay), wallets, and more.</p>
-    <button class="btn btn-primary btn-lg" (click)="upgradePlan()" [disabled]="isLoading">
-      <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-      Pay Now ₹{{ getPlanPrice(selectedPlan) }}
-    </button>
-  </div>
-
-  <!-- Bank Transfer (keep as-is, since it's manual) -->
-  <div *ngIf="selectedPaymentMethod === 'bank_transfer' && bankDetails" class="payment-form mt-4">
-    <!-- Your existing bank details + file upload code -->
-  </div>
-</div>
+    <div class="text-center mt-5">
+      <p class="text-muted small">
+        Secured by <strong>Razorpay</strong> • Instant Activation • Trusted by 10,000+ Schools
+      </p>
     </div>
   </div>
-  <div class="modal-footer" style="background: linear-gradient(90deg, #4a90e2, #50c9c3);">
-    <button class="btn btn-secondary" (click)="modalService.dismissAll()" [disabled]="isLoading">Cancel</button>
+
+  <div class="modal-footer premium-header">
+    <button class="btn btn-outline-light fw-bold px-4" (click)="modalService.dismissAll()">Close</button>
   </div>
-</ng-template>
+</ng-template> -->

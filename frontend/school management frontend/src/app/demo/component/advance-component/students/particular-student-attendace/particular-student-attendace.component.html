@@ -1,0 +1,69 @@
+<div class="attendance-masterpiece" *ngIf="!loading">
+  <div class="hero-header">
+    <div class="student-card">
+      <div class="info">
+        <h1>{{ studentName }}</h1>
+        <p>Class {{ className }} • {{ admissionNo }}</p>
+        <div class="year-badge">{{ academicYearName }}</div>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="stat-card present">
+        <div class="number">{{ summary.present }}</div>
+        <div class="label">Present</div>
+      </div>
+      <div class="stat-card absent">
+        <div class="number">{{ summary.absent }}</div>
+        <div class="label">Absent</div>
+      </div>
+      <div class="stat-card late">
+        <div class="number">{{ summary.late }}</div>
+        <div class="label">Late</div>
+      </div>
+      <div class="stat-card percentage" [class.excellent]="summary.percentage >= 95">
+        <div class="big-number">{{ summary.percentage }}%</div>
+        <div class="label">Attendance</div>
+        <div class="remark" *ngIf="summary.percentage >= 95">Excellent!</div>
+        <div class="remark warning" *ngIf="summary.percentage < 75">Needs Improvement</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="calendar-section">
+    <div class="calendar-header">
+      <h2>{{ currentMonth | date:'MMMM yyyy' }}</h2>
+      <div class="legend">
+        <span><div class="dot present"></div> Present</span>
+        <span><div class="dot absent"></div> Absent</span>
+        <span><div class="dot late"></div> Late</span>
+        <span><div class="dot today"></div> Today</span>
+      </div>
+    </div>
+
+    <div class="calendar">
+      <div class="day-names">
+        <div *ngFor="let day of ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']">{{ day }}</div>
+      </div>
+      <div class="days">
+        <div *ngFor="let cell of calendarCells"
+             class="day"
+             [class.present]="cell.status === 'Present'"
+             [class.absent]="cell.status === 'Absent'"
+             [class.late]="cell.status === 'Late'"
+             [class.today]="cell.isToday"
+             [class.empty]="!cell.date">
+          <div class="date" *ngIf="cell.date">{{ cell.date | date:'d' }}</div>
+          <div class="status" *ngIf="cell.status">
+            {{ cell.status.charAt(0) }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>Your attendance is recorded daily by your teachers.</p>
+    <button class="print-btn" (click)="print()">Print Report</button>
+  </div>
+</div>

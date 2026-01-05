@@ -29,7 +29,7 @@
 
                 <div class="col-12 col-md-4">
                   <label class="form-label">Phone</label>
-                  <input type="text" class="form-control form-control-sm" formControlName="phone" placeholder="10 digits">
+                  <input type="number" class="form-control form-control-sm" formControlName="phone" placeholder="10 digits">
                   <div class="text-danger small mt-1" *ngIf="submitted && f['phone'].errors?.['pattern']">
                     10 digits only
                   </div>
@@ -94,7 +94,7 @@
                   </select>
                 </div>
 
-                <div class="col-12 col-md-4" *ngIf="form.get('usesTransport')?.value">
+                <div class="col-12 col-md-4" *ngIf="showRouteField">
                   <label class="form-label">Route <span class="text-danger">*</span></label>
                   <select class="form-select form-select-sm" formControlName="routeId">
                     <option value="">Select Route</option>
@@ -204,6 +204,50 @@
                   <div class="text-danger small mt-1" *ngIf="submitted && form.get('motherName')?.value && !form.get('motherPhone')?.value">
                     Phone required if name given
                   </div>
+                </div>
+              </div>
+            </fieldset>
+                        <!-- APAAR ID (UDISE+ Compliance) -->
+            <fieldset class="form-section mt-4">
+              <legend>APAAR ID <small class="text-muted">(One Nation One Student ID)</small></legend>
+
+              <div class="alert alert-info small p-2" role="alert">
+                APAAR ID is recommended for UDISE+ submission. If not available, select appropriate status below.
+              </div>
+
+              <div class="row g-3">
+                <div class="col-12 col-md-5">
+                  <label class="form-label">APAAR ID</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    formControlName="apaarId"
+                    placeholder="12-digit number"
+                    maxlength="12"
+                  >
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['apaarId'].errors?.['pattern']">
+                    Must be exactly 12 digits
+                  </div>
+                  <small class="text-muted">Leave blank if not generated yet</small>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Status <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="apaarStatus">
+                    <option *ngFor="let opt of apaarStatusOptions" [value]="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-3">
+                  <label class="form-label">Notes (Optional)</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    formControlName="apaarNotes"
+                    placeholder="e.g. Parent refused"
+                  >
                 </div>
               </div>
             </fieldset>

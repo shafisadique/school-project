@@ -226,6 +226,51 @@
               </div>
             </fieldset>
 
+                        <!-- APAAR ID (UDISE+ Compliance) -->
+            <fieldset class="form-section mt-4">
+              <legend>APAAR ID <small class="text-muted">(One Nation One Student ID)</small></legend>
+
+              <div class="alert alert-info small p-2" role="alert">
+                Update APAAR ID if generated later. Recommended for UDISE+ compliance.
+              </div>
+
+              <div class="row g-3">
+                <div class="col-12 col-md-5">
+                  <label class="form-label">APAAR ID</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    formControlName="apaarId"
+                    placeholder="12-digit number"
+                    maxlength="12"
+                  >
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['apaarId'].errors?.['pattern']">
+                    Must be exactly 12 digits
+                  </div>
+                  <small class="text-muted">Leave blank if not available</small>
+                </div>
+
+                <div class="col-12 col-md-4">
+                  <label class="form-label">Status <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="apaarStatus">
+                    <option *ngFor="let opt of apaarStatusOptions" [value]="opt.value">
+                      {{ opt.label }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-3">
+                  <label class="form-label">Notes (Optional)</label>
+                  <input
+                    type="text"
+                    class="form-control form-control-sm"
+                    formControlName="apaarNotes"
+                    placeholder="e.g. Generated on Jan 2026"
+                  >
+                </div>
+              </div>
+            </fieldset>
+
             <!-- Server Error -->
             <div class="col-12" *ngIf="serverError">
               <div class="alert alert-danger small p-2">{{ serverError }}</div>

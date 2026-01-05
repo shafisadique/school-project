@@ -1,5 +1,5 @@
 // src/app/demo/component/attendance/attendance.component.ts
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ToastrService } from 'ngx-toastr';
@@ -31,7 +31,15 @@ export class AttendanceComponent implements OnInit, OnDestroy {
   selectedAttendance: any = null;
   teacherClasses: any[] = [];
   studentsWithAvatar: any[] = [];
+  locationError: string = '';  // NEW: Track location error
+  skipGps: boolean = false;  // NEW: Toggle to skip GPS
+  windowWidth: number = window.innerWidth;
 
+  @HostListener('window:resize', ['$event'])
+  onResize(event: any) {
+    this.windowWidth = event.target.innerWidth;
+  }
+  
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -49,13 +57,13 @@ export class AttendanceComponent implements OnInit, OnDestroy {
     this.validateSession();
     this.initForms();
     this.loadTeacherAttendanceClasses();
-    if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      () => {}, 
-      () => {},
-      { timeout: 100 }
-    );
-  }
+   if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        () => console.log('GPS permission granted'),  // Success log
+        (err) => console.warn('GPS permission denied early:', err.code),  // Early warning
+        { timeout: 5000 }
+      );
+    }
   }
 
   ngOnDestroy(): void {
@@ -315,59 +323,88 @@ onImageError(event: any, student: any): void {
   // attendance.component.ts → onSubmit() — REPLACE THIS METHOD
   async onSubmit() {
     if (this.attendanceForm.invalid || !this.canMarkAttendance || this.students.length === 0) {
+      console.log('Early return: Invalid form/canMark/students');  // DEBUG LOG
       this.toastr.error('Please complete the form correctly.', 'Error');
       return;
     }
 
     this.loading = true;
+    this.locationError = '';
 
-    // Step 1: Get current location
+    // NEW: If skip GPS, go straight to API
+    if (this.skipGps) {
+      console.log('Skipping GPS – direct API call');  // DEBUG LOG
+      this.submitToAPI(null);
+      return;
+    }
+
+    // OLD: Geolocation with better handling + retry
     if (!navigator.geolocation) {
-      this.toastr.error('Geolocation is not supported by your browser.');
+      console.error('Geolocation not supported');  // DEBUG LOG
+      this.locationError = 'Geolocation not supported';
+      this.toastr.error('Geolocation not supported. Enable skip GPS.', 'Error');
       this.loading = false;
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const payload = {
-          classId: this.attendanceForm.value.classId,
-          subjectId: this.attendanceForm.value.subjectId,
-          academicYearId: this.selectedAcademicYearId,
-          date:new Date().toISOString().split('T')[0],
-          students: this.attendanceForm.value.attendanceRecords,
-          location: {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
-          }
-        };
-
-        this.attendanceService.markAttendance(payload).subscribe({
-          next: (response) => {
-            this.toastr.success('Attendance marked successfully!', 'Success');
-            this.loadAttendanceHistory();
-            this.studentsWithAvatar = [];
-            this.attendanceForm.reset();
-            this.loading = false;
-          },
-          error: (err) => {
-            this.loading = false;
-            const msg = err.error?.message || 'Failed to mark attendance';
-            this.toastr.error(msg, 'Error');
-          }
+        console.log('GPS success:', position.coords);  // DEBUG LOG
+        this.submitToAPI({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
         });
       },
       (error) => {
+        console.error('GPS error:', error);  // DEBUG LOG
         this.loading = false;
-        let msg = 'Location access denied';
-        if (error.code === 1) msg = 'Please allow location access to mark attendance';
-        if (error.code === 2) msg = 'Location unavailable';
-        if (error.code === 3) msg = 'Location request timed out';
-
-        this.toastr.error(msg + '. Attendance cannot be marked.', 'Location Required');
+        let msg = '';
+        switch (error.code) {
+          case 1: msg = 'Location permission denied. Enable "Skip GPS" to continue.'; break;
+          case 2: msg = 'Location unavailable (no signal). Enable "Skip GPS".'; break;
+          case 3: msg = 'Location timeout. Enable "Skip GPS" or retry.'; break;
+          default: msg = 'Unknown location error. Enable "Skip GPS".';
+        }
+        this.locationError = msg;
+        this.toastr.warning(msg, 'Location Issue');
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { 
+        enableHighAccuracy: true, 
+        timeout: 15000,  // Increased timeout
+        maximumAge: 30000  // Allow 30s cache if fresh
+      }
     );
+  }
+  
+  private submitToAPI(location: { latitude: number; longitude: number } | null) {
+    console.log('API call starting with location:', location);  // DEBUG LOG
+
+    const payload = {
+      classId: this.attendanceForm.value.classId,
+      subjectId: this.attendanceForm.value.subjectId,
+      academicYearId: this.selectedAcademicYearId,
+      date: new Date().toISOString().split('T')[0],
+      students: this.attendanceForm.value.attendanceRecords,
+      location: location || undefined  // Optional – backend handles null
+    };
+
+    console.log('Payload to API:', payload);  // DEBUG LOG
+
+    this.attendanceService.markAttendance(payload).subscribe({
+      next: (response) => {
+        this.toastr.success('Attendance marked successfully!', 'Success');
+        this.loadAttendanceHistory();
+        this.studentsWithAvatar = [];  // Clear table
+        this.attendanceForm.reset();
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('API error:', err);  // DEBUG LOG
+        this.loading = false;
+        const msg = err.error?.message || 'Failed to mark attendance';
+        this.toastr.error(msg, 'Error');
+      }
+    });
   }
 
   isToday(date: string): boolean {
@@ -425,6 +462,8 @@ onImageError(event: any, student: any): void {
   getClasses() {
     return this.teacherClasses;
   }
+
+  
 
   getSubjectNames(subjects: any[]): string {
     if (!subjects || subjects.length === 0) return 'No subjects';

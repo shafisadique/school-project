@@ -72,9 +72,18 @@ export class TeacherUpdateComponent implements OnInit, OnDestroy {
       email: [''],
       phone: ['', [Validators.pattern(/^\d{10}$/)]],
       gender: ['', Validators.required],
+      qualification: [''],
+      joiningDate: [''],
+      dateOfBirth: [''],
+      address: [''],
+      bloodGroup: [''],
+      emergencyContactName: [''],
+      emergencyContactPhone: ['', Validators.pattern(/^\d{10}$/)],
       status: [true],
       designation: ['', Validators.required],
       subjects: [[], [Validators.required, Validators.minLength(1)]],
+      leaveBalance: [0, [Validators.min(0)]],
+
     });
   }
 
@@ -92,8 +101,17 @@ export class TeacherUpdateComponent implements OnInit, OnDestroy {
             email: teacher.email || '',
             phone: teacher.phone || '',
             gender: teacher.gender,
-            status: teacher.status,
             designation: teacher.designation || '',
+            qualification: teacher.qualification || '',
+            joiningDate: teacher.joiningDate ? teacher.joiningDate.split('T')[0] : '',
+            dateOfBirth: teacher.dateOfBirth ? teacher.dateOfBirth.split('T')[0] : '',
+            experienceYears: teacher.experienceYears || null,
+            address: teacher.address || '',
+            bloodGroup: teacher.bloodGroup || '',
+            emergencyContactName: teacher.emergencyContactName || '',
+            emergencyContactPhone: teacher.emergencyContactPhone || '',
+            status: teacher.status,
+            leaveBalance: teacher.leaveBalance || 0,
           });
 
           // Handle subjects: Filter existing names from hardcoded list

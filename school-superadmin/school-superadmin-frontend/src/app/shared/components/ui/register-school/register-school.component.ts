@@ -36,6 +36,8 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
   otpSent = signal(false);
   isSendingOtp = signal(false);
   isVerifyingOtp = signal(false);
+  isSuperadmin = signal(false);
+  skipOtpVerification = signal(false);
 
   schoolForm: FormGroup;
   addressForm: FormGroup;
@@ -68,7 +70,11 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
     emailPass: ['', Validators.required],   // ← ADD THIS LINE
     openingTime: ['08:00'],
     closingTime: ['14:00'],
-    lunchBreak: ['12:00 - 12:30']
+    lunchBreak: ['12:00 - 12:30'],
+    assignTrial: [false],                         // Checkbox: assign trial or not
+    trialDurationDays: ['14'],                      // Default 14 days
+    customTrialDays: [null],                       // For custom input
+    skipOtpSuper: [false]
   });
 
     this.addressForm = this.fb.group({
@@ -86,30 +92,81 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
     });
   }
 
-  ngOnInit(): void {}
+ ngOnInit(): void {
+  const role = localStorage.getItem('role');
+  this.isSuperadmin.set(role === 'superadmin');
+
+  // ★★★ IMPORTANT FIX ★★★ Auto-sync form changes to formData
+  this.schoolForm.valueChanges.subscribe(() => {
+    this.formData.update(value => ({
+      ...value,
+      ...this.schoolForm.value  // ← This pulls latest trialDurationDays, customTrialDays, etc.
+    }));
+  });
+}
 
   // Step Navigation
   nextStep() {
-    if (this.step() === 1 && this.schoolForm.valid) {
-      this.schoolForm.markAllAsTouched();
-      this.formData.set({ ...this.formData(), ...this.schoolForm.value });
-      console.log(this.schoolForm.value)
-      this.sendOtp();
-    } else if (this.step() === 2 && this.otpForm.valid && this.otpSent()) {
-      this.otpForm.markAllAsTouched();
-      this.verifyOtp();
-    } else if (this.step() === 3 && this.addressForm.valid) {
-      this.addressForm.markAllAsTouched();
+  if (this.step() === 1) {
+    // Validate Step 1 fields (same as before)
+    const step1Fields = [
+      'schoolName', 'adminName', 'username', 'email', 'mobileNo',
+      'preferredChannel', 'smsSenderName', 'emailFrom', 'emailPass'
+    ];
+
+    step1Fields.forEach(field => this.schoolForm.get(field)?.markAsTouched());
+
+    if (step1Fields.some(field => this.schoolForm.get(field)?.invalid)) {
+      this.toastr.warning('Please complete all required fields in Step 1', 'Validation Error');
+      return;
+    }
+
+    // Superadmin fast-track: Skip OTP completely
+    const skipOtp = this.schoolForm.get('skipOtpSuper')?.value && this.isSuperadmin();
+
+    if (skipOtp) {
       this.formData.set({
         ...this.formData(),
-        address: this.addressForm.value,
-        latitude: this.addressForm.value.latitude,
-        longitude: this.addressForm.value.longitude,
-        isMobileVerified: this.isMobileVerified()
+        ...this.schoolForm.value,
+        isMobileVerified: true  // ← Force true for backend
       });
-      this.submitForm();
+      this.step.set(3);  // Jump to Address step
+      // this.toastr.success('Fast-track mode activated – OTP skipped', 'Superadmin Action');
+    this.toastr.success('Fast-track mode activated – OTP skipped', 'Success', { positionClass: 'toast-top-center' });
+
+      return;
     }
+
+    // Normal flow
+    this.formData.set({ ...this.formData(), ...this.schoolForm.value });
+    this.sendOtp();
   }
+  else if (this.step() === 2) {
+    if (this.otpForm.invalid) {
+      this.otpForm.markAllAsTouched();
+      this.toastr.warning('Please enter valid OTP', 'Validation Error');
+      return;
+    }
+    this.verifyOtp();
+  } 
+  else if (this.step() === 3) {
+    if (this.addressForm.invalid) {
+      this.addressForm.markAllAsTouched();
+      this.toastr.warning('Please complete address and location', 'Validation Error');
+      return;
+    }
+
+    this.formData.update(value => ({
+      ...value,
+      address: this.addressForm.value,
+      latitude: this.addressForm.value.latitude,
+      longitude: this.addressForm.value.longitude,
+      isMobileVerified: this.isMobileVerified()
+    }));
+
+    this.submitForm();
+  }
+}
 
   prevStep() {
     if (this.step() > 1) this.step.set(this.step() - 1);
@@ -124,7 +181,8 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
     this.http.post(`${environment.apiUrl}/api/auth/send-otp`, { phoneNumber: mobileNo }).subscribe({
       next: () => {
         this.otpSent.set(true);
-        this.toastr.success(`OTP sent to ${mobileNo}`, 'Success');
+        
+        this.toastr.success(`OTP sent to ${mobileNo}`, 'Success',{ positionClass: 'toast-top-center' });
         this.step.set(2);
         this.isSendingOtp.set(false);
       },
@@ -144,7 +202,8 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
     this.http.post(`${environment.apiUrl}/api/auth/verify-otp`, { phoneNumber: mobileNo, code: otp }).subscribe({
       next: () => {
         this.isMobileVerified.set(true);
-        this.toastr.success('Mobile verified successfully', 'Success');
+        this.toastr.success('Mobile verified successfully', 'Success',{ positionClass: 'toast-top-center' });
+        
         this.step.set(3);
         this.isVerifyingOtp.set(false);
       },
@@ -156,62 +215,76 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
   }
 
   // Final Submit
-  submitForm() {
-    if (this.isSubmitting()) return;
-    this.isSubmitting.set(true);
+ submitForm() {
+  if (this.isSubmitting()) return;
+  this.isSubmitting.set(true);
 
-    const d = this.formData();
-    const payload = {
-      schoolName: d.schoolName,
-      adminName: d.adminName,
-      username: d.username,
-      email: d.email,
-      mobileNo: d.mobileNo,
-      preferredChannel: d.preferredChannel,
-      whatsappOptIn: d.whatsappOptIn,
-      smsSenderName: d.smsSenderName,
-      emailFrom: d.emailFrom,
-      emailName: d.emailName,
-      emailPass: d.emailPass,
-      openingTime: d.openingTime,
-      closingTime: d.closingTime,
-      lunchBreak: d.lunchBreak,
-      address: {
-        street: d.address.street,
-        city: d.address.city,
-        state: d.address.state,
-        country: d.address.country,
-        postalCode: d.address.postalCode
-      },
-      latitude: d.latitude,
-      longitude: d.longitude,
-      isMobileVerified: d.isMobileVerified
-    };
+  this.formData.update(value => ({
+    ...value,
+    ...this.schoolForm.value,
+    assignTrial: this.schoolForm.get('assignTrial')?.value ?? false,
+    trialDurationDays: this.schoolForm.get('trialDurationDays')?.value ?? null,
+  }));
 
-    this.authService.registerSchool(payload).subscribe({
-      next: (res: any) => {
-        this.toastr.success(
-          `Welcome to ${res.data.schoolName}! Check your email for password reset link.`,
-          'Registration Successful',
-          { timeOut: 6000 }
-        );
-        setTimeout(() => {
-          this.router.navigate(['/confirmation'], {
-            queryParams: {
-              schoolName: payload.schoolName,
-              email: payload.email,
-              mobileNo: payload.mobileNo
-            }
-          });
-          this.isSubmitting.set(false);
-        }, 2000);
-      },
-      error: (err) => {
-        this.toastr.error(err.error?.message || 'Registration failed', 'Error');
+  const d = this.formData();
+  const skipOtp = this.schoolForm.get('skipOtpSuper')?.value && this.isSuperadmin();
+  const finalIsVerified = skipOtp ? true : this.isMobileVerified();
+
+  const payload = {
+    schoolName: d.schoolName,
+    adminName: d.adminName,
+    username: d.username,
+    email: d.email,
+    mobileNo: d.mobileNo,
+    preferredChannel: d.preferredChannel,
+    whatsappOptIn: d.whatsappOptIn,
+    smsSenderName: d.smsSenderName,
+    emailFrom: d.emailFrom,
+    emailName: d.emailName,
+    emailPass: d.emailPass,
+    openingTime: d.openingTime,
+    closingTime: d.closingTime,
+    lunchBreak: d.lunchBreak,
+    assignTrial: d.assignTrial,               // ← Now correct (from formData)
+    trialDurationDays: d.trialDurationDays,   // ← Now correct (from formData)
+    address: {
+      street: d.address?.street,
+      city: d.address?.city,
+      state: d.address?.state,
+      country: d.address?.country,
+      postalCode: d.address?.postalCode
+    },
+    latitude: d.latitude,
+    longitude: d.longitude,
+    isMobileVerified: finalIsVerified
+  };
+
+  console.log('Submitting registration:', payload);  // ← Keep this for debugging
+
+  this.authService.registerSchool(payload).subscribe({
+    next: (res: any) => {
+      this.toastr.success(
+        `Welcome to ${res.data.schoolName}! Check your email for password reset link.`,
+        'Registration Successful',
+        { positionClass: 'toast-top-center', timeOut: 6000 }
+      );
+      setTimeout(() => {
+        this.router.navigate(['/confirmation'], {
+          queryParams: {
+            schoolName: payload.schoolName,
+            email: payload.email,
+            mobileNo: payload.mobileNo
+          }
+        });
         this.isSubmitting.set(false);
-      }
-    });
-  }
+      }, 2000);
+    },
+    error: (err: any) => {
+      this.toastr.error(err.error?.message || 'Registration failed', 'Error');
+      this.isSubmitting.set(false);
+    }
+  });
+}
 
   // Getters
   get f() { return this.schoolForm.controls; }
@@ -228,7 +301,7 @@ export class RegisterSchoolComponent implements OnInit, OnDestroy {
     this.markerPosition = { lat, lng };
     this.reverseGeocode(lat, lng);
     this.addressError = null;
-    this.toastr.success(`Location set: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, 'Success');
+    this.toastr.success(`Location set: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, 'Success',{ positionClass: 'toast-top-center' });
   }
 
   private reverseGeocode(lat: number, lng: number) {

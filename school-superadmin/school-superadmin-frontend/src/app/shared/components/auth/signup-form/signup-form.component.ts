@@ -35,10 +35,6 @@ export class SignupFormComponent {
   }
 
   onSignIn() {
-    console.log('First Name:', this.fname);
-    console.log('Last Name:', this.lname);
-    console.log('Email:', this.email);
-    console.log('Password:', this.password);
-    console.log('Remember Me:', this.isChecked);
+
   }
 }

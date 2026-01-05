@@ -3,9 +3,10 @@ import { FormBuilder, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { ToastrService } from 'ngx-toastr';
 import { TeacherAbsenceService, TeacherAbsence, AbsenceStatus } from '../teacher-absence.service';
-import { Teacher, TeacherService } from '../teacher.service';
+import {  TeacherService } from '../teacher.service';
 import { AuthService } from 'src/app/theme/shared/service/auth.service';
 import { DatePipe } from '@angular/common';
+import { Teacher } from '../teacher.interface';
 
 @Component({
   selector: 'app-admin-approve-leave',

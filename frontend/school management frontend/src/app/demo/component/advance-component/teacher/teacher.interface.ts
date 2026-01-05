@@ -20,6 +20,14 @@ export interface Teacher {
   phone: string;
   designation?: string; // Made optional if not always set
   subjects: string[];
+  dateOfBirth?: string;
+  joiningDate?: string;
+  qualification?: string;
+  experienceYears?: number;
+  address?: string;
+  bloodGroup?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
   gender: string;
   schoolId: string;
   createdBy: string;

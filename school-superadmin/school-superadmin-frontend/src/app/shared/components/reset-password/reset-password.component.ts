@@ -54,7 +54,7 @@ form: FormGroup;
         this.toastr.success(res.message);
         this.router.navigate(['/auth/login']);
       },
-      error: (err) => {
+      error: (err:any) => {
         this.toastr.error(err.error?.message || 'Reset failed');
         this.loading = false;
       }

@@ -1,36 +1,175 @@
-<div class="container py-5">
-  <div *ngIf="loading" class="text-center my-4">
-    <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading...</span>
+<div class="progress-report-container">
+  <!-- Premium Header -->
+  <div class="header-section">
+    <div class="header-card">
+      <h1 class="title">{{ school.name }}</h1>
+      <p class="subtitle">{{ school.address.city }}, {{ school.address.state }}</p>
+       <h6 class="text-dark">
+        Class X-A • Mathematics • 
+        <span *ngIf="viewMode === 'monthly'">{{ selectedMonth | date:'MMMM yyyy' }}</span>
+        <span *ngIf="viewMode === 'weekly'">{{ currentWeekStart | date:'dd MMM' }} - {{ weekEnd | date:'dd MMM yyyy' }}</span>
+        ({{ getAcademicYear() }})
+      </h6>
     </div>
   </div>
 
-  <h2 class="text-primary fw-bold mb-4">📅 Monthly Attendance - {{ currentMonth | date:'MMMM yyyy' }} (Session: {{ getAcademicYear() }})</h2>
+  <!-- Loading -->
+  <div *ngIf="loading" class="text-center py-5">
+    <div class="spinner-border text-primary spinner-large"></div>
+  </div>
 
-  <div class="card shadow-sm mb-5" *ngIf="students.length > 0">
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table table-bordered attendance-table">
-          <thead class="table-primary">
-            <tr>
-              <th>Student Name</th>
-              <th *ngFor="let day of getDaysArray()" class="day-header">{{ day < 10 ? '0' + day : day }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let student of studentAttendances.controls; let i = index">
-              <td>{{ students[i]?.name || 'N/A' }}</td>
-              <td *ngFor="let day of getDaysArray()" class="attendance-cell">
-                {{ student.get('attendance')?.get('day' + day)?.value }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+  <!-- Main Card -->
+  <div class="controls-card" *ngIf="!loading">
+    <!-- Toggle Buttons -->
+    <div class="d-flex justify-content-center gap-3 mb-4">
+      <button class="btn btn-toggle" [class.active]="viewMode === 'monthly'" (click)="setViewMode('monthly')">
+        Monthly Report
+      </button>
+      <button class="btn btn-toggle" [class.active]="viewMode === 'weekly'" (click)="setViewMode('weekly')">
+        Weekly Report
+      </button>
+    </div>
+
+
+    <!-- Month/Week Picker -->
+    <div class="row justify-content-center mb-5">
+      <div class="col-11 col-md-6">
+        <input *ngIf="viewMode === 'monthly'" type="month"
+               class="form-control form-control-lg text-center premium-input"
+               [(ngModel)]="selectedMonthStr" (ngModelChange)="onMonthChange()">
+
+        <input *ngIf="viewMode === 'weekly'" type="week"
+               class="form-control form-control-lg text-center premium-input"
+               [(ngModel)]="selectedWeekStr" (ngModelChange)="onWeekChange()">
       </div>
     </div>
-  </div>
 
-  <div *ngIf="students.length === 0 && !loading" class="alert alert-info">
-    No students found in this class.
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-5">
+      <div class="col-6 col-md-3">
+        <div class="summary-card present">
+          <h2>{{ totalPresent }}</h2>
+          <p>Present</p>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="summary-card absent">
+          <h2>{{ totalAbsent }}</h2>
+          <p>Absent</p>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="summary-card working">
+          <h2>{{ workingDays }}</h2>
+          <p>Working Days</p>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="summary-card percentage">
+          <h2>{{ attendancePercentage }}%</h2>
+          <p>Attendance</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop: Table View -->
+    <div class="table-responsive d-none d-lg-block">
+      <table class="table professional-table table-hover align-middle">
+        <thead>
+          <tr>
+            <th width="5%">#</th>
+            <th width="30%">Student Name</th>
+            <th width="40%" [attr.colspan]="visibleDays.length">Attendance Days</th>
+            <th width="8%">P</th>
+            <th width="8%">A</th>
+            <th width="9%">%</th>
+          </tr>
+          <tr class="sub-header">
+            <th colspan="2"></th>
+            <th *ngFor="let d of visibleDays">
+              <div *ngIf="viewMode === 'monthly'">{{ d }}</div>
+              <div *ngIf="viewMode === 'weekly'">
+                {{ getWeekDayName(d) }}<br>
+                <small>{{ getWeekDayDate(d) | date:'dd MMM' }}</small>
+              </div>
+            </th>
+            <th colspan="3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let student of students; let i = index">
+            <td class="text-center fw-bold">{{ i + 1 }}</td>
+            <td>
+              <div class="d-flex align-items-center">
+                <div class="avatar-placeholder me-3">
+                  {{ getInitials(student.name) }}
+                </div>
+                <div class="fw-600">{{ student.name }}</div>
+              </div>
+            </td>
+            <td *ngFor="let d of visibleDays" class="text-center">
+              <div class="status-circle"
+                   [class.present]="getStatus(student, d) === 'Present'"
+                   [class.absent]="getStatus(student, d) === 'Absent'"
+                   [class.holiday]="isHoliday(d)">
+                {{ getStatus(student, d) === 'Present' ? 'P' : getStatus(student, d) === 'Absent' ? 'A' : '-' }}
+              </div>
+            </td>
+            <td class="bg-success text-white fw-bold">{{ getStudentTotal(student, 'Present') }}</td>
+            <td class="bg-danger text-white fw-bold">{{ getStudentTotal(student, 'Absent') }}</td>
+            <td class="bg-info text-white fw-bold">{{ getStudentPercentage(student) }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile: Card View -->
+    <div class="d-block d-lg-none">
+      <div *ngFor="let student of students; let i = index" class="student-mobile-card mb-4">
+        <div class="card shadow-sm border-0">
+          <div class="card-body">
+            <div class="d-flex align-items-center mb-3">
+              <div class="avatar-placeholder me-3">
+                {{ getInitials(student.name) }}
+              </div>
+              <div>
+                <h6 class="mb-0 fw-bold">{{ student.name }}</h6>
+                <small class="text-muted">#{{ i + 1 }}</small>
+              </div>
+              <div class="ms-auto text-end">
+                <div class="badge bg-success me-2">{{ getStudentTotal(student, 'Present') }} P</div>
+                <div class="badge bg-danger">{{ getStudentTotal(student, 'Absent') }} A</div>
+              </div>
+            </div>
+
+            <div class="attendance-grid">
+              <div *ngFor="let d of visibleDays" class="day-cell">
+                <div class="status-circle small"
+                     [class.present]="getStatus(student, d) === 'Present'"
+                     [class.absent]="getStatus(student, d) === 'Absent'"
+                     [class.holiday]="isHoliday(d)">
+                  {{ getStatus(student, d) === 'Present' ? 'P' : getStatus(student, d) === 'Absent' ? 'A' : '-' }}
+                </div>
+                <small class="d-block text-muted">
+                  <span *ngIf="viewMode === 'monthly'">{{ d }}</span>
+                  <span *ngIf="viewMode === 'weekly'">{{ getWeekDayName(d) }}</span>
+                </small>
+              </div>
+            </div>
+
+            <div class="text-center mt-3">
+              <span class="badge bg-info fs-6">{{ getStudentPercentage(student) }}% Attendance</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Print Button -->
+    <div class="text-center mt-5">
+      <button class="btn btn-primary btn-lg w-100 shadow-lg" (click)="print()">
+        Print Report
+      </button>
+    </div>
   </div>
 </div>

@@ -20,7 +20,11 @@ export class SchoolService {
     }
     return this.http.get(`${this.baseUrl}/user/${userId}`);
   }
-
+  
+  getMySchoolForTeacher(): Observable<any> {
+    return this.http.get(`${environment.apiUrl}/api/schools/my-school`); // ← NEW ENDPOINT
+  }
+  
   loadWeeklyHolidayDay(schoolId: string): Observable<string> {
     return this.http.get<string>(`${this.baseUrl}/teacher/${schoolId}`, { responseType: 'text' as 'json' });
   }

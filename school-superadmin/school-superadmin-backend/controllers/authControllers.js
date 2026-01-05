@@ -1,37 +1,69 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/superuser');  // Confirm path: If models/superuser.js, this is ok
+const SuperUser = require('../models/SuperUser');
+require('dotenv').config();
 
 exports.login = async (req, res) => {
-  const { email, username, password } = req.body;  // Add username support
+  const { email, username, password } = req.body;
 
   try {
-    // Validate input
-    if (!password ||  (!email && !username)) {
+    if (!password || (!email && !username)) {
       return res.status(400).json({ error: 'Email/Username and password required' });
     }
 
-    // Query by email OR username
-    const query = email ? { email } : { username };
+    // Build safe $or query (no empty objects)
+    const orConditions = [];
+    if (email) orConditions.push({ email: email.toLowerCase() });
+    if (username) orConditions.push({ username: username.toLowerCase() });
 
-    const user = await User.findOne(query);
+    const query = orConditions.length > 0 ? { $or: orConditions } : null;
+    if (!query) {
+      return res.status(400).json({ error: 'No valid identifier provided' });
+    }
 
-    if (!user) {
+    // Find user + SELECT password (overrides select: false)
+    const superUser = await SuperUser.findOne(query).select('+password');
+
+    console.log('Found superUser:', superUser ? superUser.email : 'null');
+    console.log('Password fetched?', !!superUser?.password);  // DEBUG: true
+
+    if (!superUser) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const match = await user.comparePassword(password);
-    console.log('Password match:', match);  // Temp
+    if (!superUser.password) {
+      return res.status(500).json({ error: 'Password not available (admin issue)' });
+    }
 
-    if (!match) {
+    const isMatch = await superUser.comparePassword(password);
+    console.log('Password match:', isMatch);  // DEBUG: true
+
+    if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Fix: Use JWT_SECRET_SUPER from .env
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET_SUPER, { expiresIn: '7d' });
+    // Generate token
+    const token = jwt.sign(
+      { 
+        id: superUser._id, 
+        role: superUser.role 
+      },
+      process.env.JWT_SECRET_SUPER || process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
 
-    res.json({ token, user: { id: user._id, email: user.email, username: user.username, role: user.role } });
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: superUser._id,
+        email: superUser.email,
+        username: superUser.username,
+        role: superUser.role
+      }
+    });
+
   } catch (error) {
-    console.error('Login error details:', error.message, error.stack);  // Better error log
+    console.error('Super admin login error:', error);
     res.status(500).json({ error: 'Login failed' });
   }
 };

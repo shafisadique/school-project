@@ -3,6 +3,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { TimetableService } from '../timetable.service';
 import { CommonModule } from '@angular/common';
 import { ToastrService } from 'ngx-toastr';
+import { SchoolService } from '../../school/school.service';
 
 @Component({
   selector: 'app-timetable',
@@ -13,22 +14,28 @@ import { ToastrService } from 'ngx-toastr';
 })
 export class TimetableComponent implements OnInit {
   timetableForm!: FormGroup;
+selectedSubjectId: string = '';
+selectedTeacherId: string = '';
   timetableList: any[] = [];
   assignments: any[] = [];
   academicYears: any[] = [];
   selectedAcademicYearId: string = '';
   selectedClassId: string = '';
-  days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Lunch / Break'];
   dynamicTimeSlots: { start: string; end: string }[] = []; // Dynamically generated time slots
   selectedSchoolId = '';
   filteredAssignments: any[] = [];
   filteredTeachers: any[] = [];
   timetableGrid: any[][] = [];
+  lunchStartTime: string = '12:30 PM';
+  lunchEndTime: string = '01:10 PM';
+  lunchDuration: string = '40 Minutes';
 
   constructor(
     private fb: FormBuilder,
     private timetableService: TimetableService,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private schoolService :SchoolService
   ) {}
 
   ngOnInit(): void {
@@ -39,6 +46,7 @@ export class TimetableComponent implements OnInit {
     }
     this.initForm();
     this.loadAcademicYears();
+    this.loadSchoolLunchBreak();
   }
 
   initForm() {
@@ -245,5 +253,81 @@ export class TimetableComponent implements OnInit {
 
   getSubjects() {
     return [...new Map(this.filteredAssignments.map(a => [a.subjectId, { subjectId: a.subjectId, subjectName: a.subjectName }])).values()];
+  }
+
+  formatSubject(subject: string): string {
+  if (!subject) return 'N/A';
+  const match = subject.match(/^(.*?)\s*\((.*)\)$/);
+  if (match) {
+    return `<div>${match[1]}</div><small>(${match[2]})</small>`;
+  }
+  return subject;
+}
+
+loadSchoolLunchBreak() {
+  const schoolId = localStorage.getItem('schoolId');
+  if (!schoolId) return;
+
+  this.schoolService.getSchoolById(schoolId).subscribe({
+    next: (school: any) => {
+      if (school?.schoolTiming?.lunchBreak) {
+        const lunch = school.schoolTiming.lunchBreak; // "12:00 - 12:30"
+        const [start, end] = lunch.split(' - ');
+        
+        this.lunchStartTime = this.formatTime24to12(start.trim()); // "12:00" → "12:00 PM"
+        this.lunchEndTime = this.formatTime24to12(end.trim());     // "12:30" → "12:30 PM"
+
+        // Calculate duration
+        const [h1, m1] = start.split(':').map(Number);
+        const [h2, m2] = end.split(':').map(Number);
+        const diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+        this.lunchDuration = `${diff} Minutes`;
+      }
+    },
+    error: (err) => {
+      console.log('Lunch break not set, using default');
+    }
+  });
+}
+
+// Helper: Convert 24-hour "13:30" → "01:30 PM"
+formatTime24to12(time: string): string {
+  const [hour, minute] = time.split(':').map(Number);
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 || 12;
+  return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+}
+
+getSelectedClassName(): string {
+  const cls = this.getClasses().find(c => c._id === this.selectedClassId);
+  return cls?.name || '';
+}
+
+  printTimetable() {
+    const printContent = document.getElementById('printable-timetable')?.outerHTML || '';
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow?.document.write(`
+      <html>
+        <head>
+          <title>Timetable - ${this.getSelectedClassName()}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #333; padding: 10px; text-align: center; font-size: 14px; }
+            th { background: #333; color: white; }
+            .lunch-row { background: #d4edda !important; }
+            .lunch-text { font-weight: bold; color: #0f5132; }
+            @media print { body { -webkit-print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>
+          <h1>Timetable - ${this.getSelectedClassName()}</h1>
+          ${printContent}
+        </body>
+      </html>
+    `);
+    printWindow?.document.close();
+    printWindow?.focus();
+    setTimeout(() => printWindow?.print(), 500);
   }
 }

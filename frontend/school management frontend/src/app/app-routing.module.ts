@@ -48,10 +48,11 @@ export const routes: Routes = [
         loadComponent: () => import('./demo/dashboard/teacher-dashboard/teacher-dashboard/teacher-dashboard.component').then((c) => c.TeacherDashboardComponent)
       },
       {
-        path: 'subscription-management',data: { roles: ['superadmin'] },
-        canActivate: [AuthGuard],
-        loadComponent: () => import('./demo/component/subscription-management/subscription-management/subscription-management.component').then(c => c.SubscriptionManagementComponent)
+        path: 'student-dashboard',
+        canActivate:[AuthGuard],
+        loadComponent: () => import('./demo/dashboard/student-dashboard/student-dashboard.component').then((c) => c.StudentDashboardComponent)
       },
+      
       {
         path:'route',
         canActivate:[AuthGuard],
@@ -111,6 +112,18 @@ export const routes: Routes = [
         loadChildren: () => import('./demo/component/advance-component/result/result.router').then((c) => c.resultRouter)
       },
       {
+        path: 'student-result',
+        canActivate: [AuthGuard],
+        data: { roles: ['student'] },
+        loadComponent: () => import('./demo/component/advance-component/result/student-result/student-result.component').then(m => m.StudentResultComponent)
+      },
+      {
+        path: 'student-attenance',
+        canActivate: [AuthGuard],
+        data: { roles: ['student'] },
+        loadComponent: () => import('./demo/component/advance-component/students/particular-student-attendace/particular-student-attendace.component').then(m => m.ParticularStudentAttendaceComponent)
+      },
+      {
         path: 'announcement',
         canActivate:[AuthGuard],
         loadComponent: () => import('./demo/component/advance-component/announcement-create/announcement-create.component').then((c) => c.AnnouncementCreateComponent)
@@ -166,6 +179,12 @@ export const routes: Routes = [
           }
     ]
   },
+  {
+        path: 'subscription-plans',
+        canActivate: [AuthGuard],
+        data: { roles: ['admin'] },
+        loadComponent: () => import('./demo/component/subscription-management/subscription-plans.component').then(c => c.SubscriptionPlansComponent)
+      },
   {
     path: '',
     component: GuestLayoutComponent,

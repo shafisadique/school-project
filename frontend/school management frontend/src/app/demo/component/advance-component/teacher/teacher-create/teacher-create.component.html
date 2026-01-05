@@ -3,83 +3,37 @@
     <div class="col-12 col-lg-10 col-xl-9">
       <app-card cardTitle="Add New Teacher">
 
-        <form [formGroup]="form" (ngSubmit)="onSubmit()" enctype="multipart/form-data" novalidate>
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
           <div class="row g-3">
 
             <!-- Personal Details -->
             <fieldset class="form-section">
               <legend>Personal Details</legend>
-
               <div class="row g-3">
                 <div class="col-12 col-md-6">
                   <label class="form-label">Name <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control form-control-sm" formControlName="name" placeholder="Full name">
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['name'].errors?.['required']">
-                    Name is required
-                  </div>
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['name'].errors?.['minlength']">
-                    Minimum 3 characters
-                  </div>
+                  <input type="text" class="form-control form-control-sm" formControlName="name">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['name'].errors?.['required']">Name is required</div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['name'].errors?.['minlength']">Minimum 3 characters</div>
                 </div>
 
                 <div class="col-12 col-md-6">
                   <label class="form-label">Email <span class="text-danger">*</span></label>
-                  <input type="email" class="form-control form-control-sm" formControlName="email" placeholder="teacher@example.com">
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['email'].errors?.['required']">
-                    Email is required
-                  </div>
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['email'].errors?.['email']">
-                    Enter a valid email
-                  </div>
+                  <input type="email" class="form-control form-control-sm" formControlName="email">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['email'].errors?.['required']">Email is required</div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['email'].errors?.['email']">Valid email required</div>
                 </div>
 
                 <div class="col-12 col-md-6">
                   <label class="form-label">Phone <span class="text-danger">*</span></label>
                   <input type="text" class="form-control form-control-sm" formControlName="phone" placeholder="10 digits">
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['phone'].errors?.['required']">
-                    Phone is required
-                  </div>
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['phone'].errors?.['pattern']">
-                    10 digits only
-                  </div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['phone'].errors?.['required']">Phone is required</div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['phone'].errors?.['pattern']">10 digits only</div>
                 </div>
-
-                <div class="col-12 col-md-6">
-                  <label class="form-label">Gender <span class="text-danger">*</span></label>
-                  <select class="form-select form-select-sm" formControlName="gender">
-                    <option value="">Select</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['gender'].errors?.['required']">
-                    Gender required
-                  </div>
-                </div>
-
-                <div class="col-12 col-md-6">
-                  <label class="form-label">Designation <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control form-control-sm" formControlName="designation" placeholder="e.g., Science Teacher">
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['designation'].errors?.['required']">
-                    Designation required
-                  </div>
-                </div>
-
-                <div class="col-12 col-md-6">
-                  <label class="form-label">Leave Balance (days)</label>
-                  <input type="number" min="0" class="form-control form-control-sm" formControlName="leaveBalance" placeholder="10">
-                </div>
-              </div>
-            </fieldset>
-
-            <!-- Account Details -->
-            <fieldset class="form-section">
-              <legend>Account Details</legend>
-
-              <div class="row g-3">
+                 <!-- Additional Details -->
                 <div class="col-12 col-md-6">
                   <label class="form-label">Username <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control form-control-sm" formControlName="username" placeholder="Username">
+                  <input type="text" class="form-control form-control-sm" formControlName="username">
                   <div class="text-danger small mt-1" *ngIf="submitted && f['username'].errors?.['required']">
                     Username is required
                   </div>
@@ -90,36 +44,95 @@
                 <div class="alert alert-info small p-2 mt-3">
                   <strong>Note:</strong> A strong temporary password will be auto-generated and sent to the teacher's email & phone.
                 </div>
-                <!-- <div class="col-12 col-md-6">
-                  <label class="form-label">Password <span class="text-danger">*</span></label>
-                  <input type="password" class="form-control form-control-sm" formControlName="password" placeholder="Password">
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['password'].errors?.['required']">
-                    Password is required
-                  </div>
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['password'].errors?.['minlength']">
-                    Minimum 6 characters
-                  </div>
-                </div> -->
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Gender <span class="text-danger">*</span></label>
+                  <select class="form-select form-select-sm" formControlName="gender">
+                    <option value="">Select</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['gender'].errors?.['required']">Gender required</div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Designation <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control form-control-sm" formControlName="designation" placeholder="e.g., Science Teacher">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['designation'].errors?.['required']">Designation required</div>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Qualification</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="qualification" placeholder="e.g., B.Ed, M.Sc">
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Joining Date</label>
+                  <input type="date" class="form-control form-control-sm" formControlName="joiningDate">
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Date of Birth</label>
+                  <input type="date" class="form-control form-control-sm" formControlName="dateOfBirth">
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Initial Leave Balance</label>
+                  <input type="number" min="0" class="form-control form-control-sm" formControlName="leaveBalance" placeholder="10">
+                </div>
+              </div>
+            </fieldset>
+
+           
+            <fieldset class="form-section">
+              <legend>Additional Details (Optional)</legend>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label">Address</label>
+                  <textarea class="form-control form-control-sm" formControlName="address" rows="2"></textarea>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Blood Group</label>
+                  <select class="form-select form-select-sm" formControlName="bloodGroup">
+                    <option value="">Select</option>
+                    <option value="A+">A+</option><option value="A-">A-</option>
+                    <option value="B+">B+</option><option value="B-">B-</option>
+                    <option value="O+">O+</option><option value="O-">O-</option>
+                    <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Emergency Contact Name</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="emergencyContactName">
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label">Emergency Contact Phone</label>
+                  <input type="text" class="form-control form-control-sm" formControlName="emergencyContactPhone">
+                  <div class="text-danger small mt-1" *ngIf="submitted && f['emergencyContactPhone'].errors?.['pattern']">10 digits only</div>
+                </div>
               </div>
             </fieldset>
 
             <!-- Subjects -->
             <fieldset class="form-section">
-              <legend>Subjects <span class="text-danger">*</span></legend>
-
+              <legend>Subjects Taught <span class="text-danger">*</span></legend>
               <div class="row g-3">
                 <div class="col-12">
                   <ng-select
-                    formControlName="subjects"
                     [items]="subjectsList"
                     [multiple]="true"
-                    placeholder="Select subjects"
                     [closeOnSelect]="false"
                     [searchable]="true"
-                    class="form-select form-select-sm">
+                    formControlName="subjects"
+                    placeholder="Select one or more subjects">
                   </ng-select>
-                  <div class="text-danger small mt-1" *ngIf="submitted && f['subjects'].errors?.['minlength']">
-                    At least one subject required
+                  <div class="text-danger small mt-1" 
+                      *ngIf="submitted && f['subjects'].errors?.['required']">
+                    At least one subject is required
                   </div>
                 </div>
               </div>
@@ -128,19 +141,34 @@
             <!-- Profile Picture -->
             <fieldset class="form-section">
               <legend>Profile Picture <span class="text-danger">*</span></legend>
-
               <div class="row g-3 align-items-center">
                 <div class="col-12 col-md-6">
                   <input type="file" class="form-control form-control-sm" accept="image/png,image/jpeg,image/jpg"
                          (change)="onFileSelect($event)">
                   <div class="text-danger small mt-1" *ngIf="fileError">{{ fileError }}</div>
+                  <div class="text-danger small mt-1" *ngIf="submitted && !selectedFile">Profile picture is required</div>
                 </div>
-
                 <div class="col-12 col-md-6 text-center" *ngIf="imagePreview">
-                  <img [src]="imagePreview" alt="Preview" class="img-thumbnail" style="max-height: 110px;">
+                  <img [src]="imagePreview" alt="Preview" class="img-thumbnail" style="max-height: 120px;">
                 </div>
               </div>
+
+              <!-- Progress Bar -->
+              <div class="col-12 mt-2" *ngIf="loading">
+                <div class="progress" style="height: 6px;">
+                  <div class="progress-bar" [style.width.%]="uploadProgress"></div>
+                </div>
+                <small class="text-muted d-block text-center mt-1">{{ uploadProgress }}% uploaded</small>
+              </div>
             </fieldset>
+
+            <!-- Account Info Note -->
+            <div class="col-12">
+              <div class="alert alert-info small p-3">
+                <strong>Portal Account:</strong> A login account will be automatically created for the teacher. 
+                Username and temporary password will be sent via email and SMS.
+              </div>
+            </div>
 
             <!-- Server Error -->
             <div class="col-12" *ngIf="serverError">
@@ -151,7 +179,7 @@
             <div class="col-12 d-flex justify-content-end gap-2">
               <button type="submit" class="btn btn-primary btn-sm" [disabled]="loading || form.invalid || !selectedFile">
                 <span *ngIf="loading" class="spinner-border spinner-border-sm me-1"></span>
-                {{ loading ? 'Adding...' : 'Add Teacher' }}
+                {{ loading ? 'Adding Teacher...' : 'Add Teacher' }}
               </button>
             </div>
 

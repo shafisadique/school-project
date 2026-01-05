@@ -120,6 +120,41 @@ const getSchoolByUser = async (req, res) => {
   }
 };
 
+const getMySchoolForUser = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const schoolId = req.user.schoolId;
+
+    if (!schoolId) {
+      return res.status(400).json({ message: 'User not associated with any school' });
+    }
+
+    let school;
+
+    if (userRole === 'admin') {
+      // Admin: get by createdBy (original way)
+      school = await School.findOne({ createdBy: userId, status: true })
+        .select('name address mobileNo code latitude longitude logo schoolTiming communication.smsSenderName')
+        .populate('activeAcademicYear', 'year');
+    } else {
+      // Teacher/Student/Parent: get by schoolId from token
+      school = await School.findOne({ _id: schoolId, status: true })
+        .select('name address mobileNo code latitude longitude logo schoolTiming communication.smsSenderName')
+        .populate('activeAcademicYear', 'year');
+    }
+
+    if (!school) {
+      return res.status(404).json({ message: 'School not found or inactive' });
+    }
+
+    res.status(200).json(school);
+  } catch (err) {
+    logger.error('getMySchoolForUser error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const requestSchool = async (req, res) => {
   const { name, address, adminEmail, adminName } = req.body;
 
@@ -454,5 +489,6 @@ module.exports = {
   approveSchoolRequest,
   requestSchool,
   updateSubscription,
-  getSchoolByTeacher
+  getSchoolByTeacher,
+  getMySchoolForUser
 };

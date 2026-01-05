@@ -12,6 +12,7 @@ import { TeacherService } from '../teacher.service';
 import { CommonModule } from '@angular/common';
 import { CardComponent } from 'src/app/theme/shared/components/card/card.component';
 import { NgSelectModule } from '@ng-select/ng-select';
+import { HttpEvent, HttpEventType } from '@angular/common/http';
 
 @Component({
   selector: 'app-teacher-create',
@@ -24,6 +25,7 @@ export class TeacherCreateComponent implements OnInit, OnDestroy {
   form!: FormGroup;
   submitted = false;
   loading = false;
+  uploadProgress = 0;
   subjectsList: string[] = [
     'English', 'Hindi', 'Mathematics', 'Environmental Science', 'General Knowledge',
     'Arts', 'Science', 'Social Science', 'Music'
@@ -56,12 +58,18 @@ export class TeacherCreateComponent implements OnInit, OnDestroy {
       name: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(100)]],
       username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(50)]],
       email: ['', [Validators.required, Validators.email]],
-      // password: ['', [Validators.required, Validators.minLength(6)]],
       phone: ['', [Validators.required, Validators.pattern(/^\d{10}$/)]],
       gender: ['', Validators.required],
       designation: ['', [Validators.required, Validators.maxLength(100)]],
       leaveBalance: [10, [Validators.min(0)]],
-      subjects: [[], [Validators.required, Validators.minLength(1)]],
+      subjects: [[], [Validators.required]],
+      qualification: [''],
+      joiningDate: [''],
+      dateOfBirth: [''],
+      address: [''],
+      bloodGroup: [''],
+      emergencyContactName: [''],
+      emergencyContactPhone: ['', Validators.pattern(/^\d{10}$/)],
     });
   }
 
@@ -100,20 +108,26 @@ export class TeacherCreateComponent implements OnInit, OnDestroy {
     const fd = this.buildFormData();
 
     this.teacherSvc.createTeacher(fd)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.toastr.success('Teacher added successfully');
-          // this.resetForm();
-          this.loading = false;
-        },
-        error: (err: any) => {
-          this.serverError = this.parseError(err);
-          const errorMsg = err.error?.message || 'Failed to add teacher';
-          this.toastr.error(errorMsg, 'Error');
-          this.loading = false;
-        }
-      });
+  .pipe(takeUntil(this.destroy$))
+  .subscribe({
+    next: (event: HttpEvent<any>) => {
+      if (event.type === HttpEventType.UploadProgress) {
+        this.uploadProgress = event.total 
+          ? Math.round(100 * event.loaded / event.total) 
+          : 0;
+      } else if (event.type === HttpEventType.Response) {
+        this.toastr.success('Teacher added successfully!');
+        this.resetForm();
+        this.loading = false;
+        this.uploadProgress = 0;
+      }
+    },
+    error: (err: any) => {
+      // ... error handling
+      this.loading = false;
+      this.uploadProgress = 0;
+    }
+  });
   }
 
   private buildFormData(): FormData {

@@ -2,6 +2,10 @@
 const ReportService = require('../../services/ReportService');
 const APIError = require('../../utils/apiError');
 const { Parser } = require('json2csv');
+const Student = require('../../models/student');
+const School = require('../../models/school');
+const Teacher = require('../../models/teacher');
+
 // 1. CUSTOM REPORT GENERATOR (MAIN FEATURE)
 exports.generateCustomReport = async (req, res, next) => {
   try {
@@ -120,6 +124,68 @@ exports.getSampleReports = async (req, res, next) => {
           { template: 'enrollment', name: 'Student Enrollment', description: 'UDISE Student Data' },
           { template: 'teachers', name: 'Teacher Qualifications', description: 'UDISE Teacher Data' }
         ]
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// Add this method
+exports.getUDISECompliance = async (req, res, next) => {
+  try {
+    const user = req.user;
+    const schoolId = user.schoolId;
+
+    if (!schoolId) {
+      throw new APIError('User not associated with a school', 400);
+    }
+
+    // 1. APAAR Completion
+    const [totalStudents, studentsWithApaar, school, teacherCount] = await Promise.all([
+      Student.countDocuments({ schoolId }),
+      Student.countDocuments({ schoolId, apaarStatus: 'generated' }),
+      School.findById(schoolId).select('name latitude longitude'),
+      Teacher.countDocuments({ schoolId })
+    ]);
+
+    const apaarPercent = totalStudents > 0 ? Math.round((studentsWithApaar / totalStudents) * 100) : 0;
+    const hasGIS = school.latitude && school.longitude;
+
+    const items = [
+      {
+        label: 'APAAR ID Completion',
+        completed: studentsWithApaar,
+        total: totalStudents,
+        percent: apaarPercent,
+        status: apaarPercent >= 90 ? 'success' : apaarPercent >= 60 ? 'warning' : 'danger'
+      },
+      {
+        label: 'GIS Coordinates Captured',
+        completed: hasGIS ? 1 : 0,
+        total: 1,
+        percent: hasGIS ? 100 : 0,
+        status: hasGIS ? 'success' : 'danger'
+      },
+      {
+        label: 'Teacher Records',
+        completed: teacherCount > 0 ? 1 : 0,
+        total: 1,
+        percent: teacherCount > 0 ? 100 : 0,
+        status: teacherCount > 0 ? 'success' : 'warning'
+      }
+    ];
+
+    const overallPercent = Math.round(items.reduce((sum, i) => sum + i.percent, 0) / items.length);
+
+    res.json({
+      success: true,
+      data: {
+        schoolName: school.name,
+        overallReadiness: overallPercent,
+        daysLeft: Math.ceil((new Date('2026-03-31') - new Date()) / (1000 * 60 * 60 * 24)),
+        items
       }
     });
   } catch (error) {
