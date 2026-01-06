@@ -16,7 +16,6 @@
   "description": "",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.873.0",
-    "@prisma/client": "^6.19.1",
     "adm-zip": "^0.5.16",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
@@ -51,8 +50,5 @@
     "twilio": "^5.8.0",
     "ua-parser-js": "^2.0.6",
     "winston": "^3.18.3"
-  },
-  "devDependencies": {
-    "prisma": "^6.19.1"
   }
 }
