@@ -1,43 +1,40 @@
-name: Prod deploy
+name: Deploy SchoolAdmin to Production
 
-# Controls when the action will run.
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches:
-      - master
-  pull_request:
-    types:
-      - closed
-    branches:
-      - master
+    branches: [main, master]
 
 jobs:
-  if_merged:
-    if: github.event.pull_request.merged == true
-    name: 🎉 Deploy
+  deploy:
     runs-on: ubuntu-latest
-
+    name: 🚀 Deploy to AWS
     steps:
-      - name: 🚚 Get latest code
+      - name: 📥 Checkout code
         uses: actions/checkout@v3
 
-      - name: Use Node.js 20
+      - name: 🔧 Setup Node.js 18
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: '18'
 
-      - name: 🔨 Build Project
+      - name: 📦 Install dependencies
         run: |
-          yarn
-          yarn build-prod
-      - name: 📂 Deploy to Server
-        uses: easingthemes/ssh-deploy@main
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
-          # ARGS: "-rltgoDzvO --delete"
+          npm ci
+
+      - name: 🏗️ Build Angular Project
+        run: |
+          npm run build --prod
+
+      - name: 📂 Create dist folder if missing
+        run: |
+          mkdir -p dist
+
+      - name: 📤 Deploy to AWS Server
+        uses: easingthemes/ssh-deploy@v4
+        with:
+          SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_KEY }}
+          REMOTE_HOST: 3.110.185.234
+          REMOTE_USER: ubuntu
           SOURCE: 'dist/'
-          REMOTE_HOST: 192.34.62.123
-          REMOTE_USER: mantis
-          TARGET: public_html/angular/free
-          EXCLUDE: '/node_modules/'
+          TARGET: '/var/www/schooladmin/frontend/dist/'
+          ARGS: "-rltgoDzvO --delete"
