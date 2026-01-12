@@ -25,10 +25,6 @@ jobs:
         run: |
           npm run build --prod
 
-      - name: 📂 Create dist folder if missing
-        run: |
-          mkdir -p dist
-
       - name: 📤 Deploy to AWS Server
         uses: easingthemes/ssh-deploy@v4
         with:

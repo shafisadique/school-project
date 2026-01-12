@@ -1,79 +1,42 @@
-# # See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# See https://docs.github.com/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
-# # Compiled output
-# /dist
-# /tmp
-# /out-tsc
-# /bazel-out
+# Compiled output
+/dist
+/tmp
+/out-tsc
+/bazel-out
 
-# # Node
-# /node_modules
-# npm-debug.log
-# yarn-error.log
+# Node
+/node_modules
+npm-debug.log
+yarn-error.log
 
-# # IDEs and editors
-# .idea/
-# .project
-# .classpath
-# .c9/
-# *.launch
-# .settings/
-# *.sublime-workspace
+# IDEs and editors
+.idea/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
-# # Visual Studio Code
-# .vscode/*
-# !.vscode/settings.json
-# !.vscode/tasks.json
-# !.vscode/launch.json
-# !.vscode/extensions.json
-# .history/*
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.history/*
 
-# # Miscellaneous
-# /.angular/cache
-# .sass-cache/
-# /connect.lock
-# /coverage
-# /libpeerconnection.log
-# testem.log
-# /typings
+# Miscellaneous
+/.angular/cache
+.sass-cache/
+/connect.lock
+/coverage
+/libpeerconnection.log
+testem.log
+/typings
 
-# # System files
-# .DS_Store
-# Thumbs.db
-name: Deploy SuperAdmin to Production
-
-on:
-  push:
-    branches: [main, master]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    name: 🚀 Deploy to AWS
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v3
-
-      - name: 🔧 Setup Node.js 18
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: 📦 Install dependencies
-        run: |
-          npm ci
-          npm install -g @angular/cli
-
-      - name: 🏗️ Build Angular Project
-        run: |
-          npm run build --prod
-
-      - name: 📤 Deploy to AWS Server
-        uses: easingthemes/ssh-deploy@v4
-        with:
-          SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_KEY }}
-          REMOTE_HOST: 3.110.185.234
-          REMOTE_USER: ubuntu
-          SOURCE: 'dist/'
-          TARGET: '/var/www/superadmin/frontend/dist/'
-          ARGS: "-rltgoDzvO --delete"
+# System files
+.DS_Store
+Thumbs.db
