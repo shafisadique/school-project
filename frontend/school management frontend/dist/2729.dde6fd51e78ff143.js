@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmantis_free_version=self.webpackChunkmantis_free_version||[]).push([[2729],{2729:(h,n,o)=>{o.r(n),o.d(n,{schoolRoute:()=>s});const s=[{path:"school-modify",loadComponent:()=>o.e(4558).then(o.bind(o,4558)).then(t=>t.SchoolModifyComponent)}]}}]);

@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmantis_free_version=self.webpackChunkmantis_free_version||[]).push([[8816],{8816:(s,e,n)=>{n.r(e),n.d(e,{academicYearRouter:()=>t});const t=[{path:"details",loadComponent:()=>n.e(3158).then(n.bind(n,3158)).then(a=>a.AcademicYearComponent)}]}}]);
